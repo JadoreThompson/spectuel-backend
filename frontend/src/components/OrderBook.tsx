@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { type FC, useMemo, useState } from "react";
@@ -80,8 +80,7 @@ const OrderBookRow: FC<OrderBookRowProps> = ({
 
   return (
     <div
-      className="relative text-xs h-6 px-3 py-1 grid grid-cols-[1fr_1fr_1fr] transition-colors group"
-      role="row"
+      className="relative text-xs h-5 px-3 py-1 grid grid-cols-[1fr_1fr_1fr] transition-colors group"
     >
       <div
         className={cn(
@@ -112,7 +111,7 @@ const OrderBookRow: FC<OrderBookRowProps> = ({
 
 const OrderBook: FC = () => {
   const [spreadPrice] = useState(30500.0);
-  const [numLevels] = useState(15);
+  const [numLevels] = useState(10);
 
   const bids = useMemo(
     () => generateOrderBookData(true, spreadPrice * 0.999, numLevels),
@@ -151,21 +150,17 @@ const OrderBook: FC = () => {
     ));
 
   return (
-    <Card className="w-full max-w-md shadow-xl border">
-      <CardHeader>
-        <CardTitle>Order Book (BTC/USD)</CardTitle>
-      </CardHeader>
-
+    <Card className="w-full max-w-md shadow-xl rounded-none border p-0">
       <CardContent className="p-0">
-        <div className="space-y-1">
-          <ScrollArea className="h-[250px] relative">
+        <div>
+          <ScrollArea className="relative">
             {renderHeader()}
             <div className="flex flex-col-reverse">
               {renderSide(asks, "ask")}
             </div>
           </ScrollArea>
 
-          <ScrollArea className="h-[250px] relative">
+          <ScrollArea className="relative">
             <div className="flex flex-col">{renderSide(bids, "bid")}</div>
           </ScrollArea>
         </div>
