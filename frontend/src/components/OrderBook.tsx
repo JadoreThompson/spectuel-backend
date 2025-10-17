@@ -93,15 +93,15 @@ const OrderBookRow: FC<OrderBookRowProps> = ({
         }}
       />
 
-      <div className="text-left text-muted-foreground hidden sm:block">
+      <div className="z-2 text-left hidden sm:block">
         {formatQuantity(entry.cumulative)}
       </div>
 
-      <div className="text-right text-foreground">
+      <div className="z-2 text-right text-foreground">
         {formatQuantity(entry.quantity)}
       </div>
 
-      <div className={cn("text-right font-medium", priceColor)}>
+      <div className={cn("z-2 text-right font-medium", priceColor)}>
         {formatPrice(entry.price)}
       </div>
     </div>
@@ -131,7 +131,7 @@ const OrderBook: FC = () => {
   const spread = bestAsk - bestBid;
 
   const renderHeader = () => (
-    <div className="text-xs text-muted-foreground font-medium sticky top-0 bg-background/95 backdrop-blur-sm grid grid-cols-[1fr_1fr_1fr] border-b pb-1 px-3">
+    <div className="text-xs font-medium sticky top-0 backdrop-blur-sm grid grid-cols-[1fr_1fr_1fr] border-b pb-1 px-3">
       <div className="text-left hidden sm:block">Cumulative</div>
       <div className="text-right">Quantity</div>
       <div className="text-right">Price (USD)</div>
@@ -149,7 +149,7 @@ const OrderBook: FC = () => {
     ));
 
   return (
-    <Card className="w-full max-w-md shadow-xl rounded-none border p-0">
+    <Card className="w-full max-w-md shadow-xl rounded-none border p-0 bg-transparent">
       <CardContent className="p-0">
         <div>
           <ScrollArea className="relative">
