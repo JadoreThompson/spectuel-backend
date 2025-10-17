@@ -89,20 +89,19 @@ const OrderBookRow: FC<OrderBookRowProps> = ({
         )}
         style={{
           width: `${depthPercentage}%`,
-
           [alignment]: 0,
         }}
       />
 
-      <div className="z-10 text-left text-muted-foreground hidden sm:block">
+      <div className="text-left text-muted-foreground hidden sm:block">
         {formatQuantity(entry.cumulative)}
       </div>
 
-      <div className="z-10 text-right text-foreground">
+      <div className="text-right text-foreground">
         {formatQuantity(entry.quantity)}
       </div>
 
-      <div className={cn("z-10 text-right font-medium", priceColor)}>
+      <div className={cn("text-right font-medium", priceColor)}>
         {formatPrice(entry.price)}
       </div>
     </div>
@@ -132,7 +131,7 @@ const OrderBook: FC = () => {
   const spread = bestAsk - bestBid;
 
   const renderHeader = () => (
-    <div className="text-xs text-muted-foreground font-medium sticky top-0 bg-background/95 backdrop-blur-sm z-20 grid grid-cols-[1fr_1fr_1fr] border-b pb-1 px-3">
+    <div className="text-xs text-muted-foreground font-medium sticky top-0 bg-background/95 backdrop-blur-sm grid grid-cols-[1fr_1fr_1fr] border-b pb-1 px-3">
       <div className="text-left hidden sm:block">Cumulative</div>
       <div className="text-right">Quantity</div>
       <div className="text-right">Price (USD)</div>
