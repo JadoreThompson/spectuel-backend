@@ -149,7 +149,7 @@ const OrderBook: FC = () => {
     ));
 
   return (
-    <Card className="w-full max-w-md shadow-xl rounded-none border p-0 bg-transparent">
+    <Card className="w-full max-w-md shadow-xl rounded-none border-none p-0 bg-transparent">
       <CardContent className="p-0">
         <div>
           <ScrollArea className="relative">
