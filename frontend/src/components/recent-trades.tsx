@@ -1,20 +1,18 @@
-import { type FC, useState } from "react";
 import {
   Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
+  CardContent
 } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table,
-  TableHeader,
   TableBody,
-  TableRow,
-  TableHead,
   TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils"; // Assuming `cn` utility is available
+import { type FC, useState } from "react";
 
 // --- Types Definition ---
 
@@ -84,15 +82,11 @@ const RecentTrades: FC = () => {
   const [trades] = useState<Trade[]>(initialTrades);
 
   return (
-    <Card className="w-full max-w-sm shadow-xl border">
-      <CardHeader>
-        <CardTitle className="text-xl">Recent Trades (BTC/USD)</CardTitle>
-      </CardHeader>
-      
+    <Card className="w-full max-w-sm shadow-xl border p-0 rounded-none bg-transparent">
       <CardContent className="p-0">
-        <ScrollArea className="h-[450px]">
+        <ScrollArea className="h-[400px]">
           <Table>
-            <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+            <TableHeader className="sticky top-0 backdrop-blur-sm z-10">
               <TableRow>
                 <TableHead className="w-[35%] pl-4">Time</TableHead>
                 <TableHead className="w-[35%] text-right">Price</TableHead>

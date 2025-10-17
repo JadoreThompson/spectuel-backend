@@ -1,7 +1,10 @@
 import OrderBook from "@/components/orderbook";
-import type { FC } from "react";
+import RecentTrades from "@/components/recent-trades";
+import { useState, type FC } from "react";
 
 const TradingPage: FC = () => {
+  const [showOrderBook, setShowOrderbook] = useState<boolean>(true);
+
   return (
     <>
       <header className="z-[2] h-10 w-full fixed top-0 left-0 bg-white">
@@ -14,14 +17,24 @@ const TradingPage: FC = () => {
             <div className="h-full w-3/4 bg-pink-500"></div>
             <div className="h-full w-1/4 p-1">
               <div className="w-full flex gap-1">
-                <span className="px-2 text-sm font-bold border-b-2 border-b-white">
+                <span
+                onClick={() => setShowOrderbook(!showOrderBook)}
+                  className={`px-2 text-sm font-bold border-b-2 cursor-pointer ${
+                    showOrderBook ? "border-b-white" : "border-b-transparent text-muted-foreground"
+                  }`}
+                >
                   Order book
                 </span>
-                <span className="px-2 text-sm font-bold border-b-2 border-b-white">
+                <span
+                onClick={() => setShowOrderbook(!showOrderBook)}
+                  className={`px-2 text-sm font-bold border-b-2 cursor-pointer ${
+                    showOrderBook ? "border-b-transparent text-muted-foreground" : "border-b-white"
+                  }`}
+                >
                   Market trades
                 </span>
               </div>
-              <OrderBook />
+              {showOrderBook ? <OrderBook />: <RecentTrades />}
             </div>
           </div>
           <div className="h-120 flex-1 bg-blue-500">a</div>
