@@ -1,3 +1,4 @@
+import ActivityLog from "@/components/activity-log";
 import OrderForm from "@/components/order-form";
 import OrderBook from "@/components/orderbook";
 import RecentTrades from "@/components/recent-trades";
@@ -45,10 +46,13 @@ const TradingPage: FC = () => {
           <div className="h-120 flex-1 bg-blue-500">a</div>
         </div>
         <div className="h-full col-span-2 flex flex-col">
-          <div className="h-fit w-full mb-1">
+          <div className="h-fit w-full mb-2">
             <OrderForm />
           </div>
-          <div className="h-120 w-full bg-blue-200"></div>
+          <div className="h-120 w-full border-t pt-2">
+            <span className="text-sm font-semibold">Activity</span>
+            <ActivityLog />
+          </div>
         </div>
       </main>
     </>

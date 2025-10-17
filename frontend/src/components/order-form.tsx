@@ -20,7 +20,7 @@ const OrderForm = () => {
   // --- end added ---
 
   return (
-    <div className="h-auto w-full p-1">
+    <div className="h-auto w-full p-1 bg-background">
       <div className="h-10 w-full flex gap-1 p-1 bg-secondary rounded-sm">
         <div className="h-full w-1/2 flex items-center">
           <Button

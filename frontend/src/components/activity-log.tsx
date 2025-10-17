@@ -1,9 +1,5 @@
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+  CardContent
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { type FC, useMemo, useState } from "react";
@@ -81,7 +77,7 @@ const initialEvents: ActivityEvent[] = [
 
 const ActivityLog: FC = () => {
   // Use state to hold the list of events
-  const [events] = useState<ActivityEvent[]>(initialEvents);
+  const [events] = useState<ActivityEvent[]>(Array(initialEvents.length).fill(initialEvents).flat());
 
   // Configuration map for event styling (icons, colors, titles)
   const eventConfigMap: Record<EventType, EventConfig> = useMemo(
@@ -124,14 +120,9 @@ const ActivityLog: FC = () => {
   };
 
   return (
-    <Card className="w-full max-w-lg shadow-lg">
-      <CardHeader>
-        <CardTitle>Activity Log</CardTitle>
-        <CardDescription>Recent trading order updates.</CardDescription>
-      </CardHeader>
-
+    <div className="w-full max-w-lg shadow-lg p-1 rounded-none border-none bg-background">
       {/* Use ScrollArea if the log grows large */}
-      <ScrollArea className="h-[300px] px-6 pb-4">
+      <ScrollArea className="h-100 max-h-100 pb-4">
         <CardContent className="p-0 space-y-3">
           {events
             .sort(
@@ -146,12 +137,12 @@ const ActivityLog: FC = () => {
               return (
                 <div
                   key={event.id}
-                  className="w-100 h-15 shadow-sm border-1 mb-1 rounded-md pl-3 py-[0.05rem] pr-[0.05rem] bg-blue-500/20"
+                  className="h-15 shadow-sm border-1 mb-1 rounded-md pl-3 py-[0.05rem] pr-[0.05rem] bg-blue-500/20"
                 >
-                  <div className="w-full h-full bg-white rounded-md p-1">
+                  <div className="w-full h-full bg-background border-2 border-neutral-700 rounded-md p-1">
                     <h4 className="text-xs font-semibold">{config.title}</h4>
-                    <span className="text-xs text-muted-foreground">
-                      {event.message}
+                    <span className="text-xs text-muted-foreground text-ellipsis">
+                      {event.message.slice(0, 40)} ...
                     </span>
                   </div>
                 </div>
@@ -164,7 +155,7 @@ const ActivityLog: FC = () => {
           )}
         </CardContent>
       </ScrollArea>
-    </Card>
+    </div>
   );
 };
 
