@@ -2,7 +2,8 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
-    UUID as SAUUID,
+    UUID as SaUUID,
+    Integer,
     Float,
     ForeignKey,
     String,
@@ -10,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -24,7 +26,7 @@ from utils.utils import get_datetime, get_default_cash_balance
 class Base(DeclarativeBase):
     def dump(self) -> dict:
         return {k: v for k, v in vars(self).items() if k != "_sa_instance_state"}
-    
+
     def dump_serialised(self) -> dict:
         res = {}
         for k, v in vars(self).items():
@@ -43,7 +45,7 @@ class Users(Base):
     __tablename__ = "users"
 
     user_id: Mapped[UUID] = mapped_column(
-        SAUUID(as_uuid=True), primary_key=True, default=uuid4
+        SaUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -103,10 +105,10 @@ class Orders(Base):
     __tablename__ = "orders"
 
     order_id: Mapped[UUID] = mapped_column(
-        SAUUID(as_uuid=True), primary_key=True, default=uuid4
+        SaUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     user_id: Mapped[UUID] = mapped_column(
-        SAUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
+        SaUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
     )
     instrument_id: Mapped[str] = mapped_column(
         String(50), ForeignKey("instruments.instrument_id"), nullable=False
@@ -148,13 +150,13 @@ class Trades(Base):
     __tablename__ = "trades"
 
     trade_id: Mapped[UUID] = mapped_column(
-        SAUUID(as_uuid=True), primary_key=True, default=uuid4
+        SaUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     order_id: Mapped[UUID] = mapped_column(
-        SAUUID(as_uuid=True), ForeignKey("orders.order_id"), nullable=False
+        SaUUID(as_uuid=True), ForeignKey("orders.order_id"), nullable=False
     )
     user_id: Mapped[UUID] = mapped_column(
-        SAUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
+        SaUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
     )
     instrument_id: Mapped[str] = mapped_column(
         String(50), ForeignKey("instruments.instrument_id"), nullable=False
@@ -177,7 +179,7 @@ class AssetBalances(Base):
     __tablename__ = "asset_balances"
 
     user_id: Mapped[UUID] = mapped_column(
-        SAUUID(as_uuid=True), ForeignKey("users.user_id"), primary_key=True
+        SaUUID(as_uuid=True), ForeignKey("users.user_id"), primary_key=True
     )
     instrument_id: Mapped[str] = mapped_column(
         String(50), ForeignKey("instruments.instrument_id"), primary_key=True
@@ -193,17 +195,17 @@ class Events(Base):
     __tablename__ = "events"
 
     event_id: Mapped[UUID] = mapped_column(
-        SAUUID(as_uuid=True), primary_key=True, default=uuid4
+        SaUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     event_type: Mapped[str] = mapped_column(
         String, nullable=False
     )  # from EventsType enum .value
     user_id: Mapped[UUID] = mapped_column(
-        SAUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
+        SaUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
     )
     related_id: Mapped[str] = mapped_column(
         # String(50), nullable=True
-        SAUUID(as_uuid=True),
+        SaUUID(as_uuid=True),
         nullable=False,
     )  # Could be order_id, trade_id, etc.
     details: Mapped[str] = mapped_column(Text, nullable=True)  # JSON string
@@ -218,10 +220,10 @@ class Transactions(Base):
     __tablename__ = "transactions"
 
     transaction_id: Mapped[UUID] = mapped_column(
-        SAUUID(as_uuid=True), primary_key=True, default=uuid4
+        SaUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     user_id: Mapped[UUID] = mapped_column(
-        SAUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
+        SaUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
     )
     amount: Mapped[float] = mapped_column(Float, nullable=False)
     type: Mapped[str] = mapped_column(
@@ -238,3 +240,11 @@ class Transactions(Base):
     )
 
     user = relationship("Users", back_populates="transactions")
+
+
+class EventLogs(Base):
+    __tablename__ = "event_logs"
+
+    event_id: Mapped[UUID] = mapped_column(SaUUID(as_uuid=True), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    timestamp: Mapped[int] = mapped_column(Integer, nullable=False)
