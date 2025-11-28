@@ -1,17 +1,18 @@
+import asyncio
 import json
 import logging
-import threading
 import time
 from collections import defaultdict
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
-from kafka import KafkaConsumer, KafkaProducer
-from spectuel_engine_utils.enums import Side, LiquidityRole
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from sqlalchemy import select
+from spectuel_engine_utils.enums import Side, LiquidityRole, OrderStatus
 from spectuel_engine_utils.events import (
     NewTradeEvent,
     OrderPlacedEvent,
     OrderCancelledEvent,
-    OrderbookSnapshotEvent
+    OrderbookSnapshotEvent,
 )
 from spectuel_engine_utils.events.enums import TradeEventType, OrderEventType
 
@@ -21,6 +22,8 @@ from config import (
     KAFKA_ORDER_EVENTS_TOPIC,
     KAFKA_INSTRUMENT_EVENTS_TOPIC,
 )
+from db_models import Orders
+from utils.db import get_db_sess
 from .base import RunnerBase
 
 
@@ -30,167 +33,244 @@ class OrderInfo(NamedTuple):
     remaining_qty: float
 
 
+class BookState:
+    """
+    Holds the state and lock for a single instrument.
+    This allows granular locking so one active instrument doesn't block others.
+    """
+
+    def __init__(self):
+        self.lock = asyncio.Lock()
+        self.bids: dict[float, float] = defaultdict(float)
+        self.asks: dict[float, float] = defaultdict(float)
+        self.last_snapshot_ts: float = 0.0
+
+
 class OrderBookSnapshotRunner(RunnerBase):
     def __init__(self, snapshot_interval: float = 0.5):
+        self._logger = logging.getLogger(self.__class__.__name__)
         self._snapshot_interval = snapshot_interval
-        self._lock = threading.Lock()
-        self._books: dict[str, dict[str, Any]] = defaultdict(
-            lambda: {
-                "bids": defaultdict(float),
-                "asks": defaultdict(float),
-            }
-        )
 
+        # State
+        self._books: dict[str, BookState] = defaultdict(BookState)
         self._active_orders: dict[str, OrderInfo] = {}
+        self._registry_lock = asyncio.Lock()
+        self._producer: AIOKafkaProducer | None = None
+        self._consumer: AIOKafkaConsumer | None = None
 
-        self._consumer = KafkaConsumer(
+    def run(self) -> None:
+        """Entry point called by multiprocessing.Process."""
+        asyncio.run(self._async_run())
+
+    async def _async_run(self) -> None:
+        self._logger.info("OrderBook Snapshot Runner starting (Async)...")
+
+        await self._rehydrate_state()
+
+        self._consumer = AIOKafkaConsumer(
             KAFKA_TRADE_EVENTS_TOPIC,
             KAFKA_ORDER_EVENTS_TOPIC,
             bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-            group_id="orderbook_snapshotter_v1",
+            group_id="orderbook_snapshotter_v2_async",
             auto_offset_reset="latest",
         )
-        self._producer = KafkaProducer(bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS)
+        self._producer = AIOKafkaProducer(bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS)
 
-        # Background Snapshot Thread
-        self._running = True
-        self._snapshot_thread = threading.Thread(
-            target=self._snapshot_loop,
-            name=f"{self.__class__.__name__}Thread",
-            daemon=True,
-        )
+        await self._consumer.start()
+        await self._producer.start()
 
-        self._logger = logging.getLogger(self.__class__.__name__)
-
-    def run(self) -> None:
-        self._logger.info("OrderBook Snapshot Runner started.")
-        self._snapshot_thread.start()
+        self._logger.info("State rehydrated and Kafka connected.")
 
         try:
-            for msg in self._consumer:
-                try:
-                    data = json.loads(msg.value.decode("utf-8"))
-                    event_type = data.get("type")
-
-                    with self._lock:
-                        if event_type == OrderEventType.ORDER_PLACED:
-                            self._handle_order_placed(data)
-                        elif event_type == OrderEventType.ORDER_CANCELLED:
-                            self._handle_order_cancelled(data)
-                        elif event_type == TradeEventType.NEW_TRADE:
-                            self._handle_trade(data)
-
-                except (json.JSONDecodeError, ValueError):
-                    pass
-                except Exception as e:
-                    self._logger.error(f"Error processing message: {e}", exc_info=True)
+            await asyncio.gather(
+                self._consume_loop(self._consumer), self._snapshot_loop(self._producer)
+            )
+        except asyncio.CancelledError:
+            self._logger.info("Runner cancelled.")
+        except Exception as e:
+            self._logger.exception(f"Fatal error in runner: {e}")
         finally:
-            self._running = False
-            self._snapshot_thread.join(timeout=2.0)
+            await self._consumer.stop()
+            await self._producer.stop()
 
-    def _snapshot_loop(self) -> None:
-        """Background thread to emit snapshots every 0.5s."""
-        while self._running:
-            start_time = time.time()
+    async def _rehydrate_state(self) -> None:
+        """
+        Query the database for all active orders to rebuild the in-memory book.
+        This prevents starting with an empty book after a restart.
+        """
+        self._logger.info("Rehydrating orderbook state from database...")
+        count = 0
+
+        async with get_db_sess() as session:
+            stmt = select(Orders).where(
+                Orders.status.in_(
+                    (OrderStatus.PENDING.value, OrderStatus.PARTIALLY_FILLED.value)
+                )
+            )
+            result = await session.execute(stmt)
+            active_orders = result.scalars().all()
+
+            for order in active_orders:
+                remaining = order.quantity - order.executed_quantity
+
+                if remaining > 0:
+                    inst_id = str(order.instrument_id)
+                    order_id = str(order.order_id)
+
+                    # Ensure book exists
+                    if inst_id not in self._books:
+                        self._books[inst_id] = BookState()
+
+                    book = self._books[inst_id]
+
+                    if order.side == Side.BID:
+                        book.bids[order.price] += remaining
+                    else:
+                        book.asks[order.price] += remaining
+
+                    self._active_orders[order_id] = OrderInfo(
+                        price=order.price,
+                        side=Side(order.side),
+                        remaining_qty=remaining,
+                    )
+                    count += 1
+
+        self._logger.info(f"Rehydration complete. Loaded {count} active orders.")
+
+    async def _consume_loop(self) -> None:
+        async for msg in self._consumer:
             try:
-                self._emit_snapshots()
+                data = json.loads(msg.value.decode("utf-8"))
+                event_type = data.get("type")
+
+                if event_type == OrderEventType.ORDER_PLACED:
+                    await self._handle_order_placed(data)
+                elif event_type == OrderEventType.ORDER_CANCELLED:
+                    await self._handle_order_cancelled(data)
+                elif event_type == TradeEventType.NEW_TRADE:
+                    await self._handle_trade(data)
+
+            except (json.JSONDecodeError, ValueError):
+                pass
             except Exception as e:
-                self._logger.error(f"Error in snapshot loop: {e}", exc_info=True)
+                self._logger.error(f"Error processing message: {e}", exc_info=True)
 
-            # Sleep remainder of interval
+    async def _snapshot_loop(self) -> None:
+        """
+        Periodically iterates active books, grabs their lock, takes a snapshot, and sends it.
+        """
+        while True:
+            start_time = time.time()
+            instruments = list(self._books.keys())
+
+            for inst_id in instruments:
+                book_state = self._books[inst_id]
+
+                async with book_state.lock:
+                    if (
+                        time.time() - book_state.last_snapshot_ts
+                        >= self._snapshot_interval
+                    ):
+                        await self._publish_snapshot(
+                            self._producer, inst_id, book_state
+                        )
+                        book_state.last_snapshot_ts = time.time()
+
             elapsed = time.time() - start_time
-            sleep_time = max(0.0, self._snapshot_interval - elapsed)
-            if sleep_time:
-                time.sleep(sleep_time)
+            sleep_time = max(0.1, self._snapshot_interval - elapsed)
+            await asyncio.sleep(sleep_time)
 
-    def _emit_snapshots(self) -> None:
-        with self._lock:
-            for instrument_id, book in self._books.items():
-                self._publish_snapshot(instrument_id, book)
+    async def _publish_snapshot(self, inst_id: str, state: BookState) -> None:
+        top_bids = sorted(
+            [(price, qty) for price, qty in state.bids.items() if qty > 0],
+            key=lambda x: x[0],
+            reverse=True,
+        )[:20]
 
-    def _publish_snapshot(self, instrument_id: str, book: dict) -> None:
-        top_bids = dict(
-            sorted(book["bids"].items(), key=lambda x: x[0], reverse=True)[:5]
-        )
-
-        top_asks = dict(
-            sorted(book["asks"].items(), key=lambda x: x[0], reverse=False)[:5]
-        )
+        top_asks = sorted(
+            [(price, qty) for price, qty in state.asks.items() if qty > 0],
+            key=lambda x: x[0],
+        )[:20]
 
         snapshot = OrderbookSnapshotEvent(
-            instrument_id=instrument_id, bids=top_bids, asks=top_asks
+            version=1, instrument_id=inst_id, bids=top_bids, asks=top_asks
         )
 
         try:
-            self._producer.send(
+            await self._producer.send(
                 KAFKA_INSTRUMENT_EVENTS_TOPIC,
                 snapshot.model_dump_json().encode("utf-8"),
             )
         except Exception as e:
-            self._logger.error(f"Failed to emit snapshot for {instrument_id}: {e}")
+            self._logger.error(f"Failed to emit snapshot for {inst_id}: {e}")
 
-    def _handle_order_placed(self, data: dict) -> None:
+    async def _handle_order_placed(self, data: dict) -> None:
         event = OrderPlacedEvent(**data)
         inst_id = str(event.instrument_id)
         order_id = str(event.order_id)
-        book = self._books[inst_id]
 
         resting_qty = event.quantity - event.executed_quantity
+        if resting_qty <= 0:
+            return
 
-        if resting_qty > 0:
+        book = self._books[inst_id]
+
+        async with book.lock:
             if event.side == Side.BID:
-                book["bids"][event.price] += resting_qty
+                book.bids[event.price] += resting_qty
             else:
-                book["asks"][event.price] += resting_qty
+                book.asks[event.price] += resting_qty
 
             self._active_orders[order_id] = OrderInfo(
                 price=event.price, side=event.side, remaining_qty=resting_qty
             )
 
-    def _handle_order_cancelled(self, data: dict) -> None:
+    async def _handle_order_cancelled(self, data: dict) -> None:
         event = OrderCancelledEvent(**data)
         order_id = str(event.order_id)
 
-        order_info = self._active_orders.get(order_id)
-        if not order_info:
+        info = self._active_orders.pop(order_id, None)
+        if not info:
             return
 
         inst_id = str(event.instrument_id)
         book = self._books[inst_id]
 
-        if order_info.side == Side.BID:
-            self._decrement_level(
-                book["bids"], order_info.price, order_info.remaining_qty
-            )
-        else:
-            self._decrement_level(
-                book["asks"], order_info.price, order_info.remaining_qty
-            )
+        async with book.lock:
+            if info.side == Side.BID:
+                self._decrement_level(book.bids, info.price, info.remaining_qty)
+            else:
+                self._decrement_level(book.asks, info.price, info.remaining_qty)
 
-        del self._active_orders[order_id]
-
-    def _handle_trade(self, data: dict) -> None:
+    async def _handle_trade(self, data: dict) -> None:
         event = NewTradeEvent(**data)
-        inst_id = str(event.instrument_id)
 
         if event.role == LiquidityRole.MAKER:
             maker_order_id = str(event.order_id)
+            info = self._active_orders.get(maker_order_id)
 
-            if maker_order_id in self._active_orders:
-                info = self._active_orders[maker_order_id]
+            if info:
                 new_qty = info.remaining_qty - event.quantity
-
+                inst_id = str(event.instrument_id)
                 book = self._books[inst_id]
-                if info.side == Side.BID:
-                    self._decrement_level(book["bids"], info.price, event.quantity)
+
+                async with book.lock:
+                    if info.side == Side.BID:
+                        self._decrement_level(book.bids, info.price, event.quantity)
+                    else:
+                        self._decrement_level(book.asks, info.price, event.quantity)
+
+                if new_qty <= 0.00000001:
+                    self._active_orders.pop(maker_order_id, None)
                 else:
-                    self._decrement_level(book["asks"], info.price, event.quantity)
+                    self._active_orders[maker_order_id] = OrderInfo(
+                        price=info.price, side=info.side, remaining_qty=new_qty
+                    )
 
-                self._active_orders[maker_order_id] = OrderInfo(
-                    price=info.price, side=info.side, remaining_qty=new_qty
-                )
-
-    def _decrement_level(self, level_dict: dict, price: float, qty: float) -> None:
+    def _decrement_level(
+        self, level_dict: dict[float, float], price: float, qty: float
+    ) -> None:
         if price in level_dict:
             level_dict[price] -= qty
-            level_dict.pop(price)
+            if level_dict[price] <= 0.00000001:
+                del level_dict[price]
