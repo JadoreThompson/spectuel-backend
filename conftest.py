@@ -1,15 +1,14 @@
-from contextlib import asynccontextmanager
 import uuid
+from contextlib import asynccontextmanager
 from decimal import Decimal
 
 import pytest
-from faker import Faker
-from unittest.mock import MagicMock
-
 import pytest_asyncio
+from faker import Faker
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker, Session
+from unittest.mock import MagicMock
 
 from src.db_models import Base, Instruments, Users as DBUser, Orders as DBOrder
 from src.enums import OrderStatus, OrderType, Side, StrategyType
@@ -18,6 +17,7 @@ from src.engine.event_logger import EventLogger
 from src.engine.models import Event
 from src.engine.orders import Order
 from src.event_handler import EventHandler
+from src.utils.utils import get_default_cash_balance
 from tests.config import (
     DB_URL,
     ASYNC_DB_URL,
@@ -27,7 +27,6 @@ from tests.config import (
     smaker_async,
 )
 from tests.utils import async_db_session_context
-from src.utils.utils import get_default_cash_balance
 
 
 @pytest.fixture(scope="session")

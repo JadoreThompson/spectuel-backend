@@ -3,19 +3,15 @@ from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
+from api.models import PaginatedResponse
+from api.utils.db import depends_db_session
 from config import COMMAND_QUEUE, PAGE_SIZE
 from db_models import Instruments, Orders, Trades
 from engine.enums import CommandType
 from engine import CommandType, Command, NewInstrument
 from enums import TimeFrame
 from models import TradeEvent
-from server.models import PaginatedResponse
-from server.utils.db import depends_db_session
-from .controller import (
-    calculate_24h_stats,
-    get_24h_stats_all,
-    get_ohlc_data,
-)
+from .controller import calculate_24h_stats, get_24h_stats_all, get_ohlc_data
 from .models import InstrumentCreate, OHLC, InstrumentRead, Stats24h
 
 

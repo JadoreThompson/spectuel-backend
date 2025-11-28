@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from enums import OrderType, Side, OrderStatus
 from models import CustomBaseModel
-from server.models import PaginatedResponse
+from api.models import PaginatedResponse
 
 
 class OrderBase(BaseModel):

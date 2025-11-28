@@ -1,7 +1,7 @@
 import asyncio
 import time
 from multiprocessing import Process, Queue
-from multiprocessing.queues import Queue as MPQueue
+from multiprocessing.queues import Queue as MPQueueT
 from threading import Thread
 from uuid import uuid4
 
@@ -41,7 +41,7 @@ def publish_orderbooks(orderbooks: dict[str, OrderBookReplicator], delay: float 
         time.sleep(delay)
 
 
-def run_event_handler(event_queue: MPQueue):
+def run_event_handler(event_queue: MPQueueT):
     ev_handler = EventHandler()
     orderbooks: dict[str, OrderBookReplicator] = {}
 
@@ -84,7 +84,7 @@ def lay_orders(engine: SpotEngine, instrument_id: str):
         engine.process_command(cmd)
 
 
-def run_engine(command_queue: MPQueue, event_queue: MPQueue) -> None:
+def run_engine(command_queue: MPQueueT, event_queue: MPQueueT) -> None:
     from engine.event_logger import EventLogger
 
     with get_db_session_sync() as sess:
@@ -103,11 +103,11 @@ def run_engine(command_queue: MPQueue, event_queue: MPQueue) -> None:
         if command.command_type == CommandType.NEW_INSTRUMENT:
             lay_orders(engine, command.data.instrument_id)
 
-def run_server(command_queue: MPQueue):
+def run_server(command_queue: MPQueueT):
     import config
 
     config.COMMAND_QUEUE = command_queue
-    uvicorn.run("server.app:app", port=80)
+    uvicorn.run("api.app:app", host="0.0.0.0", port=8000)
 
 
 async def main():

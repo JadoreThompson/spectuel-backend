@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - ${DB_PORT}:5432
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    network:
+      - spectuel_network
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - ${REDIS_PORT}:6379
+    volumes:
+      - redis:/data
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    network:
+      - spectuel_network
+
+  backend:
+    image: spectuel-backend:latest
+    build:
+      context: ..
+      dockerfile: .docker/Dockerfile
+    environment:
+      - IS_PRODUCTION=1
+    ports:
+      - 8000:8000
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+volumes:
+  postgres:
+  redis:
+
+networks:
+  spectuel_network:
+    name: spectuel_network
+    driver: overlay
+    attachable: true

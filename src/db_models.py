@@ -84,10 +84,10 @@ class Instruments(Base):
         String(50), primary_key=True, nullable=False
     )
     symbol: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
-    tick_size: Mapped[float] = mapped_column(Float, nullable=False)
+    tick_size: Mapped[float] = mapped_column(Float, nullable=False, default=0.01)
     starting_price: Mapped[float] = mapped_column(Float, nullable=False, default=100.0)
     status: Mapped[str] = mapped_column(
-        String, nullable=False, default=InstrumentStatus.TRADABLE.value
+        String, nullable=False, default=InstrumentStatus.DOWN
     )
 
     orders = relationship(

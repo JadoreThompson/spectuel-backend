@@ -1,0 +1,77 @@
+name: Build and deploy stack
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build
+    runs-on: self-hosted
+    environment: deploy-env
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cat <<'EOF' > .env
+          ${{ secrets.ENV_FILE }}
+          EOF
+
+          if [ -s .env ]; then
+            echo ".env created successfully"
+            exit 0
+          else
+            echo "Failed to create .env"
+            exit 1
+          fi
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build backend image
+        run: |
+          
+          docker build -q -t ${{ secrets.DOCKERHUB_IMAGE }}:latest .
+          docker push -q ${{ secrets.DOCKERHUB_IMAGE }}:latest
+
+      - name: Install UV
+        uses: astral-sh/setup-uv@v7
+
+      - name: Initialise swarm and network
+        run: |
+          echo "Initialising swarm and network"
+          docker swarm init || true
+          docker network inspect spectuel_network >/dev/null 2>&1 || \
+            docker network create --driver overlay --attachable spectuel_network
+      
+      - name: Update stack
+        run: | 
+          echo "Loading envs into shell"
+
+          cat <<EOF > src/tmp.py
+          from utils.utils import load_envs
+          load_envs()
+          EOF
+
+          eval $(uv run src/tmp.py)
+          
+          COMPOSE_FILE=production-compose.yaml
+          NEW_COMPOSE_FILE=new-compose.yaml
+          echo "Loading envs into ${COMPOSE_FILE}"
+          docker stack config -c $COMPOSE_FILE > $NEW_COMPOSE_FILE
+
+          echo "Deploying stack"
+          docker stack deploy -c $NEW_COMPOSE_FILE spectuel_stack
+
+      - name: Apply DB migrations
+        run: |
+          set -e
+          docker build -q -t migrate-db -f MigrationDockerfile .docker
+          docker run --rm --name migration_db --network spectuel_network migrate-db

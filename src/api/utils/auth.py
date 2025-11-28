@@ -5,7 +5,13 @@ from fastapi import Response
 from dataclasses import asdict
 from sqlalchemy import select
 
-from config import COOKIE_ALIAS, PRODUCTION, JWT_SECRET_KEY, JWT_ALGO, JWT_EXPIRY_MINS
+from config import (
+    COOKIE_ALIAS,
+    IS_PRODUCTION,
+    JWT_SECRET_KEY,
+    JWT_ALGO,
+    JWT_EXPIRY_SECS,
+)
 from db_models import Users
 from utils.db import get_db_session
 from ..typing import JWTPayload
@@ -22,7 +28,7 @@ def generate_jwt_token(**kwargs) -> str:
         str: JWT token
     """
     if kwargs.get("exp") is None:
-        kwargs["exp"] = datetime.now() + timedelta(minutes=JWT_EXPIRY_MINS)
+        kwargs["exp"] = datetime.now() + timedelta(seconds=JWT_EXPIRY_SECS)
 
     kwargs["sub"] = str(kwargs["sub"])
     payload = JWTPayload(**kwargs)
@@ -64,7 +70,7 @@ def set_cookie(user_id: int, rsp: Response | None = None) -> Response:
     token = generate_jwt_token(sub=user_id)
     if rsp is None:
         rsp = Response()
-    rsp.set_cookie(COOKIE_ALIAS, token, httponly=True, secure=PRODUCTION)
+    rsp.set_cookie(COOKIE_ALIAS, token, httponly=True, secure=IS_PRODUCTION)
     return rsp
 
 
@@ -72,5 +78,5 @@ def remove_cookie(rsp: Response | None = None) -> None:
     if rsp is None:
         rsp = Response()
 
-    rsp.delete_cookie(COOKIE_ALIAS, httponly=True, secure=PRODUCTION)
+    rsp.delete_cookie(COOKIE_ALIAS, httponly=True, secure=IS_PRODUCTION)
     return rsp

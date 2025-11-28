@@ -1,0 +1,30 @@
+name: Test
+on:
+  push:
+    branches:
+      - development
+
+jobs:
+  test:
+    name: Test Job
+    runs-on: self-hosted
+    steps:
+      - name: Install UV
+        uses: astral-sh/setup-uv@v7
+
+      - name: Create .env file
+        run: |
+          cat <<'EOF' > .env
+          ${{ secrets.ENV_FILE }}
+          EOF
+
+          if [ -s .env ]; then
+            echo ".env created successfully"
+            exit 0
+          else
+            echo "Failed to create .env"
+            exit 1
+          fi
+
+      - name: Run tests
+        run: uv run pytest

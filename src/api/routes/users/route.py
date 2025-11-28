@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.middleware import verify_jwt
+from api.typing import JWTPayload
+from api.utils import depends_db_session
 from db_models import AssetBalances, Events, Trades, Users
-from server.middleware import verify_jwt
-from server.typing import JWTPayload
-from server.utils import depends_db_session
 from .controller import get_portfolio_history
 from .models import (
     UserEvents,
