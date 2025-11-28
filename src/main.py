@@ -1,152 +1,66 @@
-import asyncio
+import logging
+import multiprocessing
 import time
-from multiprocessing import Process, Queue
-from multiprocessing.queues import Queue as MPQueueT
-from threading import Thread
-from uuid import uuid4
+from typing import Any, Type
 
-import uvicorn
-from sqlalchemy import select
-
-from config import INSTRUMENT_EVENT_CHANNEL, REDIS_CLIENT
-from db_models import Instruments
-from engine import SpotEngine
-from engine.enums import CommandType
-from engine.models import Command, Event, NewSingleOrder
-from enums import InstrumentEventType, OrderStatus, OrderType, Side, StrategyType
-from event_handler import EventHandler
-from models import InstrumentEvent, OrderBookSnapshot
-from orderbook_duplicator import OrderBookReplicator
-from utils.db import get_db_session_sync
-from utils.utils import get_instrument_balance_hkey, get_instrument_escrows_hkey
+from runners import RunnerBase, OrderBookSnapshotRunner, ServerRunner
 
 
-def publish_orderbooks(orderbooks: dict[str, OrderBookReplicator], delay: float = 1.0):
-    while True:
-        with REDIS_CLIENT.pipeline() as pipe:
-            for instrument_id, replicator in orderbooks.items():
-                snapshot = replicator.snapshot()
-                bids, asks = snapshot["bids"], snapshot["asks"]
-
-                event = InstrumentEvent(
-                    event_type=InstrumentEventType.ORDERBOOK,
-                    instrument_id=instrument_id,
-                    data=OrderBookSnapshot(bids=bids, asks=asks),
-                )
-
-                pipe.publish(INSTRUMENT_EVENT_CHANNEL, event.model_dump_json())
-
-            pipe.execute()
-
-        time.sleep(delay)
+def run_runner(runner_cls: Type[RunnerBase], *args, **kw):
+    runner = runner_cls(*args, **kw)
+    runner.run()
 
 
-def run_event_handler(event_queue: MPQueueT):
-    ev_handler = EventHandler()
-    orderbooks: dict[str, OrderBookReplicator] = {}
+def main():
+    logger = logging.getLogger("main")
 
-    th = Thread(target=publish_orderbooks, args=(orderbooks,))
-    th.start()
-
-    while True:
-        event: Event = event_queue.get()
-
-        with get_db_session_sync() as sess:
-            ev_handler.process_event(event, sess)
-
-        if event.instrument_id not in orderbooks:
-            orderbooks[event.instrument_id] = OrderBookReplicator()
-        replicator = orderbooks[event.instrument_id]
-        replicator.process_event(event)
-
-
-def lay_orders(engine: SpotEngine, instrument_id: str):
-    REDIS_CLIENT.hset(get_instrument_balance_hkey(instrument_id), "layer", 2000)
-    REDIS_CLIENT.hset(get_instrument_escrows_hkey(instrument_id), "layer", 0)
-
-    for i in range(200):
-        data = NewSingleOrder(
-            strategy_type=StrategyType.SINGLE,
-            instrument_id=instrument_id,
-            order={
-                "user_id": "layer",
-                "order_id": str(uuid4()),
-                "instrument": instrument_id,
-                "order_type": OrderType.LIMIT,
-                "side": Side.ASK,
-                "quantity": 10,
-                "executed_quantity": 0,
-                "limit_price": i,
-                "status": OrderStatus.PENDING,
-            },
-        )
-        cmd = Command(command_type=CommandType.NEW_ORDER, data=data)
-        engine.process_command(cmd)
-
-
-def run_engine(command_queue: MPQueueT, event_queue: MPQueueT) -> None:
-    from engine.event_logger import EventLogger
-
-    with get_db_session_sync() as sess:
-        insts = sess.execute(select(Instruments.instrument_id)).scalars().all()
-
-    engine = SpotEngine(insts)
-    EventLogger.queue = event_queue
-
-    for inst in insts:
-        lay_orders(engine, inst)
-
-    while True:
-        command: Command = command_queue.get()
-        engine.process_command(command)
-
-        if command.command_type == CommandType.NEW_INSTRUMENT:
-            lay_orders(engine, command.data.instrument_id)
-
-def run_server(command_queue: MPQueueT):
-    import config
-
-    config.COMMAND_QUEUE = command_queue
-    uvicorn.run("api.app:app", host="0.0.0.0", port=8000)
-
-
-async def main():
-    command_queue = Queue()
-    ev_queue = Queue()
-
-    p_configs = (
-        (run_server, (command_queue,), "http server"),
-        (run_engine, (command_queue, ev_queue), "spot engine"),
-        (run_event_handler, (ev_queue,), "event handler"),
+    configs: tuple[tuple[Type[RunnerBase], tuple[Any, ...], dict[str, Any]]] = (
+        (ServerRunner, (), {"host": "0.0.0.0", "port": "8000"}),
+        (OrderBookSnapshotRunner, (), {}),
     )
-    ps = [Process(target=func, args=args, name=name) for func, args, name in p_configs]
+
+    ps = [
+        multiprocessing.Process(
+            target=run_runner,
+            args=(runner_cls, *args),
+            kwargs=kwargs,
+            name=runner_cls.__name__,
+        )
+        for runner_cls, args, kwargs in configs
+    ]
 
     for p in ps:
-        print("[INFO]: Process", p.name, "has started")
+        logger.info(f"Process '{p.name}' has started")
         p.start()
 
     try:
         while True:
             for ind, p in enumerate(ps):
                 if not p.is_alive():
-                    print("[INFO]:", p.name, "has died")
+                    logger.info(f"Process '{p.name}' has died")
                     p.kill()
                     p.join()
-                    target, args, name = p_configs[ind]
-                    ps[ind] = Process(target=target, args=args, name=name)
+                    target, args, name = configs[ind]
+                    ps[ind] = multiprocessing.Process(
+                        target=target, args=args, name=name
+                    )
                     ps[ind].start()
-                    print("[INFO]: Restarted process for", p.name)
+                    logger.info("[INFO]: Restarted process for", p.name)
 
-            await asyncio.sleep(10_000_000)
-    except BaseException as e:
-        if not isinstance(e, KeyboardInterrupt):
-            print(e)
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt received. Gracefully shutting down")
     finally:
+        logger.info("Shutting down processes")
+
         for p in ps:
+            logger.info(f"Shutting down process '{p.name}'")
             p.kill()
-            p.join()
+            p.join(timeout=10)
+            logger.info(f"Process '{p.name}' shut down successfully")
+
+        logger.info("All processes shut down successfully.")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
-    # uvicorn.run("server.app:app", port=80, reload=True)
+    main()

@@ -36,20 +36,19 @@ DB_PORT = os.getenv("DB_PORT")
 DB_NAME = os.getenv("DB_NAME")
 
 # Redis
-redis_kwargs = {
-    "host": os.getenv("REDIS_HOST"),
-    "port": int(os.getenv("REDIS_PORT")),
-    "password": os.getenv("REDIS_PASSWORD"),
-    "db": int(os.getenv("REDIS_DB")),
-}
-REDIS_CLIENT_ASYNC = RedisAsync(**redis_kwargs)
-REDIS_CLIENT = Redis(**redis_kwargs)
-del redis_kwargs
+REDIS_HOST = os.getenv("REDIS_HOST")
+REDIS_PORT = int(os.getenv("REDIS_PORT"))
+REDIS_USERNAME = os.getenv("REDIS_USERNAME")
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 
-INSTRUMENT_EVENT_CHANNEL = os.getenv("INSTRUMENT_EVENT_QUEUE", "channel-1")
-ORDER_UPDATE_CHANNEL = os.getenv("ORDER_UPDATE_QUEUE", "channel-2")
-CASH_BALANCE_HKEY = os.getenv("CASH_BALANCE_HKEY", "channel-3")
-CASH_ESCROW_HKEY = os.getenv("CASH_ESCROW_HKEY", "channel-4")
+# Kafka
+KAFKA_HOST = os.getenv("KAFKA_HOST")
+KAFKA_PORT = os.getenv("KAFKA_PORT")
+KAFKA_BOOTSTRAP_SERVERS = f"{KAFKA_HOST}:{KAFKA_PORT}"
+KAFKA_COMMANDS_TOPIC = os.getenv("KAFKA_COMMANDS_TOPIC")
+KAFKA_ORDER_EVENTS_TOPIC = os.getenv("KAFKA_ORDER_EVENTS_TOPIC")
+KAFKA_TRADE_EVENTS_TOPIC = os.getenv("KAFKA_TRADE_EVENTS_TOPIC")
+KAFKA_INSTRUMENT_EVENTS_TOPIC = os.getenv("KAFKA_INSTRUMENT_EVENTS_TOPIC")
 
 # Auth
 COOKIE_ALIAS = "spectuel-cookie"
@@ -59,9 +58,6 @@ JWT_EXPIRY_SECS = int(os.getenv("JWT_EXPIRY_SECS"))
 
 # API
 PAGE_SIZE = 10
-
-# Engine
-COMMAND_QUEUE: MPQueue | None = None
 
 # Logging
 logging.basicConfig(
