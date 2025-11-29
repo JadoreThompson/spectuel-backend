@@ -4,15 +4,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db_models import Orders
-from engine.models import (
-    Command,
+from spectuel_engine_utils.commands import (
     CommandType,
     CancelOrderCommand,
     ModifyOrderCommand,
 )
-from enums import OrderStatus
+from spectuel_engine_utils.enums import OrderStatus
 from .models import OrderModify
-from config import COMMAND_QUEUE
 
 
 async def cancel_order(

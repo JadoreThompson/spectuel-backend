@@ -1,6 +1,13 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
+from spectuel_engine_utils.enums import (
+    OrderType,
+    InstrumentStatus,
+    OrderStatus,
+    Side,
+    LiquidityRole,
+)
 from sqlalchemy import (
     UUID as SaUUID,
     Integer,
@@ -9,36 +16,16 @@ from sqlalchemy import (
     String,
     DateTime,
     ForeignKey,
-    Text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import (
-    DeclarativeBase,
-    Mapped,
-    mapped_column,
-    relationship,
-)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from enums import InstrumentStatus, UserStatus, OrderStatus
+from core.enums import OrderGroupType
 from utils.utils import get_datetime, get_default_cash_balance
 
 
 class Base(DeclarativeBase):
-    def dump(self) -> dict:
-        return {k: v for k, v in vars(self).items() if k != "_sa_instance_state"}
-
-    def dump_serialised(self) -> dict:
-        res = {}
-        for k, v in vars(self).items():
-            if k == "_sa_instance_state":
-                continue
-            if isinstance(v, UUID):
-                res[k] = str(v)
-            elif isinstance(v, datetime):
-                res[k] = v.isoformat()
-            else:
-                res[k] = v
-        return res
+    pass
 
 
 class Users(Base):
@@ -47,15 +34,15 @@ class Users(Base):
     user_id: Mapped[UUID] = mapped_column(
         SaUUID(as_uuid=True), primary_key=True, default=uuid4
     )
-    username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    password: Mapped[str] = mapped_column(String(255), nullable=False)
+    username: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    password: Mapped[str] = mapped_column(String, nullable=False)
     cash_balance: Mapped[float] = mapped_column(
         Float, nullable=False, default=get_default_cash_balance
     )
     escrow_balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.00)
-    status: Mapped[str] = mapped_column(
-        String, nullable=False, default=UserStatus.ACTIVE.value
-    )
+    api_key: Mapped[str] = mapped_column(String, nullable=True)
+    authenticated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=get_datetime
     )
@@ -66,9 +53,9 @@ class Users(Base):
         onupdate=get_datetime,
     )
 
+    # Relationships
     orders = relationship("Orders", back_populates="user", cascade="all, delete-orphan")
     trades = relationship("Trades", back_populates="user", cascade="all, delete-orphan")
-    events = relationship("Events", back_populates="user", cascade="all, delete-orphan")
     transactions = relationship(
         "Transactions", back_populates="user", cascade="all, delete-orphan"
     )
@@ -85,11 +72,12 @@ class Instruments(Base):
     )
     symbol: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     tick_size: Mapped[float] = mapped_column(Float, nullable=False, default=0.01)
-    starting_price: Mapped[float] = mapped_column(Float, nullable=False, default=100.0)
+    starting_price: Mapped[float] = mapped_column(Float, nullable=False)
     status: Mapped[str] = mapped_column(
         String, nullable=False, default=InstrumentStatus.DOWN
     )
 
+    # Relationships
     orders = relationship(
         "Orders", back_populates="instrument", cascade="all, delete-orphan"
     )
@@ -110,25 +98,28 @@ class Orders(Base):
     user_id: Mapped[UUID] = mapped_column(
         SaUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
     )
+    order_group_id: Mapped[UUID] = mapped_column(
+        SaUUID(as_uuid=True), nullable=True, index=True
+    )
+    parent_order_id: Mapped[UUID | None] = mapped_column(
+        SaUUID(as_uuid=True), ForeignKey("orders.order_id"), nullable=True
+    )
     instrument_id: Mapped[str] = mapped_column(
         String(50), ForeignKey("instruments.instrument_id"), nullable=False
     )
-    side: Mapped[str] = mapped_column(String, nullable=False)  # from Side enum .value
-    order_type: Mapped[str] = mapped_column(
-        String, nullable=False
-    )  # from OrderType enum .value
+    side: Mapped[Side] = mapped_column(String, nullable=False)
+    order_type: Mapped[OrderType] = mapped_column(String, nullable=False)
     quantity: Mapped[float] = mapped_column(Float, nullable=False)
     executed_quantity: Mapped[float] = mapped_column(Float, nullable=False, default=0)
     limit_price: Mapped[float | None] = mapped_column(Float, nullable=True)
     stop_price: Mapped[float | None] = mapped_column(Float, nullable=True)
-    price: Mapped[float | None] = mapped_column(Float, nullable=True)
     avg_fill_price: Mapped[float] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(
         String, nullable=False, default=OrderStatus.PENDING.value
     )
-    time_in_force: Mapped[str] = mapped_column(
+    group_type: Mapped[OrderGroupType | None] = mapped_column(
         String, nullable=True
-    )  # from TimeInForce enum .value
+    )  # core.enums.OrderGroupType
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=get_datetime
     )
@@ -139,6 +130,7 @@ class Orders(Base):
         onupdate=get_datetime,
     )
 
+    # Relationships
     user = relationship("Users", back_populates="orders")
     instrument = relationship("Instruments", back_populates="orders")
     trades = relationship(
@@ -163,13 +155,12 @@ class Trades(Base):
     )
     price: Mapped[float] = mapped_column(Float, nullable=False)
     quantity: Mapped[float] = mapped_column(Float, nullable=False)
-    liquidity: Mapped[str] = mapped_column(
-        String, nullable=False
-    )  # from LiquidityRole enum .value
+    role: Mapped[LiquidityRole] = mapped_column(String, nullable=False)
     executed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=get_datetime
     )
 
+    # Relationships
     order = relationship("Orders", back_populates="trades")
     user = relationship("Users", back_populates="trades")
     instrument = relationship("Instruments", back_populates="trades")
@@ -187,33 +178,9 @@ class AssetBalances(Base):
     balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.00)
     escrow_balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.00)
 
+    # Relationships
     user = relationship("Users", back_populates="asset_balances")
     instrument = relationship("Instruments", back_populates="asset_balances")
-
-
-class Events(Base):
-    __tablename__ = "events"
-
-    event_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), primary_key=True, default=uuid4
-    )
-    event_type: Mapped[str] = mapped_column(
-        String, nullable=False
-    )  # from EventsType enum .value
-    user_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
-    )
-    related_id: Mapped[str] = mapped_column(
-        # String(50), nullable=True
-        SaUUID(as_uuid=True),
-        nullable=False,
-    )  # Could be order_id, trade_id, etc.
-    details: Mapped[str] = mapped_column(Text, nullable=True)  # JSON string
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=get_datetime
-    )
-
-    user = relationship("Users", back_populates="events")
 
 
 class Transactions(Base):
@@ -239,6 +206,7 @@ class Transactions(Base):
         DateTime(timezone=True), nullable=False, default=get_datetime
     )
 
+    # Relationships
     user = relationship("Users", back_populates="transactions")
 
 

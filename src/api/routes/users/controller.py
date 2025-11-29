@@ -1,11 +1,11 @@
 from datetime import timedelta
 from uuid import UUID
 
+from spectuel_engine_utils.enums import Side
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db_models import Orders, Transactions, Trades
-from enums import Side
 from utils.utils import get_datetime
 from .models import HistoryInterval
 

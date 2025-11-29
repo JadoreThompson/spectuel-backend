@@ -5,6 +5,7 @@ class InstrumentCreate(BaseModel):
     instrument_id: str
     symbol: str
     tick_size: float = 1.0
+    price: float = 100.0
 
 
 class Stats24h(BaseModel):

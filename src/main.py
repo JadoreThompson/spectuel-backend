@@ -15,7 +15,7 @@ def main():
     logger = logging.getLogger("main")
 
     configs: tuple[tuple[Type[RunnerBase], tuple[Any, ...], dict[str, Any]]] = (
-        (ServerRunner, (), {"host": "0.0.0.0", "port": "8000"}),
+        (ServerRunner, (), {"host": "0.0.0.0", "port": 8000}),
         (OrderBookSnapshotRunner, (), {}),
     )
 
@@ -38,14 +38,16 @@ def main():
             for ind, p in enumerate(ps):
                 if not p.is_alive():
                     logger.info(f"Process '{p.name}' has died")
-                    p.kill()
-                    p.join()
-                    target, args, name = configs[ind]
-                    ps[ind] = multiprocessing.Process(
-                        target=target, args=args, name=name
-                    )
-                    ps[ind].start()
-                    logger.info("[INFO]: Restarted process for", p.name)
+                    # p.kill()
+                    # p.join()
+                    # runner_cls, args, kwargs = configs[ind]
+                    # ps[ind] = multiprocessing.Process(
+                    #     target=run_runner, args=(runner_cls, *args), kwargs=kwargs, name=runner_cls.__name__
+                    # )
+                    # ps[ind].start()
+
+                    # logger.info("[INFO]: Restarted process for", p.name)
+                    raise Exception
 
             time.sleep(0.5)
     except KeyboardInterrupt:

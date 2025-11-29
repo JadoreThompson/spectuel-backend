@@ -1,6 +1,7 @@
 import configparser
 import os
 from contextlib import asynccontextmanager, contextmanager
+from datetime import UTC, datetime
 from typing import AsyncGenerator, Generator
 
 from sqlalchemy import create_engine
@@ -22,7 +23,7 @@ smaker_sync = sessionmaker(bind=DB_ENGINE_SYNC, class_=Session, expire_on_commit
 
 
 @asynccontextmanager
-async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_db_sess() -> AsyncGenerator[AsyncSession, None]:
     global smaker
 
     async with smaker.begin() as session:
@@ -34,10 +35,10 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 @contextmanager
-def get_db_session_sync() -> Generator[Session, None, None]:
+def get_db_sess_sync() -> Generator[Session, None, None]:
     global smaker_sync
 
-    with smaker_sync() as sess:
+    with smaker_sync.begin() as sess:
         yield sess
 
 

@@ -1,18 +1,16 @@
 from datetime import timedelta
 
+from spectuel_engine_utils.enums import TimeFrame
 from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db_models import Trades
-from enums import TimeFrame
 from utils.utils import get_datetime
 from .models import OHLC, Stats24h
 
 
 async def get_ohlc_data(
-    db_sess: AsyncSession,
-    instrument_id: str,
-    timeframe: TimeFrame,
+    db_sess: AsyncSession, instrument_id: str, timeframe: TimeFrame
 ) -> list[OHLC]:
     """
     Fetches OHLC data for a given instrument and timeframe. Requires the
@@ -54,7 +52,7 @@ async def get_ohlc_data(
     return ohlc_data
 
 
-async def calculate_24h_stats(db_sess: AsyncSession, instrument_id: str):
+async def calculate_24h_stats(db_sess: AsyncSession, instrument_id: str) -> Stats24h:
     """
     Calculate 24h trading stats for a given instrument.
 
@@ -111,9 +109,7 @@ async def calculate_24h_stats(db_sess: AsyncSession, instrument_id: str):
     )
 
 
-async def get_24h_stats_all(
-    db_sess: AsyncSession, instrument_id: str | None = None
-) -> None:
+async def get_24h_stats_all(db_sess: AsyncSession, instrument_id: str | None = None):
     now = get_datetime()
     since = now - timedelta(hours=24)
 
@@ -165,12 +161,13 @@ async def get_24h_stats_all(
         else:
             h24_change = None
 
-        results.append({
-            "instrument_id": inst_id,
-            "volume": float(volume),
-            "price": float(last_price),
-            "h24_change": h24_change,
-        })
+        results.append(
+            {
+                "instrument_id": inst_id,
+                "volume": float(volume),
+                "price": float(last_price),
+                "h24_change": h24_change,
+            }
+        )
 
     return results
-

@@ -1,327 +1,273 @@
-from enum import Enum
-from uuid import UUID
+import uuid
+from typing import Union
+from datetime import datetime
 
-from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from config import CASH_ESCROW_HKEY, REDIS_CLIENT_ASYNC, COMMAND_QUEUE
-from db_models import AssetBalances, Instruments, Orders, Trades, Users
-from enums import OrderStatus, OrderType, Side, StrategyType
-from engine.models import (
-    Command,
-    CommandType,
-    NewOCOOrder,
-    NewOTOCOOrder,
-    NewOTOOrder,
-    NewSingleOrder,
+from spectuel_engine_utils.commands import (
+    NewSingleOrderCommand,
+    NewOCOOrderCommand,
+    NewOTOOrderCommand,
+    NewOTOCOOrderCommand,
+    SingleOrderMeta
 )
-from utils.utils import get_instrument_escrows_hkey
-from .models import OCOOrderCreate, OTOCOOrderCreate, OTOOrderCreate, OrderCreate
+from spectuel_engine_utils.enums import OrderStatus, StrategyType
+
+from db_models import Orders
+from services import CommandBus
+from .models import (
+    SingleOrderCreate,
+    OCOOrderCreate,
+    OTOOrderCreate,
+    OTOCOOrderCreate,
+    OrderBase
+)
 
 
 class OrderService:
+    @staticmethod
+    async def create(
+        user_id: str | uuid.UUID,
+        details: Union[
+            SingleOrderCreate, OCOOrderCreate, OTOOrderCreate, OTOCOOrderCreate
+        ],
+        db_sess: AsyncSession,
+    ) -> dict:
+        """
+        Main entry point for order creation. Dispatches to specific handlers based on strategy type.
+        """
+        user_id = uuid.UUID(str(user_id))
 
-    @classmethod
-    async def fetch_balance(cls, user_id: str | UUID, db_sess: AsyncSession) -> dict:
-        res = await db_sess.execute(
-            select(Users.cash_balance - Users.escrow_balance).where(
-                Users.user_id == user_id
-            )
+        bus = CommandBus()
+
+        if details.strategy_type == StrategyType.SINGLE:
+            return await OrderService._create_single(user_id, details, db_sess, bus)
+        elif details.strategy_type == StrategyType.OCO:
+            return await OrderService._create_oco(user_id, details, db_sess, bus)
+        elif details.strategy_type == StrategyType.OTO:
+            return await OrderService._create_oto(user_id, details, db_sess, bus)
+        elif details.strategy_type == StrategyType.OTOCO:
+            return await OrderService._create_otoco(user_id, details, db_sess, bus)
+        else:
+            raise ValueError(f"Unsupported strategy type: {details.strategy_type}")
+
+    @staticmethod
+    async def _create_single(
+        user_id: uuid.UUID,
+        details: SingleOrderCreate,
+        db_sess: AsyncSession,
+        bus: CommandBus,
+    ) -> dict:
+        order_id = uuid.uuid4()
+        db_order = Orders(
+            order_id=order_id,
+            user_id=user_id,
+            instrument_id=str(details.instrument_id),
+            side=details.side.value,
+            order_type=details.order_type.value,
+            quantity=details.quantity,
+            limit_price=details.limit_price,
+            stop_price=details.stop_price,
+            status=OrderStatus.PENDING.value
         )
-        available_balance = res.scalar()
+        db_sess.add(db_order)
+        await db_sess.commit()
 
-        return {"available_balance": available_balance}
-
-    @classmethod
-    async def handle_escrow(
-        cls, user_id, db_sess, instrument_id, quantity, price, side: Side
-    ):
-        if side == Side.BID:
-            total_value = quantity * price
-            res = await db_sess.execute(
-                select(Users.cash_balance - Users.escrow_balance).where(
-                    Users.user_id == user_id
-                )
-            )
-            remaining_balance = res.scalar()
-
-            if remaining_balance < total_value:
-                raise ValueError("Invalid cash balance.")
-
-            await db_sess.execute(
-                update(Users)
-                .where(Users.user_id == user_id)
-                .values(escrow_balance=Users.escrow_balance + total_value)
-            )
-
-            await REDIS_CLIENT_ASYNC.hincrbyfloat(
-                CASH_ESCROW_HKEY, user_id, total_value
-            )
-            return
-
-        res = await db_sess.execute(
-            select(AssetBalances.balance - AssetBalances.escrow_balance).where(
-                AssetBalances.user_id == user_id,
-                AssetBalances.instrument_id == instrument_id,
-            )
-        )
-        remaining_balance = res.scalar()
-        if remaining_balance is None or remaining_balance < quantity:
-            raise ValueError("Invalid asset balance.")
-
-        await db_sess.execute(
-            update(AssetBalances)
-            .where(
-                AssetBalances.user_id == user_id,
-                AssetBalances.instrument_id == instrument_id,
-            )
-            .values(escrow_balance=AssetBalances.escrow_balance + quantity)
-        )
-        await db_sess.flush()
-
-        await REDIS_CLIENT_ASYNC.hincrbyfloat(
-            get_instrument_escrows_hkey(instrument_id), user_id, quantity
+        meta = SingleOrderMeta(
+            order_id=order_id,
+            user_id=user_id,
+            order_type=details.order_type,
+            side=details.side,
+            quantity=details.quantity,
+            limit_price=details.limit_price,
+            stop_price=details.stop_price,
         )
 
-    @classmethod
-    async def fetch_last_trade_price(cls, db_sess, instrument_id: str) -> float | None:
-        res = await db_sess.execute(
-            select(Trades.price)
-            .where(Trades.instrument_id == instrument_id)
-            .order_by(Trades.executed_at.desc())
-            .limit(1)
+        command = NewSingleOrderCommand(
+            instrument_id=details.instrument_id,
+            strategy_type=StrategyType.SINGLE,
+            **meta.model_dump(),
         )
-        return res.scalar_one_or_none()
 
-    @classmethod
-    async def _create_order(
-        cls, user_id: str, db_sess: AsyncSession, details: OrderCreate
-    ) -> list[str]:
-        order_data = details.model_dump()
+        await bus.put(command)
 
-        if details.order_type == OrderType.MARKET:
-            res = await db_sess.execute(
-                select(Trades.price)
-                .where(Trades.instrument_id == details.instrument_id)
-                .order_by(Trades.executed_at.desc())
-                .limit(1)
-            )
-            price = res.scalar_one_or_none()
+        return {"order_id": str(order_id), "status": "accepted"}
 
-            if price is None:
-                res = await db_sess.execute(
-                    select(Instruments.starting_price)
-                    .where(Instruments.instrument_id == details.instrument_id)
-                )
-                price = res.scalar_one()
+    @staticmethod
+    async def _create_oco(
+        user_id: uuid.UUID,
+        details: OCOOrderCreate,
+        db_sess: AsyncSession,
+        bus: CommandBus,
+    ) -> dict:
+        group_id = uuid.uuid4()
+        legs_meta = []
+        response_ids = []
 
-            order_data["price"] = price
-            await cls.handle_escrow(
-                user_id,
-                db_sess,
-                details.instrument_id,
-                details.quantity,
-                order_data["price"],
-                details.side,
-            )
-
-
-        res = await db_sess.execute(
-            insert(Orders)
-            .values(
-                user_id=user_id,
-                **{
-                    k: (v.value if isinstance(v, Enum) else v)
-                    for k, v in order_data.items()
-                },
-            )
-            .returning(Orders)
-        )
-        order = res.scalar()
-        await db_sess.flush()
-
-        COMMAND_QUEUE.put_nowait(
-            Command(
-                command_type=CommandType.NEW_ORDER,
-                data=NewSingleOrder(
-                    strategy_type=StrategyType.SINGLE,
-                    instrument_id=details.instrument_id,
-                    order=order.dump_serialised(),
-                ),
-            )
-        )
-        return [str(order.order_id)]
-
-    @classmethod
-    async def _create_oco_order(
-        cls, user_id, db_sess, details: OCOOrderCreate
-    ) -> list[str]:
-        db_orders = []
-        instrument_id = details.legs[0].instrument_id
         for leg_details in details.legs:
-            entry_price = leg_details.limit_price or leg_details.stop_price
-            if entry_price is None:
-                raise ValueError("OCO leg must have a limit_price or stop_price.")
-            res = await db_sess.execute(
-                insert(Orders)
-                .values(
+            leg_id = uuid.uuid4()
+            response_ids.append(str(leg_id))
+
+            db_leg = Orders(
+                order_id=leg_id,
+                user_id=user_id,
+                order_group_id=group_id,
+                instrument_id=str(details.instrument_id),
+                side=leg_details.side.value,
+                order_type=leg_details.order_type.value,
+                quantity=leg_details.quantity,
+                limit_price=leg_details.limit_price,
+                stop_price=leg_details.stop_price,
+                status=OrderStatus.PENDING.value,
+                group_type=StrategyType.OCO,
+            )
+            db_sess.add(db_leg)
+
+            legs_meta.append(
+                SingleOrderMeta(
+                    order_id=leg_id,
                     user_id=user_id,
-                    **{
-                        k: (v.value if isinstance(v, Enum) else v)
-                        for k, v in leg_details.model_dump().items()
-                    },
+                    order_type=leg_details.order_type,
+                    side=leg_details.side,
+                    quantity=leg_details.quantity,
+                    limit_price=leg_details.limit_price,
+                    stop_price=leg_details.stop_price,
                 )
-                .returning(Orders)
             )
-            db_orders.append(res.scalar())
 
-        await db_sess.flush()
+        await db_sess.commit()
 
-        COMMAND_QUEUE.put_nowait(
-            Command(
-                command_type=CommandType.NEW_ORDER,
-                data=NewOCOOrder(
-                    strategy_type=StrategyType.OCO,
-                    instrument_id=instrument_id,
-                    legs=[o.dump_serialised() for o in db_orders],
-                ),
-            )
+        command = NewOCOOrderCommand(
+            instrument_id=details.instrument_id,
+            strategy_type=StrategyType.OCO,
+            legs=legs_meta,
         )
-        return [str(o.order_id) for o in db_orders]
+        await bus.put(command)
 
-    @classmethod
-    async def _create_oto_order(
-        cls, user_id, db_sess, details: OTOOrderCreate
-    ) -> list[str]:
-        parent_details = details.parent
-        instrument_id = parent_details.instrument_id
-        if parent_details.order_type == OrderType.MARKET:
-            entry_price = await cls.fetch_last_trade_price(db_sess, instrument_id)
-            if entry_price is None:
-                raise ValueError(
-                    f"No last trade price for market order on {instrument_id}"
-                )
+        return {"group_id": str(group_id), "order_ids": response_ids}
 
-        res = await db_sess.execute(
-            insert(Orders)
-            .values(
-                user_id=user_id,
-                **{
-                    k: (v.value if isinstance(v, Enum) else v)
-                    for k, v in parent_details.model_dump().items()
-                },
-            )
-            .returning(Orders)
+    @staticmethod
+    async def _create_oto(
+        user_id: uuid.UUID,
+        details: OTOOrderCreate,
+        db_sess: AsyncSession,
+        bus: CommandBus,
+    ) -> dict:
+        group_id = uuid.uuid4()
+
+        parent_id = uuid.uuid4()
+        db_parent = OrderService._build_db_order(
+            user_id, details.instrument_id, details.parent, parent_id
         )
-        parent_order = res.scalar()
+        db_parent.order_group_id = group_id
+        db_parent.group_type = StrategyType.OTO
+        db_sess.add(db_parent)
 
-        child_details = details.child
-        res = await db_sess.execute(
-            insert(Orders)
-            .values(
-                user_id=user_id,
-                **{
-                    k: (v.value if isinstance(v, Enum) else v)
-                    for k, v in child_details.model_dump().items()
-                },
-            )
-            .returning(Orders)
+        child_id = uuid.uuid4()
+        db_child = OrderService._build_db_order(
+            user_id, details.instrument_id, details.child, child_id
         )
-        child_order = res.scalar()
-        await db_sess.flush()
+        db_child.order_group_id = group_id
+        db_child.parent_order_id = parent_id
+        db_child.group_type = StrategyType.OTO
+        db_sess.add(db_child)
 
-        COMMAND_QUEUE.put_nowait(
-            Command(
-                command_type=CommandType.NEW_ORDER,
-                data=NewOTOOrder(
-                    strategy_type=StrategyType.OTO,
-                    instrument_id=instrument_id,
-                    parent=parent_order.dump_serialised(),
-                    child=child_order.dump_serialised(),
-                ),
-            )
+        await db_sess.commit()
+
+        command = NewOTOOrderCommand(
+            instrument_id=details.instrument_id,
+            strategy_type=StrategyType.OTO,
+            parent=OrderService._to_meta(parent_id, user_id, details.parent),
+            child=OrderService._to_meta(child_id, user_id, details.child),
         )
-        return [str(parent_order.order_id), str(child_order.order_id)]
+        await bus.put(command)
 
-    @classmethod
-    async def _create_otoco_order(
-        cls, user_id, db_sess, details: OTOCOOrderCreate
-    ) -> list[str]:
-        parent_details = details.parent
-        instrument_id = parent_details.instrument_id
-        if parent_details.order_type == OrderType.MARKET:
-            entry_price = await cls.fetch_last_trade_price(db_sess, instrument_id)
-            if entry_price is None:
-                raise ValueError(
-                    f"No last trade price for market order on {instrument_id}"
-                )
-            await cls.handle_escrow(
-                user_id,
-                db_sess,
-                instrument_id,
-                parent_details.quantity,
-                entry_price,
-                parent_details.side,
-            )
-
-        parent_res = await db_sess.execute(
-            insert(Orders)
-            .values(
-                user_id=user_id,
-                **{
-                    k: (v.value if isinstance(v, Enum) else v)
-                    for k, v in parent_details.model_dump().items()
-                },
-            )
-            .returning(Orders)
-        )
-        parent_order = parent_res.scalar()
-
-        oco_leg_orders = []
-        for leg_details in details.oco_legs:
-            res = await db_sess.execute(
-                insert(Orders)
-                .values(
-                    user_id=user_id,
-                    **{
-                        k: (v.value if isinstance(v, Enum) else v)
-                        for k, v in leg_details.model_dump().items()
-                    },
-                )
-                .returning(Orders)
-            )
-            oco_leg_orders.append(res.scalar())
-
-        await db_sess.flush()
-
-        COMMAND_QUEUE.put_nowait(
-            Command(
-                command_type=CommandType.NEW_ORDER,
-                data=NewOTOCOOrder(
-                    strategy_type=StrategyType.OTOCO,
-                    instrument_id=instrument_id,
-                    parent=parent_order.dump_serialised(),
-                    oco_legs=[o.dump_serialised() for o in oco_leg_orders],
-                ),
-            )
-        )
-        return [str(parent_order.order_id)] + [str(o.order_id) for o in oco_leg_orders]
-
-    @classmethod
-    async def create(cls, user_id: str, details, db_sess: AsyncSession) -> dict:
-        """Public entry point to create any order type using a type-to-method map."""
-        create_map = {
-            OrderCreate: cls._create_order,
-            OCOOrderCreate: cls._create_oco_order,
-            OTOOrderCreate: cls._create_oto_order,
-            OTOCOOrderCreate: cls._create_otoco_order,
+        return {
+            "group_id": str(group_id),
+            "parent_id": str(parent_id),
+            "child_id": str(child_id),
         }
 
-        creator = create_map.get(type(details))
-        if not creator:
-            raise ValueError(f"Unsupported order type: {type(details)}")
+    @staticmethod
+    async def _create_otoco(
+        user_id: uuid.UUID,
+        details: OTOCOOrderCreate,
+        db_sess: AsyncSession,
+        bus: CommandBus,
+    ) -> dict:
+        group_id = uuid.uuid4()
 
-        order_ids = await creator(user_id, db_sess, details)
-        balances = await cls.fetch_balance(user_id, db_sess)
+        parent_id = uuid.uuid4()
+        db_parent = OrderService._build_db_order(
+            user_id, details.instrument_id, details.parent, parent_id
+        )
+        db_parent.order_group_id = group_id
+        db_parent.group_type = StrategyType.OTOCO
+        db_sess.add(db_parent)
+
+        child_ids = []
+        legs_meta = []
+
+        for leg_spec in details.oco_legs:
+            leg_id = uuid.uuid4()
+            child_ids.append(str(leg_id))
+
+            db_leg = OrderService._build_db_order(
+                user_id, details.instrument_id, leg_spec, leg_id
+            )
+            db_leg.order_group_id = group_id
+            db_leg.parent_order_id = parent_id
+            db_leg.group_type = StrategyType.OTOCO
+            db_sess.add(db_leg)
+
+            legs_meta.append(OrderService._to_meta(leg_id, user_id, leg_spec))
+
         await db_sess.commit()
-        return {"order_ids": order_ids, **balances}
+
+        command = NewOTOCOOrderCommand(
+            instrument_id=details.instrument_id,
+            strategy_type=StrategyType.OTOCO,
+            parent=OrderService._to_meta(parent_id, user_id, details.parent),
+            oco_legs=legs_meta,
+        )
+        await bus.put(command)
+
+        return {
+            "group_id": str(group_id),
+            "parent_id": str(parent_id),
+            "legs": child_ids,
+        }
+
+    @staticmethod
+    def _build_db_order(
+        user_id: uuid.UUID,
+        instrument_id: uuid.UUID,
+        details: OrderBase,
+        order_id: uuid.UUID,
+    ) -> Orders:
+        """Helper to map API model to DB model."""
+        return Orders(
+            order_id=order_id,
+            user_id=user_id,
+            instrument_id=str(instrument_id),
+            side=details.side.value,
+            order_type=details.order_type.value,
+            quantity=details.quantity,
+            limit_price=details.limit_price,
+            stop_price=details.stop_price,
+            status=OrderStatus.PENDING.value,
+        )
+
+    @staticmethod
+    def _to_meta(
+        order_id: uuid.UUID, user_id: uuid.UUID, details: OrderBase
+    ) -> SingleOrderMeta:
+        """Helper to map API model to Engine Command Meta."""
+        return SingleOrderMeta(
+            order_id=order_id,
+            user_id=user_id,
+            order_type=details.order_type,
+            side=details.side,
+            quantity=details.quantity,
+            limit_price=details.limit_price,
+            stop_price=details.stop_price,
+        )

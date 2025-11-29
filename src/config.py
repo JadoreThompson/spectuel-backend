@@ -1,14 +1,9 @@
 import logging
 import os
 import sys
-from multiprocessing.queues import Queue as MPQueue
 from urllib.parse import quote
 
 from dotenv import load_dotenv
-from redis import Redis
-from redis.asyncio import Redis as RedisAsync
-from sqlalchemy import create_engine
-from sqlalchemy.ext.asyncio import create_async_engine
 
 
 # Paths
@@ -55,9 +50,13 @@ COOKIE_ALIAS = "spectuel-cookie"
 JWT_SECRET_KEY = os.getenv("JWT_SECRET")
 JWT_ALGO = os.getenv("JWT_ALGO")
 JWT_EXPIRY_SECS = int(os.getenv("JWT_EXPIRY_SECS"))
+JWT_SECRET = os.getenv("JWT_SECRET")
 
 # API
 PAGE_SIZE = 10
+
+# Services
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 
 # Logging
 logging.basicConfig(

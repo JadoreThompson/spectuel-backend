@@ -1,17 +1,14 @@
-from datetime import timedelta
-
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.middleware import verify_jwt
+from api.dependencies import depends_verify_jwt
+from api.dependencies import depends_db_sess
+from api.services import JWTService
 from api.typing import JWTPayload
-from api.utils import depends_db_session, generate_jwt_token, set_cookie
-from config import CASH_BALANCE_HKEY, REDIS_CLIENT_ASYNC
 from db_models import Users
-from utils.utils import get_datetime, get_default_cash_balance
-from .models import UserCreate
+from .models import UserCreate, UserLogin
 
 
 route = APIRouter(prefix="/auth", tags=["auth"])
@@ -19,22 +16,26 @@ route = APIRouter(prefix="/auth", tags=["auth"])
 
 @route.post("/login")
 async def login_user(
-    body: UserCreate,
-    db_sess: AsyncSession = Depends(depends_db_session),
+    body: UserLogin, db_sess: AsyncSession = Depends(depends_db_sess)
 ):
-    result = await db_sess.execute(select(Users).where(Users.username == body.username))
-    user = result.scalar_one_or_none()
-    if user is None or user.password != body.password:
-        return JSONResponse(status_code=401, content={"error": "Invalid credentials"})
+    query = select(Users)
 
+    if body.username is not None:
+        query = query.where(Users.username == body.username)
+    if body.email is not None:
+        query = query.where(Users.email == body.email)
+
+    user = await db_sess.scalar(query)
+    if user is None or user.password != body.password:
+        raise HTTPException(status_code=400, detail="Invalid credentials")
+    
     rsp = JSONResponse(content={"message": "Logged in successfully."})
-    return set_cookie(user.user_id, rsp)
+    return JWTService.set_cookie(user, rsp)
 
 
 @route.post("/register")
 async def register_user(
-    body: UserCreate,
-    db_sess: AsyncSession = Depends(depends_db_session),
+    body: UserCreate, db_sess: AsyncSession = Depends(depends_db_sess)
 ):
     result = await db_sess.execute(select(Users).where(Users.username == body.username))
     if result.scalar_one_or_none():
@@ -42,36 +43,18 @@ async def register_user(
             status_code=409, content={"error": "Username already registered"}
         )
 
-    res = await db_sess.execute(
-        insert(Users).values(**body.model_dump()).returning(Users.user_id)
+    user = await db_sess.scalar(
+        insert(Users)
+        .values(username=body.username, email=body.email, password=body.password)
+        .returning(Users)
     )
-    user_id = res.scalar()
 
     await db_sess.commit()
 
-    # Setting for engine
-    await REDIS_CLIENT_ASYNC.hset(
-        CASH_BALANCE_HKEY, str(user_id), get_default_cash_balance()
-    )
-
     rsp = JSONResponse(status_code=200, content={"message": "Registered successfully."})
-    return set_cookie(user_id, rsp)
+    return JWTService.set_cookie(user, rsp)
 
 
 @route.get("/me")
-async def get_current_user(jwt_payload: JWTPayload = Depends(verify_jwt)):
+async def get_current_user(jwt_payload: JWTPayload = Depends(depends_verify_jwt)):
     pass
-
-
-@route.get("/me-id")
-async def get_current_user_id(jwt_payload: JWTPayload = Depends(verify_jwt)):
-    return {"user_id": jwt_payload.sub}
-
-
-@route.get(
-    "/access-token",
-    summary="Returns a websocket token to be used to connect to the /ws/orders websocket for order updates",
-)
-async def get_access_token(jwt: JWTPayload = Depends(verify_jwt)):
-    token = generate_jwt_token(sub=jwt.sub, exp=get_datetime() + timedelta(minutes=5))
-    return {"access_token": token}

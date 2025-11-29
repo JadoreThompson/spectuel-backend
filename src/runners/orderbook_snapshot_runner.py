@@ -83,7 +83,7 @@ class OrderBookSnapshotRunner(RunnerBase):
 
         try:
             await asyncio.gather(
-                self._consume_loop(self._consumer), self._snapshot_loop(self._producer)
+                self._consume_loop(), self._snapshot_loop()
             )
         except asyncio.CancelledError:
             self._logger.info("Runner cancelled.")

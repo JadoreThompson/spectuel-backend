@@ -1,49 +1,52 @@
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
+from spectuel_engine_utils.enums import OrderStatus, Side
+from spectuel_engine_utils.commands import (
+    CommandType,
+    CancelOrderCommand,
+    ModifyOrderCommand,
+)
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.middleware import verify_jwt
+from api.dependencies import depends_verify_jwt, depends_db_sess
+from api.shared.models import PaginatedResponse
 from api.typing import JWTPayload
-from api.utils.db import depends_db_session
 from config import PAGE_SIZE
 from db_models import Orders
-from enums import OrderStatus, Side
-from .controller import (
-    modify_order as modify_order_controller,
-    cancel_order as cancel_order_controller,
-    cancel_all_orders as cancel_all_orders_controller,
-)
+from services import CommandBus
+from .controller import cancel_all_orders as cancel_all_orders_controller
 from .models import (
     OCOOrderCreate,
     OTOCOOrderCreate,
     OTOOrderCreate,
-    OrderCreate,
     OrderModify,
     OrderRead,
-    PaginatedOrderResponse,
+    SingleOrderCreate,
 )
 from .order_service import OrderService
 
 
 route = APIRouter(prefix="/orders", tags=["orders"])
+command_bus = CommandBus()
 
 
 @route.post("/", status_code=202)
 async def create_order(
-    details: OrderCreate,
-    jwt: JWTPayload = Depends(verify_jwt),
-    db_sess: AsyncSession = Depends(depends_db_session),
+    details: SingleOrderCreate,
+    jwt: JWTPayload = Depends(depends_verify_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """
-    Accepts a new order. The order is placed on a queue for processing
-    by the matching engine. The response is immediate and does not
-    confirm the order has been filled.
+    Accepts a new single order.
     """
     try:
         return await OrderService.create(jwt.sub, details, db_sess)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except IntegrityError:
         return JSONResponse(status_code=404, content={"error": "Invalid instrument."})
 
@@ -51,11 +54,16 @@ async def create_order(
 @route.post("/oco", status_code=202)
 async def create_oco_order(
     details: OCOOrderCreate,
-    jwt: JWTPayload = Depends(verify_jwt),
-    db_sess: AsyncSession = Depends(depends_db_session),
+    jwt: JWTPayload = Depends(depends_verify_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
 ):
+    """
+    Accepts a new OCO (One-Cancels-the-Other) order group.
+    """
     try:
         return await OrderService.create(jwt.sub, details, db_sess)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except IntegrityError:
         return JSONResponse(status_code=404, content={"error": "Invalid instrument."})
 
@@ -63,11 +71,16 @@ async def create_oco_order(
 @route.post("/oto", status_code=202)
 async def create_oto_order(
     details: OTOOrderCreate,
-    jwt: JWTPayload = Depends(verify_jwt),
-    db_sess: AsyncSession = Depends(depends_db_session),
+    jwt: JWTPayload = Depends(depends_verify_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
 ):
+    """
+    Accepts a new OTO (One-Triggers-the-Other) order group.
+    """
     try:
         return await OrderService.create(jwt.sub, details, db_sess)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except IntegrityError:
         return JSONResponse(status_code=404, content={"error": "Invalid instrument."})
 
@@ -75,23 +88,28 @@ async def create_oto_order(
 @route.post("/otoco", status_code=202)
 async def create_otoco_order(
     details: OTOCOOrderCreate,
-    jwt: JWTPayload = Depends(verify_jwt),
-    db_sess: AsyncSession = Depends(depends_db_session),
+    jwt: JWTPayload = Depends(depends_verify_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
 ):
+    """
+    Accepts a new OTOCO (One-Triggers-One-Cancels-the-Other) order group.
+    """
     try:
         return await OrderService.create(jwt.sub, details, db_sess)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except IntegrityError:
         return JSONResponse(status_code=404, content={"error": "Invalid instrument."})
 
 
-@route.get("/", response_model=PaginatedOrderResponse)
+@route.get("/", response_model=PaginatedResponse[OrderRead])
 async def get_orders(
     page: int = Query(1, ge=1),
-    instrument: list[str] = Query(default=[]),
-    status: list[OrderStatus] = Query(default=[]),
-    side: list[Side] = Query(default=[]),
-    jwt: JWTPayload = Depends(verify_jwt),
-    db_sess: AsyncSession = Depends(depends_db_session),
+    instrument: list[str] = Query(default_factory=list),
+    status: list[OrderStatus] = Query(default_factory=list),
+    side: list[Side] = Query(default_factory=list),
+    jwt: JWTPayload = Depends(depends_verify_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """
     Retrieves a paginated list of orders for the authenticated user,
@@ -114,7 +132,7 @@ async def get_orders(
 
     has_next = len(orders) > PAGE_SIZE
 
-    return PaginatedOrderResponse(
+    return PaginatedResponse[OrderRead](
         page=page,
         size=len(orders[:PAGE_SIZE]),
         has_next=has_next,
@@ -125,49 +143,75 @@ async def get_orders(
 @route.get("/{order_id}", response_model=OrderRead)
 async def get_order(
     order_id: UUID,
-    jwt: JWTPayload = Depends(verify_jwt),
-    db_sess: AsyncSession = Depends(depends_db_session),
+    jwt: JWTPayload = Depends(depends_verify_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """Retrieves a single order by its ID."""
     order = await db_sess.get(Orders, order_id)
     if not order or order.user_id != jwt.sub:
         raise HTTPException(status_code=404, detail="Order not found")
-    dumped = order.dump()
-    dumped.pop("user_id")
+
+    dumped = vars(order)
+    if "_sa_instance_state" in dumped:
+        dumped.pop("_sa_instance_state")
     return OrderRead(**dumped)
 
 
 @route.patch("/{order_id}", status_code=202, summary="Modify an active order")
 async def modify_order(
-    order_id: str,
+    order_id: UUID,
     details: OrderModify,
-    jwt: JWTPayload = Depends(verify_jwt),
-    db_sess: AsyncSession = Depends(depends_db_session),
+    jwt: JWTPayload = Depends(depends_verify_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """Requests modification of an active order (e.g., changing the price)."""
-    response = await modify_order_controller(jwt.sub, order_id, details, db_sess)
-    if not response:
-        raise HTTPException(status_code=404, detail="Order not found or not active")
-    return response
+    order = await db_sess.scalar(
+        select(Orders).where(Orders.order_id == order_id, Orders.user_id == jwt.sub)
+    )
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status == OrderStatus.FILLED:
+        raise HTTPException(
+            status_code=400, detail="Cannot perform operation on filled order"
+        )
 
-
-@route.delete("/", status_code=202, summary="Cancel all active orders for the user")
-async def cancel_all_orders(
-    jwt: JWTPayload = Depends(verify_jwt),
-    db_sess: AsyncSession = Depends(depends_db_session),
-):
-    """Sends requests to cancel all PENDING or PARTIALLY_FILLED orders."""
-    await cancel_all_orders_controller(jwt.sub, db_sess)
+    command = ModifyOrderCommand(
+        version=1,
+        order_id=order_id,
+        limit_price=details.limit_price,
+        stop_price=details.stop_price,
+    )
+    await command_bus.put(command)
 
 
 @route.delete("/{order_id}", status_code=202, summary="Cancel a specific order")
 async def cancel_order(
     order_id: UUID,
-    jwt: JWTPayload = Depends(verify_jwt),
-    db_sess: AsyncSession = Depends(depends_db_session),
+    jwt: JWTPayload = Depends(depends_verify_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """Sends a request to cancel a specific order by its ID."""
-    order_id = await cancel_order_controller(jwt.sub, order_id, db_sess)
-    if not order_id:
+    res = await db_sess.execute(
+        select(Orders).where(Orders.order_id == order_id, Orders.user_id == jwt.sub)
+    )
+    order = res.scalar_one_or_none()
+    if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    return {"order_id": str(order_id)}
+
+    cmd_data = CancelOrderCommand(
+        version=1,
+        type=CommandType.CANCEL_ORDER,
+        order_id=str(order_id),
+        instrument_id=order.instrument_id,
+    )
+
+    await command_bus.put(cmd_data)
+
+
+@route.delete("/", status_code=202, summary="Cancel all active orders for the user")
+async def cancel_all_orders(
+    jwt: JWTPayload = Depends(depends_verify_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    """Sends requests to cancel all PENDING or PARTIALLY_FILLED orders."""
+    await cancel_all_orders_controller(jwt.sub, db_sess)
