@@ -3,9 +3,8 @@ from typing import Callable, Type, TypeVar
 from fastapi import Request, WebSocket
 from fastapi.responses import JSONResponse
 
-from api.services import JWTService, ApiKeyService
 from config import COOKIE_ALIAS
-from services import KafkaService
+from services import JWTService, ApiKeyService, KafkaService
 from utils.db import smaker
 from .exc import ApiKeyError, JWTError
 from .typing import JWTPayload
@@ -14,25 +13,48 @@ from .typing import JWTPayload
 T = TypeVar("T")
 
 
-async def depends_verify_jwt(req: Request) -> JWTPayload:
-    """Verify the JWT token from the request cookies and validate it.
+# async def depends_verify_jwt(req: Request) -> JWTPayload:
+#     """Verify the JWT token from the request cookies and validate it.
 
-    Args:
-        req (Request)
+#     Args:
+#         req (Request)
 
-    Raises:
-        JWTError: If the JWT token is missing, expired, or invalid.
+#     Raises:
+#         JWTError: If the JWT token is missing, expired, or invalid.
 
-    Returns:
-        JWTPayload: The decoded JWT payload if valid.
-    """
-    token = req.cookies.get(COOKIE_ALIAS)
+#     Returns:
+#         JWTPayload: The decoded JWT payload if valid.
+#     """
+#     token = req.cookies.get(COOKIE_ALIAS)
 
-    if not token:
-        raise JWTError("JWT token is missing")
+#     if not token:
+#         raise JWTError("JWT token is missing")
 
-    payload = JWTService.decode_jwt(token)
-    return await JWTService.validate_jwt(payload)
+#     payload = JWTService.decode_jwt(token)
+#     return await JWTService.validate_jwt(payload)
+
+
+def depends_jwt(is_authenticated: bool = True):
+    """Verify the JWT token from the request cookies and validate it."""
+
+    async def func(req: Request) -> JWTPayload:
+        """
+        Args:
+            req (Request)
+
+        Raises:
+            JWTError: If the JWT token is missing, expired, or invalid.
+
+        Returns:
+            JWTPayload: The decoded JWT payload if valid.
+        """
+        token = req.cookies.get(COOKIE_ALIAS)
+        if not token:
+            raise JWTError("Authentication token is missing")
+
+        return await JWTService.validate_jwt(token, is_authenticated=is_authenticated)
+
+    return func
 
 
 async def depends_api_key_ws(ws: WebSocket) -> JWTPayload:

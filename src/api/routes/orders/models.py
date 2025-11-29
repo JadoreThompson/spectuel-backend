@@ -16,7 +16,7 @@ class OrderBase(SingleOrderMeta):
 
 class OrderCreateBase(CustomBaseModel):
     strategy_type: StrategyType
-    instrument_id: UUID
+    symbol: str
 
 
 class SingleOrderCreate(OrderCreateBase, OrderBase):
@@ -96,8 +96,3 @@ class OrderRead(OrderBase):
     executed_quantity: float
     avg_fill_price: float | None = None
     created_at: datetime
-
-
-OrderCreate: TypeAlias = Union[
-    SingleOrderCreate, OCOOrderCreate, OTOOrderCreate, OTOCOOrderCreate
-]

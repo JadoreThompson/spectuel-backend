@@ -42,6 +42,7 @@ class Users(Base):
     )
     escrow_balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.00)
     api_key: Mapped[str] = mapped_column(String, nullable=True)
+    jwt: Mapped[str] = mapped_column(String, nullable=True)
     authenticated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=get_datetime

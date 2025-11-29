@@ -65,4 +65,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    from services import EmailService
+    em = EmailService("testing", "testing@gova.chat")
+    em.send_email_sync("wifimemesyt@gmail.com", "Testing", "testing")

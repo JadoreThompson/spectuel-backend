@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import depends_verify_jwt
+from api.dependencies import depends_jwt
 from api.typing import JWTPayload
 from api.dependencies import depends_db_sess
 from db_models import AssetBalances, Trades, Users
@@ -16,7 +16,7 @@ route = APIRouter(prefix="/user", tags=["user"])
 @route.get("/")
 async def get_user_overview(
     page: int = Query(1, ge=1),
-    jwt: JWTPayload = Depends(depends_verify_jwt),
+    jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     res = await db_sess.execute(
@@ -71,7 +71,7 @@ async def get_user_overview(
 @route.get("/history", response_model=list[PortfolioHistory])
 async def get_user_portfolio_history(
     interval: HistoryInterval,
-    jwt: JWTPayload = Depends(depends_verify_jwt),
+    jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     history = await get_portfolio_history(interval, jwt.sub, 6, db_sess)

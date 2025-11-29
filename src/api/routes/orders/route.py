@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import depends_verify_jwt, depends_db_sess
+from api.dependencies import depends_jwt, depends_db_sess
 from api.shared.models import PaginatedResponse
 from api.typing import JWTPayload
 from config import PAGE_SIZE
@@ -37,7 +37,7 @@ command_bus = CommandBus()
 @route.post("/", status_code=202)
 async def create_order(
     details: SingleOrderCreate,
-    jwt: JWTPayload = Depends(depends_verify_jwt),
+    jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """
@@ -54,7 +54,7 @@ async def create_order(
 @route.post("/oco", status_code=202)
 async def create_oco_order(
     details: OCOOrderCreate,
-    jwt: JWTPayload = Depends(depends_verify_jwt),
+    jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """
@@ -71,7 +71,7 @@ async def create_oco_order(
 @route.post("/oto", status_code=202)
 async def create_oto_order(
     details: OTOOrderCreate,
-    jwt: JWTPayload = Depends(depends_verify_jwt),
+    jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """
@@ -88,7 +88,7 @@ async def create_oto_order(
 @route.post("/otoco", status_code=202)
 async def create_otoco_order(
     details: OTOCOOrderCreate,
-    jwt: JWTPayload = Depends(depends_verify_jwt),
+    jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """
@@ -108,7 +108,7 @@ async def get_orders(
     instrument: list[str] = Query(default_factory=list),
     status: list[OrderStatus] = Query(default_factory=list),
     side: list[Side] = Query(default_factory=list),
-    jwt: JWTPayload = Depends(depends_verify_jwt),
+    jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """
@@ -143,7 +143,7 @@ async def get_orders(
 @route.get("/{order_id}", response_model=OrderRead)
 async def get_order(
     order_id: UUID,
-    jwt: JWTPayload = Depends(depends_verify_jwt),
+    jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """Retrieves a single order by its ID."""
@@ -161,7 +161,7 @@ async def get_order(
 async def modify_order(
     order_id: UUID,
     details: OrderModify,
-    jwt: JWTPayload = Depends(depends_verify_jwt),
+    jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """Requests modification of an active order (e.g., changing the price)."""
@@ -187,7 +187,7 @@ async def modify_order(
 @route.delete("/{order_id}", status_code=202, summary="Cancel a specific order")
 async def cancel_order(
     order_id: UUID,
-    jwt: JWTPayload = Depends(depends_verify_jwt),
+    jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """Sends a request to cancel a specific order by its ID."""
@@ -208,9 +208,10 @@ async def cancel_order(
     await command_bus.put(cmd_data)
 
 
-@route.delete("/", status_code=202, summary="Cancel all active orders for the user")
+@route.delete("/symbol", status_code=202, summary="Cancel all active orders for the user")
 async def cancel_all_orders(
-    jwt: JWTPayload = Depends(depends_verify_jwt),
+    symbol: str | None,
+    jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """Sends requests to cancel all PENDING or PARTIALLY_FILLED orders."""

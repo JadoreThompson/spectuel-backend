@@ -34,12 +34,14 @@ class JWTService:
             raise JWTError("Invalid token")
 
     @staticmethod
-    def set_cookie(user: Users, rsp: Response | None = None) -> Response:
+    def set_jwt_cookie(user: Users, rsp: Response | None = None, /, **kw) -> Response:
         token = JWTService.generate_jwt(
             sub=user.user_id,
             em=user.email,
             authenticated=user.authenticated_at is not None,
+            **kw
         )
+
         if rsp is None:
             rsp = Response()
 
@@ -53,29 +55,21 @@ class JWTService:
         return rsp
 
     @staticmethod
-    async def set_user_cookie(
-        user: Users, db_sess: AsyncSession | None = None, rsp: Response | None = None, status_code: int | None = None
+    async def set_jwt_cookie_v2(
+        user: Users, db_sess: AsyncSession, rsp: Response | None = None, /, **kw
     ) -> Response:
         token = JWTService.generate_jwt(
             sub=user.user_id,
             em=user.email,
             authenticated=user.authenticated_at is not None,
+            **kw
         )
         if rsp is None:
             rsp = Response()
-        if status_code is not None:
-            rsp.status_code = status_code
 
-        if db_sess:
-            await db_sess.execute(
-                update(Users).values(jwt=token).where(Users.user_id == user.user_id)
-            )
-        else:
-            async with get_db_sess() as db_sess:
-                await db_sess.execute(
-                    update(Users).values(jwt=token).where(Users.user_id == user.user_id)
-                )
-            await db_sess.commit()
+        await db_sess.execute(
+            update(Users).values(jwt=token).where(Users.user_id == user.user_id)
+        )
         
         rsp.set_cookie(
             COOKIE_ALIAS,
@@ -85,9 +79,11 @@ class JWTService:
             expires=get_datetime() + timedelta(seconds=JWT_EXPIRY_SECS),
         )
         return rsp
+    
+
 
     @staticmethod
-    def remove_cookie(rsp: Response | None = None) -> Response:
+    def remove_jwt(rsp: Response | None = None) -> Response:
         if rsp is None:
             rsp = Response()
         rsp.delete_cookie(COOKIE_ALIAS, httponly=True, secure=IS_PRODUCTION)

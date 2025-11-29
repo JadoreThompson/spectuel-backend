@@ -8,7 +8,7 @@ from spectuel_engine_utils.commands import (
     NewOCOOrderCommand,
     NewOTOOrderCommand,
     NewOTOCOOrderCommand,
-    SingleOrderMeta
+    SingleOrderMeta,
 )
 from spectuel_engine_utils.enums import OrderStatus, StrategyType
 
@@ -19,7 +19,7 @@ from .models import (
     OCOOrderCreate,
     OTOOrderCreate,
     OTOCOOrderCreate,
-    OrderBase
+    OrderBase,
 )
 
 
@@ -57,6 +57,7 @@ class OrderService:
         db_sess: AsyncSession,
         bus: CommandBus,
     ) -> dict:
+
         order_id = uuid.uuid4()
         db_order = Orders(
             order_id=order_id,
@@ -67,7 +68,7 @@ class OrderService:
             quantity=details.quantity,
             limit_price=details.limit_price,
             stop_price=details.stop_price,
-            status=OrderStatus.PENDING.value
+            status=OrderStatus.PENDING.value,
         )
         db_sess.add(db_order)
         await db_sess.commit()
@@ -236,6 +237,9 @@ class OrderService:
             "parent_id": str(parent_id),
             "legs": child_ids,
         }
+
+    @staticmethod
+    def _get_instrument_id(symbol: str) -> None: ...
 
     @staticmethod
     def _build_db_order(

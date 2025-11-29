@@ -1,5 +1,6 @@
 import logging
 from typing import ClassVar
+
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
 from config import KAFKA_BOOTSTRAP_SERVERS

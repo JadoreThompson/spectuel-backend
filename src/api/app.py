@@ -4,10 +4,10 @@ from fastapi.responses import JSONResponse
 
 from api.exc import JWTError
 from api.middlewares import RateLimitMiddleware
-from api.routes.auth.route import route as auth_route
+from api.routes.auth.route import router as auth_route
 from api.routes.instruments.route import route as instruments_route
 from api.routes.orders.route import route as orders_route
-from api.routes.public.route import route as public_route
+from api.routes.public.route import router as public_route
 from api.routes.users.route import route as user_route
 from services import KafkaService
 
