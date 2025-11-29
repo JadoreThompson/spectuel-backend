@@ -1,3 +1,4 @@
+from typing import ClassVar
 from aiokafka import AIOKafkaProducer
 
 from spectuel_engine_utils.commands import CommandT
@@ -6,8 +7,11 @@ from config import KAFKA_BOOTSTRAP_SERVERS, KAFKA_COMMANDS_TOPIC
 
 
 class CommandBus:
-    def __init__(self):
-        self._producer = AIOKafkaProducer(bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS)
+    _producer: ClassVar[AIOKafkaProducer | None] = None
 
-    async def put(self, command: CommandT) -> None:
-        await self._producer.send(KAFKA_COMMANDS_TOPIC, command.model_dump_json())
+    @classmethod
+    async def put(cls, command: CommandT) -> None:
+        if cls._producer is None:
+            cls._producer = AIOKafkaProducer(bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS)
+            await cls._producer.start()
+        await cls._producer.send(KAFKA_COMMANDS_TOPIC, command.model_dump_json().encode())

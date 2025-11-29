@@ -281,8 +281,8 @@ async def change_username(
     return {"message": "A verification code has been sent to your email."}
 
 
-@router.post("/change-username", status_code=202)
-async def change_username(
+@router.post("/change-email", status_code=202)
+async def change_email(
     body: UpdateEmail,
     bg_tasks: BackgroundTasks,
     jwt: JWTPayload = Depends(depends_jwt()),

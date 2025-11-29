@@ -148,15 +148,14 @@ wheels = [
 
 [[package]]
 name = "anyio"
-version = "4.11.0"
+version = "4.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
-    { name = "sniffio" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c6/78/7d432127c41b50bccba979505f272c16cbcadcc33645d5fa3a738110ae75/anyio-4.11.0.tar.gz", hash = "sha256:82a8d0b81e318cc5ce71a5f1f8b5c4e63619620b63141ef8c995fa0db95a57c4", size = 219094, upload-time = "2025-09-23T09:19:12.58Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/16/ce/8a777047513153587e5434fd752e89334ac33e379aa3497db860eeb60377/anyio-4.12.0.tar.gz", hash = "sha256:73c693b567b0c55130c104d0b43a9baf3aa6a31fc6110116509f27bf75e21ec0", size = 228266, upload-time = "2025-11-28T23:37:38.911Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/b3/9b1a8074496371342ec1e796a96f99c82c945a339cd81a8e73de28b4cf9e/anyio-4.11.0-py3-none-any.whl", hash = "sha256:0287e96f4d26d4149305414d4e3bc32f0dcd0862365a4bddea19d7a1ec38c4fc", size = 109097, upload-time = "2025-09-23T09:19:10.601Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/9c/36c5c37947ebfb8c7f22e0eb6e4d188ee2d53aa3880f3f2744fb894f0cb1/anyio-4.12.0-py3-none-any.whl", hash = "sha256:dad2376a628f98eeca4881fc56cd06affd18f659b17a747d3ff0307ced94b1bb", size = 113362, upload-time = "2025-11-28T23:36:57.897Z" },
 ]
 
 [[package]]
@@ -762,7 +761,7 @@ dependencies = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.13.2" },
     { name = "aiokafka", specifier = ">=0.12.0" },
-    { name = "alembic", specifier = ">=1.16.4" },
+    { name = "alembic", specifier = ">=1.17.2" },
     { name = "argon2-cffi", specifier = ">=25.1.0" },
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "faker", specifier = ">=37.5.3" },
@@ -1097,15 +1096,6 @@ wheels = [
 ]
 
 [[package]]
-name = "sniffio"
-version = "1.3.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a2/87/a6771e1546d97e7e041b6ae58d80074f81b7d5121207425c964ddf5cfdbd/sniffio-1.3.1.tar.gz", hash = "sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc", size = 20372, upload-time = "2024-02-25T23:20:04.057Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e9/44/75a9c9421471a6c4805dbf2356f7c181a29c1879239abab1ea2cc8f38b40/sniffio-1.3.1-py3-none-any.whl", hash = "sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2", size = 10235, upload-time = "2024-02-25T23:20:01.196Z" },
-]
-
-[[package]]
 name = "sortedcontainers"
 version = "2.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1116,14 +1106,14 @@ wheels = [
 
 [[package]]
 name = "spectuel-engine-utils"
-version = "0.0.25"
+version = "0.0.27"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/28/d3/9d451f2a1d6fe83e1858ad96a9a1a37eaa775ec162068e45c6ea8e13119a/spectuel_engine_utils-0.0.25.tar.gz", hash = "sha256:ba6678cebbe420adf8b2a4eca20d3dc5e5bcd3f0fbc50e2aa7e74c5fd2e5dfc5", size = 9435, upload-time = "2025-11-28T16:15:55.349Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/a7/9cc5ebcbea3852961fef3c537fe6aa55236ab1246d592a53e80d792e137b/spectuel_engine_utils-0.0.27.tar.gz", hash = "sha256:20902300f868b29ac1bc45bcbcc62fdd55830fa7e412b03c24c9692189a48fe7", size = 9545, upload-time = "2025-11-29T21:21:37.388Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/09/87e25ab170f0194396518cfa9149f6888e9ba0a89f223dd0075b61c95f29/spectuel_engine_utils-0.0.25-py3-none-any.whl", hash = "sha256:b3a972d7ba68f58973ba3daebb5eb9bbcd55485688a92344c6bc68269bfb9658", size = 7238, upload-time = "2025-11-28T16:15:54.56Z" },
+    { url = "https://files.pythonhosted.org/packages/23/b8/05abc6fa9836d17c7d2b16f27c71e42a920889bde94941854e4a7dd9589f/spectuel_engine_utils-0.0.27-py3-none-any.whl", hash = "sha256:4467803b00fb94d355fc3fa77fce22f9b2a2aa2583b68283685065a07975150d", size = 7331, upload-time = "2025-11-29T21:21:36.261Z" },
 ]
 
 [[package]]

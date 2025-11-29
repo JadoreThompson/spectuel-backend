@@ -22,17 +22,18 @@ class KafkaService:
 
     @classmethod
     async def stop(cls):
-        cls._logger.debug("Stop called")
-        cls._closed = True
+        if not cls._alive:
+            cls._logger.debug("Stop called")
+            cls._alive = False
 
-        cls._logger.debug("Stopping producer")
-        await cls._producer.stop()
-        cls._logger.debug("Producer stopped successfully")
+            cls._logger.debug("Stopping producer")
+            await cls._producer.stop()
+            cls._logger.debug("Producer stopped successfully")
 
-        cls._logger.debug("Stopping consumers")
-        for cons in cls._consumers.values():
-            await cons.stop()
-        cls._logger.debug("Consumer stopped successfully")
+            cls._logger.debug("Stopping consumers")
+            for cons in cls._consumers.values():
+                await cons.stop()
+            cls._logger.debug("Consumer stopped successfully")
 
     @classmethod
     def get_producer(cls) -> AIOKafkaProducer:

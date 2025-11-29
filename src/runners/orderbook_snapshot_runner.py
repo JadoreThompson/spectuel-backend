@@ -6,7 +6,6 @@ from collections import defaultdict
 from typing import NamedTuple
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-from sqlalchemy import select
 from spectuel_engine_utils.enums import Side, LiquidityRole, OrderStatus
 from spectuel_engine_utils.events import (
     NewTradeEvent,
@@ -15,6 +14,8 @@ from spectuel_engine_utils.events import (
     OrderbookSnapshotEvent,
 )
 from spectuel_engine_utils.events.enums import TradeEventType, OrderEventType
+from spectuel_engine_utils.enums import OrderType
+from sqlalchemy import select
 
 from config import (
     KAFKA_BOOTSTRAP_SERVERS,
@@ -82,9 +83,7 @@ class OrderBookSnapshotRunner(RunnerBase):
         self._logger.info("State rehydrated and Kafka connected.")
 
         try:
-            await asyncio.gather(
-                self._consume_loop(), self._snapshot_loop()
-            )
+            await asyncio.gather(self._consume_loop(), self._snapshot_loop())
         except asyncio.CancelledError:
             self._logger.info("Runner cancelled.")
         except Exception as e:
@@ -105,12 +104,12 @@ class OrderBookSnapshotRunner(RunnerBase):
             stmt = select(Orders).where(
                 Orders.status.in_(
                     (OrderStatus.PENDING.value, OrderStatus.PARTIALLY_FILLED.value)
-                )
+                ),
+                Orders.order_type != OrderType.MARKET,
             )
-            result = await session.execute(stmt)
-            active_orders = result.scalars().all()
+            result = await session.scalars(stmt)
 
-            for order in active_orders:
+            for order in result:
                 remaining = order.quantity - order.executed_quantity
 
                 if remaining > 0:
@@ -122,14 +121,14 @@ class OrderBookSnapshotRunner(RunnerBase):
                         self._books[inst_id] = BookState()
 
                     book = self._books[inst_id]
-
+                    price = order.limit_price or order.stop_price
                     if order.side == Side.BID:
-                        book.bids[order.price] += remaining
+                        book.bids[price] += remaining
                     else:
-                        book.asks[order.price] += remaining
+                        book.asks[price] += remaining
 
                     self._active_orders[order_id] = OrderInfo(
-                        price=order.price,
+                        price=price,
                         side=Side(order.side),
                         remaining_qty=remaining,
                     )
@@ -171,9 +170,7 @@ class OrderBookSnapshotRunner(RunnerBase):
                         time.time() - book_state.last_snapshot_ts
                         >= self._snapshot_interval
                     ):
-                        await self._publish_snapshot(
-                            self._producer, inst_id, book_state
-                        )
+                        await self._publish_snapshot(inst_id, book_state)
                         book_state.last_snapshot_ts = time.time()
 
             elapsed = time.time() - start_time

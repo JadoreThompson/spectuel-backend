@@ -43,7 +43,9 @@ class Users(Base):
     escrow_balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.00)
     api_key: Mapped[str] = mapped_column(String, nullable=True)
     jwt: Mapped[str] = mapped_column(String, nullable=True)
-    authenticated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    authenticated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=get_datetime
     )
@@ -68,11 +70,10 @@ class Users(Base):
 class Instruments(Base):
     __tablename__ = "instruments"
 
-    instrument_id: Mapped[str] = mapped_column(
-        String(50), primary_key=True, nullable=False
+    instrument_id: Mapped[UUID] = mapped_column(
+        SaUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     symbol: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
-    tick_size: Mapped[float] = mapped_column(Float, nullable=False, default=0.01)
     starting_price: Mapped[float] = mapped_column(Float, nullable=False)
     status: Mapped[str] = mapped_column(
         String, nullable=False, default=InstrumentStatus.DOWN
@@ -105,8 +106,8 @@ class Orders(Base):
     parent_order_id: Mapped[UUID | None] = mapped_column(
         SaUUID(as_uuid=True), ForeignKey("orders.order_id"), nullable=True
     )
-    instrument_id: Mapped[str] = mapped_column(
-        String(50), ForeignKey("instruments.instrument_id"), nullable=False
+    instrument_id: Mapped[UUID] = mapped_column(
+        SaUUID(as_uuid=True), ForeignKey("instruments.instrument_id"), nullable=False
     )
     side: Mapped[Side] = mapped_column(String, nullable=False)
     order_type: Mapped[OrderType] = mapped_column(String, nullable=False)
@@ -151,8 +152,8 @@ class Trades(Base):
     user_id: Mapped[UUID] = mapped_column(
         SaUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
     )
-    instrument_id: Mapped[str] = mapped_column(
-        String(50), ForeignKey("instruments.instrument_id"), nullable=False
+    instrument_id: Mapped[UUID] = mapped_column(
+        SaUUID(as_uuid=True), ForeignKey("instruments.instrument_id"), nullable=False
     )
     price: Mapped[float] = mapped_column(Float, nullable=False)
     quantity: Mapped[float] = mapped_column(Float, nullable=False)
@@ -173,8 +174,8 @@ class AssetBalances(Base):
     user_id: Mapped[UUID] = mapped_column(
         SaUUID(as_uuid=True), ForeignKey("users.user_id"), primary_key=True
     )
-    instrument_id: Mapped[str] = mapped_column(
-        String(50), ForeignKey("instruments.instrument_id"), primary_key=True
+    instrument_id: Mapped[UUID] = mapped_column(
+        SaUUID(as_uuid=True), ForeignKey("instruments.instrument_id"), index=True
     )
     balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.00)
     escrow_balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.00)
@@ -214,6 +215,25 @@ class Transactions(Base):
 class EventLogs(Base):
     __tablename__ = "event_logs"
 
-    event_id: Mapped[UUID] = mapped_column(SaUUID(as_uuid=True), primary_key=True)
+    event_id: Mapped[UUID] = mapped_column(SaUUID(as_uuid=True), primary_key=True, unique=True)
     data: Mapped[dict] = mapped_column(JSONB, nullable=False)
     timestamp: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+# class EngineSnapshots(Base):
+#     __tablename__ = "engine_snapshots"
+
+#     snapshot_id: Mapped[UUID] = mapped_column(SaUUID(as_uuid=True), primary_key=True, default=uuid4)
+#     instrument_id: Mapped[UUID] = mapped_column(
+#         SaUUID(as_uuid=True), ForeignKey("instruments.instrument_id"), index=True
+#     )
+#     snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+
+class EngineContextSnapshots(Base):
+    __tablename__ = "engine_context_snapshots"
+
+    snapshot_id: Mapped[UUID] = mapped_column(SaUUID(as_uuid=True), primary_key=True, default=uuid4)
+    instrument_id: Mapped[UUID] = mapped_column(
+        SaUUID(as_uuid=True), ForeignKey("instruments.instrument_id"), index=True
+    )
+    snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)

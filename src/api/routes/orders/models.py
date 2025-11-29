@@ -1,17 +1,26 @@
 from datetime import datetime
-from typing import TypeAlias, Union
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-from spectuel_engine_utils.enums import OrderType, OrderStatus, StrategyType
+from spectuel_engine_utils.enums import OrderType, OrderStatus, StrategyType, Side
 from spectuel_engine_utils.commands import SingleOrderMeta
 from spectuel_engine_utils.models import CustomBaseModel
 
 
-class OrderBase(SingleOrderMeta):
-    order_id: UUID = Field(exclude=True)
-    user_id: UUID = Field(exclude=True)
+class OrderBase(CustomBaseModel):
+    order_type: OrderType
+    side: Side
+    quantity: float = Field(g=0)
+    limit_price: float | None = Field(None, gt=0.0)
+    stop_price: float | None = Field(None, gt=0.0)
+
+    @field_validator("quantity", mode='after')
+    def validate_quantity(cls, v):
+        v = round(v, 2)
+        if v:
+            return v
+        raise ValueError("Quantity must be greater than zero")
 
 
 class OrderCreateBase(CustomBaseModel):
@@ -31,26 +40,6 @@ class OCOOrderCreate(OrderCreateBase):
         if any(o.order_type == OrderType.MARKET for o in legs):
             raise ValueError("OCO legs cannot be market orders.")
         return legs
-
-
-# class OrderCreate(OrderBase):
-#     limit_price: float | None = Field(None, ge=0)
-#     stop_price: float | None = Field(None, ge=0)
-
-#     @model_validator(mode="before")
-#     def validate_order_details(cls, values):
-#         ot = values.get("order_type")
-
-#         if ot == OrderType.MARKET.value:
-#             return values
-
-#         if ot == OrderType.LIMIT.value and values.get("limit_price") is None:
-#             raise ValueError("Must provide limit price for limit orders.")
-
-#         if ot == OrderType.STOP.value and values.get("stop_price") is None:
-#             raise ValueError("Must provide stop price for stop orders.")
-
-#         return values
 
 
 class OTOOrderCreate(OrderCreateBase):

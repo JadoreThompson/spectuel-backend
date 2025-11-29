@@ -1,7 +1,6 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import JSONResponse
 from spectuel_engine_utils.enums import OrderStatus, Side
 from spectuel_engine_utils.commands import (
     CommandType,
@@ -9,7 +8,6 @@ from spectuel_engine_utils.commands import (
     ModifyOrderCommand,
 )
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import depends_jwt, depends_db_sess
@@ -31,24 +29,22 @@ from .order_service import OrderService
 
 
 route = APIRouter(prefix="/orders", tags=["orders"])
-command_bus = CommandBus()
+command_bus = CommandBus
 
 
 @route.post("/", status_code=202)
 async def create_order(
     details: SingleOrderCreate,
-    jwt: JWTPayload = Depends(depends_jwt()),
+    jwt: JWTPayload = Depends(depends_jwt(False)),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """
     Accepts a new single order.
     """
     try:
-        return await OrderService.create(jwt.sub, details, db_sess)
+         return await OrderService.create(jwt.sub, details, db_sess)
     except ValueError as e:
-        return JSONResponse(status_code=400, content={"error": str(e)})
-    except IntegrityError:
-        return JSONResponse(status_code=404, content={"error": "Invalid instrument."})
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @route.post("/oco", status_code=202)
@@ -63,9 +59,7 @@ async def create_oco_order(
     try:
         return await OrderService.create(jwt.sub, details, db_sess)
     except ValueError as e:
-        return JSONResponse(status_code=400, content={"error": str(e)})
-    except IntegrityError:
-        return JSONResponse(status_code=404, content={"error": "Invalid instrument."})
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @route.post("/oto", status_code=202)
@@ -80,9 +74,7 @@ async def create_oto_order(
     try:
         return await OrderService.create(jwt.sub, details, db_sess)
     except ValueError as e:
-        return JSONResponse(status_code=400, content={"error": str(e)})
-    except IntegrityError:
-        return JSONResponse(status_code=404, content={"error": "Invalid instrument."})
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @route.post("/otoco", status_code=202)
@@ -97,9 +89,7 @@ async def create_otoco_order(
     try:
         return await OrderService.create(jwt.sub, details, db_sess)
     except ValueError as e:
-        return JSONResponse(status_code=400, content={"error": str(e)})
-    except IntegrityError:
-        return JSONResponse(status_code=404, content={"error": "Invalid instrument."})
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @route.get("/", response_model=PaginatedResponse[OrderRead])
@@ -208,7 +198,9 @@ async def cancel_order(
     await command_bus.put(cmd_data)
 
 
-@route.delete("/symbol", status_code=202, summary="Cancel all active orders for the user")
+@route.delete(
+    "/symbol", status_code=202, summary="Cancel all active orders for the user"
+)
 async def cancel_all_orders(
     symbol: str | None,
     jwt: JWTPayload = Depends(depends_jwt()),

@@ -1,7 +1,7 @@
 import uuid
-from typing import Union
-from datetime import datetime
+from typing import ClassVar, Union
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from spectuel_engine_utils.commands import (
     NewSingleOrderCommand,
@@ -12,7 +12,7 @@ from spectuel_engine_utils.commands import (
 )
 from spectuel_engine_utils.enums import OrderStatus, StrategyType
 
-from db_models import Orders
+from db_models import Instruments, Orders
 from services import CommandBus
 from .models import (
     SingleOrderCreate,
@@ -24,8 +24,11 @@ from .models import (
 
 
 class OrderService:
-    @staticmethod
+    _bus: ClassVar[CommandBus]
+
+    @classmethod
     async def create(
+        cls,
         user_id: str | uuid.UUID,
         details: Union[
             SingleOrderCreate, OCOOrderCreate, OTOOrderCreate, OTOCOOrderCreate
@@ -37,32 +40,36 @@ class OrderService:
         """
         user_id = uuid.UUID(str(user_id))
 
-        bus = CommandBus()
+        bus = CommandBus
+        iid = await cls._get_instrument_id(details.symbol, db_sess)
+        if iid is None:
+            raise ValueError("Symbol not found")
 
         if details.strategy_type == StrategyType.SINGLE:
-            return await OrderService._create_single(user_id, details, db_sess, bus)
+            return await cls._create_single(user_id, iid, details, db_sess, bus)
         elif details.strategy_type == StrategyType.OCO:
-            return await OrderService._create_oco(user_id, details, db_sess, bus)
+            return await cls._create_oco(user_id, iid, details, db_sess, bus)
         elif details.strategy_type == StrategyType.OTO:
-            return await OrderService._create_oto(user_id, details, db_sess, bus)
+            return await cls._create_oto(user_id, iid, details, db_sess, bus)
         elif details.strategy_type == StrategyType.OTOCO:
-            return await OrderService._create_otoco(user_id, details, db_sess, bus)
+            return await cls._create_otoco(user_id, iid, details, db_sess, bus)
         else:
             raise ValueError(f"Unsupported strategy type: {details.strategy_type}")
 
-    @staticmethod
+    @classmethod
     async def _create_single(
+        cls,
         user_id: uuid.UUID,
+        instrument_id: uuid.UUID,
         details: SingleOrderCreate,
         db_sess: AsyncSession,
         bus: CommandBus,
     ) -> dict:
-
         order_id = uuid.uuid4()
         db_order = Orders(
             order_id=order_id,
             user_id=user_id,
-            instrument_id=str(details.instrument_id),
+            instrument_id=instrument_id,
             side=details.side.value,
             order_type=details.order_type.value,
             quantity=details.quantity,
@@ -84,7 +91,7 @@ class OrderService:
         )
 
         command = NewSingleOrderCommand(
-            instrument_id=details.instrument_id,
+            instrument_id=instrument_id,
             strategy_type=StrategyType.SINGLE,
             **meta.model_dump(),
         )
@@ -93,9 +100,11 @@ class OrderService:
 
         return {"order_id": str(order_id), "status": "accepted"}
 
-    @staticmethod
+    @classmethod
     async def _create_oco(
+        cls,
         user_id: uuid.UUID,
+        instrument_id: uuid.UUID,
         details: OCOOrderCreate,
         db_sess: AsyncSession,
         bus: CommandBus,
@@ -112,7 +121,7 @@ class OrderService:
                 order_id=leg_id,
                 user_id=user_id,
                 order_group_id=group_id,
-                instrument_id=str(details.instrument_id),
+                instrument_id=instrument_id,
                 side=leg_details.side.value,
                 order_type=leg_details.order_type.value,
                 quantity=leg_details.quantity,
@@ -138,7 +147,7 @@ class OrderService:
         await db_sess.commit()
 
         command = NewOCOOrderCommand(
-            instrument_id=details.instrument_id,
+            instrument_id=instrument_id,
             strategy_type=StrategyType.OCO,
             legs=legs_meta,
         )
@@ -146,9 +155,11 @@ class OrderService:
 
         return {"group_id": str(group_id), "order_ids": response_ids}
 
-    @staticmethod
+    @classmethod
     async def _create_oto(
+        cls,
         user_id: uuid.UUID,
+        instrument_id: uuid.UUID,
         details: OTOOrderCreate,
         db_sess: AsyncSession,
         bus: CommandBus,
@@ -157,7 +168,7 @@ class OrderService:
 
         parent_id = uuid.uuid4()
         db_parent = OrderService._build_db_order(
-            user_id, details.instrument_id, details.parent, parent_id
+            user_id, instrument_id, details.parent, parent_id
         )
         db_parent.order_group_id = group_id
         db_parent.group_type = StrategyType.OTO
@@ -165,7 +176,7 @@ class OrderService:
 
         child_id = uuid.uuid4()
         db_child = OrderService._build_db_order(
-            user_id, details.instrument_id, details.child, child_id
+            user_id, instrument_id, details.child, child_id
         )
         db_child.order_group_id = group_id
         db_child.parent_order_id = parent_id
@@ -175,7 +186,7 @@ class OrderService:
         await db_sess.commit()
 
         command = NewOTOOrderCommand(
-            instrument_id=details.instrument_id,
+            instrument_id=instrument_id,
             strategy_type=StrategyType.OTO,
             parent=OrderService._to_meta(parent_id, user_id, details.parent),
             child=OrderService._to_meta(child_id, user_id, details.child),
@@ -188,9 +199,11 @@ class OrderService:
             "child_id": str(child_id),
         }
 
-    @staticmethod
+    @classmethod
     async def _create_otoco(
+        cls,
         user_id: uuid.UUID,
+        instrument_id: uuid.UUID,
         details: OTOCOOrderCreate,
         db_sess: AsyncSession,
         bus: CommandBus,
@@ -199,7 +212,7 @@ class OrderService:
 
         parent_id = uuid.uuid4()
         db_parent = OrderService._build_db_order(
-            user_id, details.instrument_id, details.parent, parent_id
+            user_id, instrument_id, details.parent, parent_id
         )
         db_parent.order_group_id = group_id
         db_parent.group_type = StrategyType.OTOCO
@@ -213,7 +226,7 @@ class OrderService:
             child_ids.append(str(leg_id))
 
             db_leg = OrderService._build_db_order(
-                user_id, details.instrument_id, leg_spec, leg_id
+                user_id, instrument_id, leg_spec, leg_id
             )
             db_leg.order_group_id = group_id
             db_leg.parent_order_id = parent_id
@@ -238,11 +251,16 @@ class OrderService:
             "legs": child_ids,
         }
 
-    @staticmethod
-    def _get_instrument_id(symbol: str) -> None: ...
+    @classmethod
+    async def _get_instrument_id(cls, symbol: str, db_sess: AsyncSession) -> None:
+        iid = await db_sess.scalar(
+            select(Instruments.instrument_id).where(Instruments.symbol == symbol)
+        )
+        return iid
 
-    @staticmethod
+    @classmethod
     def _build_db_order(
+        cls,
         user_id: uuid.UUID,
         instrument_id: uuid.UUID,
         details: OrderBase,
@@ -261,9 +279,9 @@ class OrderService:
             status=OrderStatus.PENDING.value,
         )
 
-    @staticmethod
+    @classmethod
     def _to_meta(
-        order_id: uuid.UUID, user_id: uuid.UUID, details: OrderBase
+        cls, order_id: uuid.UUID, user_id: uuid.UUID, details: OrderBase
     ) -> SingleOrderMeta:
         """Helper to map API model to Engine Command Meta."""
         return SingleOrderMeta(

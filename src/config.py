@@ -70,6 +70,9 @@ ENCRYPTION_IV_LEN = int(os.getenv("ENCRYPTION_IV_LEN"))
 CUSTOMER_SUPPORT_EMAIL = os.getenv("CUSTOMER_SUPPORT_EMAIL")
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 
+# Services
+HEARTBEAT_LISTENER_PORT = int(os.getenv("HEARTBEAT_LISTENER_PORT"))
+
 # Logging
 logging.basicConfig(
     filename="app.log",

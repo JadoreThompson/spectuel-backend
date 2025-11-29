@@ -3,7 +3,7 @@ import multiprocessing
 import time
 from typing import Any, Type
 
-from runners import RunnerBase, OrderBookSnapshotRunner, ServerRunner
+from runners import RunnerBase, OrderBookSnapshotRunner, ServerRunner, EngineHeartbeatRunner
 
 
 def run_runner(runner_cls: Type[RunnerBase], *args, **kw):
@@ -17,6 +17,7 @@ def main():
     configs: tuple[tuple[Type[RunnerBase], tuple[Any, ...], dict[str, Any]]] = (
         (ServerRunner, (), {"host": "0.0.0.0", "port": 8000}),
         (OrderBookSnapshotRunner, (), {}),
+        (EngineHeartbeatRunner, (), {}),
     )
 
     ps = [
@@ -65,7 +66,7 @@ def main():
 
 
 if __name__ == "__main__":
-    # main()
-    from services import EmailService
-    em = EmailService("testing", "testing@gova.chat")
-    em.send_email_sync("wifimemesyt@gmail.com", "Testing", "testing")
+    main()
+    # from services import EmailService
+    # em = EmailService("testing", "testing@gova.chat")
+    # em.send_email_sync("wifimemesyt@gmail.com", "Testing", "testing")
