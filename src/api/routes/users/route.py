@@ -2,9 +2,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import depends_jwt
-from api.typing import JWTPayload
-from api.dependencies import depends_db_sess
+from api.dependencies import depends_jwt, depends_db_sess
+from api.types import JWTPayload
 from db_models import AssetBalances, Trades, Users
 from .controller import get_portfolio_history
 from .models import HistoryInterval, PortfolioHistory, UserOverviewResponse

@@ -3,10 +3,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-from spectuel_engine_utils.enums import OrderType, OrderStatus, StrategyType, Side
-from spectuel_engine_utils.commands import SingleOrderMeta
-from spectuel_engine_utils.models import CustomBaseModel
-
+# from spectuel_engine_utils.enums import OrderType, OrderStatus, StrategyType, Side
+# from spectuel_engine_utils.models import CustomBaseModel
+from engine.enums import OrderType, OrderStatus, StrategyType, Side
+from models import CustomBaseModel
 
 class OrderBase(CustomBaseModel):
     order_type: OrderType
@@ -15,7 +15,13 @@ class OrderBase(CustomBaseModel):
     limit_price: float | None = Field(None, gt=0.0)
     stop_price: float | None = Field(None, gt=0.0)
 
-    @field_validator("quantity", mode='after')
+    @field_validator("order_type", mode="after")
+    def validate_order_typee(cls, v):
+        if v == OrderType.MARKET:
+            raise ValueError("Market orders are not supported")
+        return v
+
+    @field_validator("quantity", mode="after")
     def validate_quantity(cls, v):
         v = round(v, 2)
         if v:
@@ -80,6 +86,7 @@ class OrderModify(BaseModel):
 
 class OrderRead(OrderBase):
     order_id: UUID
+    symbol: str
     strategy_type: StrategyType
     status: OrderStatus
     executed_quantity: float

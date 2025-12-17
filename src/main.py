@@ -1,72 +1,78 @@
-import logging
-import multiprocessing
-import time
-from typing import Any, Type
+# import logging
+# import multiprocessing
+# import time
+# from typing import Any, Type
 
-from runners import RunnerBase, OrderBookSnapshotRunner, ServerRunner, EngineHeartbeatRunner
-
-
-def run_runner(runner_cls: Type[RunnerBase], *args, **kw):
-    runner = runner_cls(*args, **kw)
-    runner.run()
+# from runners import RunnerBase, OrderBookSnapshotRunner, ServerRunner, EngineHeartbeatRunner
 
 
-def main():
-    logger = logging.getLogger("main")
+# def run_runner(runner_cls: Type[RunnerBase], *args, **kw):
+#     runner = runner_cls(*args, **kw)
+#     runner.run()
 
-    configs: tuple[tuple[Type[RunnerBase], tuple[Any, ...], dict[str, Any]]] = (
-        (ServerRunner, (), {"host": "0.0.0.0", "port": 8000}),
-        (OrderBookSnapshotRunner, (), {}),
-        (EngineHeartbeatRunner, (), {}),
-    )
 
-    ps = [
-        multiprocessing.Process(
-            target=run_runner,
-            args=(runner_cls, *args),
-            kwargs=kwargs,
-            name=runner_cls.__name__,
-        )
-        for runner_cls, args, kwargs in configs
-    ]
+# def main():
+#     logger = logging.getLogger("main")
 
-    for p in ps:
-        logger.info(f"Process '{p.name}' has started")
-        p.start()
+#     configs: tuple[tuple[Type[RunnerBase], tuple[Any, ...], dict[str, Any]]] = (
+#         (ServerRunner, (), {"host": "0.0.0.0", "port": 8000}),
+#         (OrderBookSnapshotRunner, (), {}),
+#         (EngineHeartbeatRunner, (), {}),
+#     )
 
-    try:
-        while True:
-            for ind, p in enumerate(ps):
-                if not p.is_alive():
-                    logger.info(f"Process '{p.name}' has died")
-                    # p.kill()
-                    # p.join()
-                    # runner_cls, args, kwargs = configs[ind]
-                    # ps[ind] = multiprocessing.Process(
-                    #     target=run_runner, args=(runner_cls, *args), kwargs=kwargs, name=runner_cls.__name__
-                    # )
-                    # ps[ind].start()
+#     ps = [
+#         multiprocessing.Process(
+#             target=run_runner,
+#             args=(runner_cls, *args),
+#             kwargs=kwargs,
+#             name=runner_cls.__name__,
+#         )
+#         for runner_cls, args, kwargs in configs
+#     ]
 
-                    # logger.info("[INFO]: Restarted process for", p.name)
-                    raise Exception
+#     for p in ps:
+#         logger.info(f"Process '{p.name}' has started")
+#         p.start()
 
-            time.sleep(0.5)
-    except KeyboardInterrupt:
-        logger.info("KeyboardInterrupt received. Gracefully shutting down")
-    finally:
-        logger.info("Shutting down processes")
+#     try:
+#         while True:
+#             for ind, p in enumerate(ps):
+#                 if not p.is_alive():
+#                     logger.info(f"Process '{p.name}' has died")
+#                     # p.kill()
+#                     # p.join()
+#                     # runner_cls, args, kwargs = configs[ind]
+#                     # ps[ind] = multiprocessing.Process(
+#                     #     target=run_runner, args=(runner_cls, *args), kwargs=kwargs, name=runner_cls.__name__
+#                     # )
+#                     # ps[ind].start()
 
-        for p in ps:
-            logger.info(f"Shutting down process '{p.name}'")
-            p.kill()
-            p.join(timeout=10)
-            logger.info(f"Process '{p.name}' shut down successfully")
+#                     # logger.info("[INFO]: Restarted process for", p.name)
+#                     raise Exception
 
-        logger.info("All processes shut down successfully.")
+#             time.sleep(0.5)
+#     except KeyboardInterrupt:
+#         logger.info("KeyboardInterrupt received. Gracefully shutting down")
+#     finally:
+#         logger.info("Shutting down processes")
 
+#         for p in ps:
+#             logger.info(f"Shutting down process '{p.name}'")
+#             p.kill()
+#             p.join(timeout=10)
+#             logger.info(f"Process '{p.name}' shut down successfully")
+
+#         logger.info("All processes shut down successfully.")
+
+
+# if __name__ == "__main__":
+#     main()
+#     # from services import EmailService
+#     # em = EmailService("testing", "testing@gova.chat")
+#     # em.send_email_sync("wifimemesyt@gmail.com", "Testing", "testing")
+
+
+from cli import cli
 
 if __name__ == "__main__":
-    main()
-    # from services import EmailService
-    # em = EmailService("testing", "testing@gova.chat")
-    # em.send_email_sync("wifimemesyt@gmail.com", "Testing", "testing")
+    cli()

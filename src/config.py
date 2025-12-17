@@ -8,20 +8,13 @@ from dotenv import load_dotenv
 
 # Paths
 BASE_PATH = os.path.dirname(__file__)
-PARENT_PATH = os.path.dirname(BASE_PATH)
+PROJECT_PATH = os.path.dirname(BASE_PATH)
 
-# Env
+PYTEST_RUNNING = bool(os.getenv("PYTEST_VESRION"))
+
+load_dotenv(os.path.join(PROJECT_PATH, ".env.test" if PYTEST_RUNNING else ".env"))
+
 IS_PRODUCTION = bool(os.getenv("IS_PRODUCTION"))
-PYTEST_RUNNING = bool(os.getenv("PYTEST_RUNNING"))
-
-if PYTEST_RUNNING:
-    env_file = ".env.test"
-elif IS_PRODUCTION:
-    ".env.prod"
-else:
-    ".env.dev"
-
-load_dotenv(os.path.join(PARENT_PATH, ".env.prod" if IS_PRODUCTION else ".env.dev"))
 
 # DB
 DB_USERNAME = os.getenv("DB_USERNAME")
@@ -35,6 +28,7 @@ REDIS_HOST = os.getenv("REDIS_HOST")
 REDIS_PORT = int(os.getenv("REDIS_PORT"))
 REDIS_USERNAME = os.getenv("REDIS_USERNAME")
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
+HTTP_REDIS_DB = os.getenv("HTTP_REDIS_DB")
 REDIS_CHANGE_USERNAME_KEY_PREFIX = os.getenv("REDIS_CHANGE_USERNAME_KEY_PREFIX")
 REDIS_CHANGE_EMAIL_KEY_PREFIX = os.getenv("REDIS_CHANGE_EMAIL_KEY_PREFIX")
 REDIS_CHANGE_PASSWORD_KEY_PREFIX = os.getenv("REDIS_CHANGE_PASSWORD_KEY_PREFIX")
@@ -49,9 +43,11 @@ KAFKA_COMMANDS_TOPIC = os.getenv("KAFKA_COMMANDS_TOPIC")
 KAFKA_ORDER_EVENTS_TOPIC = os.getenv("KAFKA_ORDER_EVENTS_TOPIC")
 KAFKA_TRADE_EVENTS_TOPIC = os.getenv("KAFKA_TRADE_EVENTS_TOPIC")
 KAFKA_INSTRUMENT_EVENTS_TOPIC = os.getenv("KAFKA_INSTRUMENT_EVENTS_TOPIC")
+KAFKA_BALANCE_EVENTS_TOPIC = os.getenv("KAFKA_BALANCE_EVENTS_TOPIC")
 
 # API
 PAGE_SIZE = 10
+WS_HEARTBEAT_TIMEOUT_SECS = 5.0
 
 # Auth
 COOKIE_ALIAS = "spectuel-cookie"

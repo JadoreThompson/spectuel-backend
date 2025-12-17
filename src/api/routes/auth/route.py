@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 
 from argon2 import PasswordHasher
 from argon2.exceptions import Argon2Error
@@ -9,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import depends_jwt
 from api.dependencies import depends_db_sess
-from api.typing import JWTPayload
+from api.types import JWTPayload
 from config import (
     MAX_EMAIL_VERIFICATION_ATTEMPTS,
     PW_HASH_SALT,
@@ -20,9 +21,9 @@ from config import (
     REDIS_EMAIL_VERIFICATION_EXPIRY_SECS,
 )
 from db_models import Users
+from infra.redis import REDIS_CLIENT 
 from services import JWTService, EmailService
-from utils.redis import REDIS_CLIENT
-from utils.utils import get_datetime
+from utils import get_datetime
 from .controller import gen_verification_code
 from .models import (
     UpdateEmail,
@@ -33,12 +34,25 @@ from .models import (
     UserMe,
     VerifyAction,
     VerifyCode,
+    WsTokenResponse,
 )
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 em_service = EmailService("No-Reply", "no-reply@domain.com")
 pw_hasher = PasswordHasher()
+
+
+@router.get("/ws-token", response_model=WsTokenResponse)
+async def get_ws_token(jwt: JWTPayload = Depends(depends_jwt(is_authenticated=False))):
+    token = JWTService.generate_jwt(
+        sub=jwt.sub,
+        em=jwt.em,
+        exp=get_datetime() + timedelta(seconds=60),
+        authenticated=jwt.authenticated,
+    )
+    await REDIS_CLIENT.set(token, 1, ex=60)
+    return WsTokenResponse(token=token)
 
 
 # @route.post("/login")
@@ -78,7 +92,7 @@ async def login(body: UserLogin, db_sess: AsyncSession = Depends(depends_db_sess
     except Argon2Error:
         raise HTTPException(status_code=400, detail="Invalid password.")
 
-    rsp = await JWTService.set_jwt_cookie_v2(user, db_sess)
+    rsp = await JWTService.set_persistant_jwt_cookie(user, db_sess)
     await db_sess.commit()
     return rsp
 
@@ -143,7 +157,7 @@ async def register(
         f"Your verification code is: {code}",
     )
 
-    rsp = await JWTService.set_jwt_cookie_v2(user, db_sess)
+    rsp = await JWTService.set_persistant_jwt_cookie(user, db_sess)
     await db_sess.commit()
 
     return rsp
@@ -194,7 +208,7 @@ async def verify_email(
     payload = await REDIS_CLIENT.get(key)
     if not payload:
         raise HTTPException(status_code=400, detail="No code found")
-    
+
     code = payload["code"]
     await REDIS_CLIENT.delete(key)
 
@@ -205,7 +219,7 @@ async def verify_email(
 
     user = await db_sess.scalar(select(Users).where(Users.user_id == jwt.sub))
     user.authenticated_at = get_datetime()
-    rsp = await JWTService.set_jwt_cookie_v2(user, db_sess)
+    rsp = await JWTService.set_persistant_jwt_cookie(user, db_sess)
     await db_sess.commit()
     return rsp
 

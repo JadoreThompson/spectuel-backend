@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
 
-class RunnerBase(ABC):
+class BaseRunner(ABC):
     @abstractmethod
     def run(self) -> None: ...

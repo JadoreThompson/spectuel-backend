@@ -1,16 +1,19 @@
 from aiokafka import AIOKafkaProducer
 from fastapi import APIRouter, Depends, HTTPException, Query
-from spectuel_engine_utils.commands import NewInstrumentCommand
-from spectuel_engine_utils.enums import TimeFrame
-from spectuel_engine_utils.events import NewTradeEvent
+# from spectuel_engine_utils.commands import NewInstrumentCommand
+# from spectuel_engine_utils.enums import TimeFrame
+# from spectuel_engine_utils.events import NewTradeEvent
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
-from api.shared.models import PaginatedResponse
 from api.dependencies import depends_db_sess, depends_kafka_producer
+from api.shared.models import PaginatedResponse
 from config import KAFKA_COMMANDS_TOPIC, PAGE_SIZE
 from db_models import Instruments, Orders, Trades
+from engine.commands import NewInstrumentCommand
+from engine.enums import TimeFrame
+from engine.events import NewTradeEvent
 from .controller import calculate_24h_stats, get_24h_stats_all, get_ohlc_data
 from .models import InstrumentCreate, OHLC, InstrumentRead, Stats24h
 

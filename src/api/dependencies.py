@@ -4,34 +4,13 @@ from fastapi import Request, WebSocket
 from fastapi.responses import JSONResponse
 
 from config import COOKIE_ALIAS
-from services import JWTService, ApiKeyService, KafkaService
-from utils.db import smaker
+from services import JWTService, ApiKeyService, AsyncKafkaService
+from infra.db import smaker
 from .exc import ApiKeyError, JWTError
-from .typing import JWTPayload
+from .types import JWTPayload
 
 
 T = TypeVar("T")
-
-
-# async def depends_verify_jwt(req: Request) -> JWTPayload:
-#     """Verify the JWT token from the request cookies and validate it.
-
-#     Args:
-#         req (Request)
-
-#     Raises:
-#         JWTError: If the JWT token is missing, expired, or invalid.
-
-#     Returns:
-#         JWTPayload: The decoded JWT payload if valid.
-#     """
-#     token = req.cookies.get(COOKIE_ALIAS)
-
-#     if not token:
-#         raise JWTError("JWT token is missing")
-
-#     payload = JWTService.decode_jwt(token)
-#     return await JWTService.validate_jwt(payload)
 
 
 def depends_jwt(is_authenticated: bool = True):
@@ -49,6 +28,29 @@ def depends_jwt(is_authenticated: bool = True):
             JWTPayload: The decoded JWT payload if valid.
         """
         token = req.cookies.get(COOKIE_ALIAS)
+        if not token:
+            raise JWTError("Authentication token is missing")
+
+        return await JWTService.validate_jwt(token, is_authenticated=is_authenticated)
+
+    return func
+
+
+def depends_jwt_ws(is_authenticated: bool = True):
+    """Verify the JWT token from the request cookies and validate it."""
+
+    async def func(ws: WebSocket) -> JWTPayload:
+        """
+        Args:
+            req (Request)
+
+        Raises:
+            JWTError: If the JWT token is missing, expired, or invalid.
+
+        Returns:
+            JWTPayload: The decoded JWT payload if valid.
+        """
+        token = ws.cookies.get(COOKIE_ALIAS)
         if not token:
             raise JWTError("Authentication token is missing")
 
@@ -101,4 +103,4 @@ async def depends_db_sess():
 
 
 async def depends_kafka_producer():
-    return KafkaService.get_producer()
+    return AsyncKafkaService.get_producer()

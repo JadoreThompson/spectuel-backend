@@ -6,7 +6,12 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from config import KAFKA_BOOTSTRAP_SERVERS
 
 
-class KafkaService:
+class AsyncKafkaService:
+    """
+    Manages async kafka clients used during the lifecycle of
+    the FastAPI server.
+    """
+
     _producer: ClassVar[AIOKafkaProducer]
     _consumers: ClassVar[dict[tuple[str], AIOKafkaConsumer]] = {}
     _alive = False

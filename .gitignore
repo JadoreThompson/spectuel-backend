@@ -4,8 +4,8 @@ __pycache__
 .pytest_cache
 .benchmarks
 
-.env.*
-!.env.example
+.env
+.env.prod
 alembic.ini
 
 *.log

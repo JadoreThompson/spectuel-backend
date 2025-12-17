@@ -1,5 +1,5 @@
+import uuid
 from datetime import datetime
-from uuid import UUID, uuid4
 
 from spectuel_engine_utils.enums import (
     OrderType,
@@ -8,20 +8,20 @@ from spectuel_engine_utils.enums import (
     Side,
     LiquidityRole,
 )
+from spectuel_engine_utils.utils.utils import get_default_cash_balance
 from sqlalchemy import (
-    UUID as SaUUID,
+    UUID,
     Integer,
     Float,
     ForeignKey,
     String,
     DateTime,
-    ForeignKey,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from core.enums import OrderGroupType
-from utils.utils import get_datetime, get_default_cash_balance
 
 
 class Base(DeclarativeBase):
@@ -31,8 +31,8 @@ class Base(DeclarativeBase):
 class Users(Base):
     __tablename__ = "users"
 
-    user_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), primary_key=True, default=uuid4
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
     username: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
@@ -43,17 +43,19 @@ class Users(Base):
     escrow_balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.00)
     api_key: Mapped[str] = mapped_column(String, nullable=True)
     jwt: Mapped[str] = mapped_column(String, nullable=True)
+
     authenticated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=get_datetime
+        DateTime(timezone=True), nullable=False, server_default=text("NOW()")
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=get_datetime,
-        onupdate=get_datetime,
+        server_default=text("NOW()"),
+        server_onupdate=text("NOW()"),
     )
 
     # Relationships
@@ -70,45 +72,36 @@ class Users(Base):
 class Instruments(Base):
     __tablename__ = "instruments"
 
-    instrument_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), primary_key=True, default=uuid4
+    instrument_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
-    symbol: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    symbol: Mapped[str] = mapped_column(
+        String(20), unique=True, nullable=False, index=True
+    )
     starting_price: Mapped[float] = mapped_column(Float, nullable=False)
     status: Mapped[str] = mapped_column(
         String, nullable=False, default=InstrumentStatus.DOWN
     )
 
     # Relationships
-    orders = relationship(
-        "Orders", back_populates="instrument", cascade="all, delete-orphan"
-    )
-    trades = relationship(
-        "Trades", back_populates="instrument", cascade="all, delete-orphan"
-    )
-    asset_balances = relationship(
-        "AssetBalances", back_populates="instrument", cascade="all, delete-orphan"
-    )
 
 
 class Orders(Base):
     __tablename__ = "orders"
 
-    order_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), primary_key=True, default=uuid4
+    order_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
-    user_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
     )
-    order_group_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), nullable=True, index=True
+    order_group_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=True, index=True
     )
-    parent_order_id: Mapped[UUID | None] = mapped_column(
-        SaUUID(as_uuid=True), ForeignKey("orders.order_id"), nullable=True
+    parent_order_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("orders.order_id"), nullable=True
     )
-    instrument_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), ForeignKey("instruments.instrument_id"), nullable=False
-    )
+    symbol: Mapped[str] = mapped_column(String, nullable=False)
     side: Mapped[Side] = mapped_column(String, nullable=False)
     order_type: Mapped[OrderType] = mapped_column(String, nullable=False)
     quantity: Mapped[float] = mapped_column(Float, nullable=False)
@@ -119,22 +112,21 @@ class Orders(Base):
     status: Mapped[str] = mapped_column(
         String, nullable=False, default=OrderStatus.PENDING.value
     )
-    group_type: Mapped[OrderGroupType | None] = mapped_column(
-        String, nullable=True
-    )  # core.enums.OrderGroupType
+
+    group_type: Mapped[OrderGroupType | None] = mapped_column(String, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=get_datetime
+        DateTime(timezone=True), nullable=False, server_default=text("NOW()")
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=get_datetime,
-        onupdate=get_datetime,
+        server_default=text("NOW()"),
+        server_onupdate=text("NOW()"),
     )
 
     # Relationships
     user = relationship("Users", back_populates="orders")
-    instrument = relationship("Instruments", back_populates="orders")
     trades = relationship(
         "Trades", back_populates="order", cascade="all, delete-orphan"
     )
@@ -143,69 +135,62 @@ class Orders(Base):
 class Trades(Base):
     __tablename__ = "trades"
 
-    trade_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), primary_key=True, default=uuid4
+    trade_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
-    order_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), ForeignKey("orders.order_id"), nullable=False
+    order_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("orders.order_id"), nullable=False
     )
-    user_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
     )
-    instrument_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), ForeignKey("instruments.instrument_id"), nullable=False
-    )
+    symbol: Mapped[str] = mapped_column(String, nullable=False)
     price: Mapped[float] = mapped_column(Float, nullable=False)
     quantity: Mapped[float] = mapped_column(Float, nullable=False)
     role: Mapped[LiquidityRole] = mapped_column(String, nullable=False)
+
     executed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=get_datetime
+        DateTime(timezone=True), nullable=False, server_default=text("NOW()")
     )
 
     # Relationships
     order = relationship("Orders", back_populates="trades")
     user = relationship("Users", back_populates="trades")
-    instrument = relationship("Instruments", back_populates="trades")
 
 
 class AssetBalances(Base):
     __tablename__ = "asset_balances"
 
-    user_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), ForeignKey("users.user_id"), primary_key=True
+    asset_balance_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
-    instrument_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), ForeignKey("instruments.instrument_id"), index=True
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.user_id")
     )
+    symbol: Mapped[str] = mapped_column(String, nullable=False)
     balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.00)
     escrow_balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.00)
 
     # Relationships
     user = relationship("Users", back_populates="asset_balances")
-    instrument = relationship("Instruments", back_populates="asset_balances")
 
 
 class Transactions(Base):
     __tablename__ = "transactions"
 
-    transaction_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), primary_key=True, default=uuid4
+    transaction_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
-    user_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
     )
     amount: Mapped[float] = mapped_column(Float, nullable=False)
-    type: Mapped[str] = mapped_column(
-        String, nullable=False
-    )  # from TransactionType enum .value
-    related_id: Mapped[str] = mapped_column(
-        String(50), nullable=True
-    )  # Could be trade_id, deposit_id, etc.
-    balance: Mapped[float] = mapped_column(
-        Float, nullable=False
-    )  # Cash balance after transaction
+    transaction_type: Mapped[str] = mapped_column(String, nullable=False)
+    related_id: Mapped[str] = mapped_column(String(50), nullable=True)
+    balance: Mapped[float] = mapped_column(Float, nullable=False)
+
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=get_datetime
+        DateTime(timezone=True), nullable=False, server_default=text("NOW()")
     )
 
     # Relationships
@@ -215,25 +200,19 @@ class Transactions(Base):
 class EventLogs(Base):
     __tablename__ = "event_logs"
 
-    event_id: Mapped[UUID] = mapped_column(SaUUID(as_uuid=True), primary_key=True, unique=True)
+    event_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, unique=True
+    )
+    event_type: Mapped[str] = mapped_column(String, nullable=False)
     data: Mapped[dict] = mapped_column(JSONB, nullable=False)
     timestamp: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
-# class EngineSnapshots(Base):
-#     __tablename__ = "engine_snapshots"
-
-#     snapshot_id: Mapped[UUID] = mapped_column(SaUUID(as_uuid=True), primary_key=True, default=uuid4)
-#     instrument_id: Mapped[UUID] = mapped_column(
-#         SaUUID(as_uuid=True), ForeignKey("instruments.instrument_id"), index=True
-#     )
-#     snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
-
 class EngineContextSnapshots(Base):
     __tablename__ = "engine_context_snapshots"
 
-    snapshot_id: Mapped[UUID] = mapped_column(SaUUID(as_uuid=True), primary_key=True, default=uuid4)
-    instrument_id: Mapped[UUID] = mapped_column(
-        SaUUID(as_uuid=True), ForeignKey("instruments.instrument_id"), index=True
+    snapshot_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
+    symbol: Mapped[str] = mapped_column(String, nullable=False)
     snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)

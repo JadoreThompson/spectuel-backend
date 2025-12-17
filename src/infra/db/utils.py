@@ -1,22 +1,14 @@
 import configparser
 import os
 from contextlib import asynccontextmanager, contextmanager
-from datetime import UTC, datetime
 from typing import AsyncGenerator, Generator
 
-from sqlalchemy import create_engine
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import DB_USERNAME, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME, PARENT_PATH
+from config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USERNAME, PROJECT_PATH
+from .client import DB_ENGINE, DB_ENGINE_SYNC
 
-
-DB_ENGINE = create_async_engine(
-    f"postgresql+asyncpg://{DB_USERNAME}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-)
-DB_ENGINE_SYNC = create_engine(
-    f"postgresql+psycopg2://{DB_USERNAME}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-)
 
 smaker = sessionmaker(bind=DB_ENGINE, class_=AsyncSession, expire_on_commit=False)
 smaker_sync = sessionmaker(bind=DB_ENGINE_SYNC, class_=Session, expire_on_commit=False)
@@ -47,8 +39,10 @@ def write_db_url_alembic():
     db_url = f"postgresql+psycopg2://{DB_USERNAME}:{db_password}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
     config = configparser.ConfigParser()
-    fp = os.path.join(PARENT_PATH, "alembic.ini")
+    fp = os.path.join(PROJECT_PATH, "alembic.ini")
+
     config.read(fp)
     config["alembic"]["sqlalchemy.url"] = db_url
+
     with open(fp, "w") as f:
         config.write(f)

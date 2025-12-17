@@ -7,11 +7,11 @@ from spectuel_engine_utils.enums import InstrumentStatus
 
 from config import HEARTBEAT_LISTENER_PORT
 from db_models import Instruments
-from runners.base import RunnerBase
+from runners.base import BaseRunner
 from utils.db import get_db_sess, get_db_sess_sync
 
 
-class EngineHeartbeatRunner(RunnerBase):
+class EngineHeartbeatRunner(BaseRunner):
     def __init__(self, host: str = "0.0.0.0", port: int = HEARTBEAT_LISTENER_PORT):
         self._host = host
         self._port = port

@@ -25,7 +25,7 @@ from config import (
 )
 from db_models import Orders
 from utils.db import get_db_sess
-from .base import RunnerBase
+from .base import BaseRunner
 
 
 class OrderInfo(NamedTuple):
@@ -47,7 +47,7 @@ class BookState:
         self.last_snapshot_ts: float = 0.0
 
 
-class OrderBookSnapshotRunner(RunnerBase):
+class OrderBookSnapshotRunner(BaseRunner):
     def __init__(self, snapshot_interval: float = 0.5):
         self._logger = logging.getLogger(self.__class__.__name__)
         self._snapshot_interval = snapshot_interval

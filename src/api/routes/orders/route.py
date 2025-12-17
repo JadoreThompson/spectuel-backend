@@ -12,11 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import depends_jwt, depends_db_sess
 from api.shared.models import PaginatedResponse
-from api.typing import JWTPayload
+from api.types import JWTPayload
 from config import PAGE_SIZE
 from db_models import Orders
-from services import CommandBus
-from .controller import cancel_all_orders as cancel_all_orders_controller
+from services import CommandBus, OrderService
+# from .controller import cancel_all_orders as cancel_all_orders_controller
 from .models import (
     OCOOrderCreate,
     OTOCOOrderCreate,
@@ -25,7 +25,6 @@ from .models import (
     OrderRead,
     SingleOrderCreate,
 )
-from .order_service import OrderService
 
 
 route = APIRouter(prefix="/orders", tags=["orders"])

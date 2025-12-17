@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import select
 
 from api.exc import ApiKeyError
-from api.typing import JWTPayload
+from api.types import JWTPayload
 from db_models import Users
 from utils.db import get_db_sess
 

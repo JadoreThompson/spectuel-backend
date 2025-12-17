@@ -5,7 +5,7 @@ from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db_models import Trades
-from utils.utils import get_datetime
+from utils import get_datetime
 from .models import OHLC, Stats24h
 
 

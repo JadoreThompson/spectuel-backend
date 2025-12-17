@@ -403,7 +403,7 @@ wheels = [
 
 [[package]]
 name = "fastapi"
-version = "0.122.0"
+version = "0.123.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annotated-doc" },
@@ -411,9 +411,9 @@ dependencies = [
     { name = "starlette" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b2/de/3ee97a4f6ffef1fb70bf20561e4f88531633bb5045dc6cebc0f8471f764d/fastapi-0.122.0.tar.gz", hash = "sha256:cd9b5352031f93773228af8b4c443eedc2ac2aa74b27780387b853c3726fb94b", size = 346436, upload-time = "2025-11-24T19:17:47.95Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/76/c7/d3956d7c2da2b66188eacc8db0919635b28313a30334dd78cba4c366caf0/fastapi-0.123.0.tar.gz", hash = "sha256:1410678b3c44418245eec85088b15140d894074b86e66061017e2b492c09b138", size = 347702, upload-time = "2025-11-30T14:49:17.848Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7a/93/aa8072af4ff37b795f6bbf43dcaf61115f40f49935c7dbb180c9afc3f421/fastapi-0.122.0-py3-none-any.whl", hash = "sha256:a456e8915dfc6c8914a50d9651133bd47ec96d331c5b44600baa635538a30d67", size = 110671, upload-time = "2025-11-24T19:17:45.96Z" },
+    { url = "https://files.pythonhosted.org/packages/17/17/62c82beab6536ea72576f90b84a3dbe6bcceb88d3d46afc4d05c376f0231/fastapi-0.123.0-py3-none-any.whl", hash = "sha256:cb56e69e874afa897bd3416c8a3dbfdae1730d0a308d4c63303f3f4b44136ae4", size = 110865, upload-time = "2025-11-30T14:49:16.164Z" },
 ]
 
 [[package]]
@@ -1106,14 +1106,14 @@ wheels = [
 
 [[package]]
 name = "spectuel-engine-utils"
-version = "0.0.27"
+version = "0.0.33"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a5/a7/9cc5ebcbea3852961fef3c537fe6aa55236ab1246d592a53e80d792e137b/spectuel_engine_utils-0.0.27.tar.gz", hash = "sha256:20902300f868b29ac1bc45bcbcc62fdd55830fa7e412b03c24c9692189a48fe7", size = 9545, upload-time = "2025-11-29T21:21:37.388Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d0/c5/117b93d00774da9d270e161ab113e670098f95b407c2f26ee4e4356450da/spectuel_engine_utils-0.0.33.tar.gz", hash = "sha256:b354b6d1ff10ac72fa9881542cdfbe3d5f1072d03b15cd89afbc05469795e4c4", size = 9559, upload-time = "2025-11-30T23:38:43.309Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/23/b8/05abc6fa9836d17c7d2b16f27c71e42a920889bde94941854e4a7dd9589f/spectuel_engine_utils-0.0.27-py3-none-any.whl", hash = "sha256:4467803b00fb94d355fc3fa77fce22f9b2a2aa2583b68283685065a07975150d", size = 7331, upload-time = "2025-11-29T21:21:36.261Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/ec/bd278b509cd310f6253f048c208810c922f19a954270e98bd7474fef92c4/spectuel_engine_utils-0.0.33-py3-none-any.whl", hash = "sha256:66f5ca0e9c4ac17e43a0ae6d19441639a099436ab151a19f85f2842df6641f0c", size = 7556, upload-time = "2025-11-30T23:38:42.313Z" },
 ]
 
 [[package]]

@@ -1,8 +1,8 @@
 import uvicorn
-from .base import RunnerBase
+from .base import BaseRunner
 
 
-class ServerRunner(RunnerBase):
+class ServerRunner(BaseRunner):
     def __init__(self, **kw):
         self._kw = kw
 

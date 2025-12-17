@@ -1,9 +1,9 @@
-from dataclasses import dataclass
 from datetime import datetime
 
+from models import CustomBaseModel
 
-@dataclass
-class JWTPayload:
+
+class JWTPayload(CustomBaseModel):
     sub: str  # user id
     em: str
     exp: datetime

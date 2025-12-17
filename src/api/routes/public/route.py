@@ -1,6 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks
 
 from services import EmailService
+from config import CUSTOMER_SUPPORT_EMAIL
 from .models import ContactForm
 
 
@@ -11,8 +12,6 @@ email_service = EmailService(sender_name="Support", sender_email="support@domain
 @router.get("/healthcheck")
 async def healthcheck():
     return {"status": "healthy"}
-
-
 
 
 @router.post("/contact", status_code=202)
