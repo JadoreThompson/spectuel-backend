@@ -1,18 +1,19 @@
 import json
 from enum import Enum
+
 from kafka import KafkaProducer
 
-from engine.events import EngineEventBase
-from engine.events.enums import OrderEventType, BalanceEventType, TradeEventType
 from config import (
     KAFKA_BALANCE_EVENTS_TOPIC,
     KAFKA_BOOTSTRAP_SERVERS,
     KAFKA_ORDER_EVENTS_TOPIC,
     KAFKA_TRADE_EVENTS_TOPIC,
 )
+from engine.events import EngineEventBase
+from engine.events.enums import OrderEventType, BalanceEventType, TradeEventType
 
 
-class AppLogger:
+class EngineLogger:
     _instances = {}
     _producer = KafkaProducer(bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS)
 
@@ -39,14 +40,16 @@ class AppLogger:
     def log_event(self, event: dict | EngineEventBase, headers: dict) -> None:
         try:
             if isinstance(event, dict):
-                typ = event['type']
+                typ = event["type"]
                 dumped = json.dumps(event).encode()
             else:
                 typ = event.type
                 dumped = event.model_dump_json().encode()
 
             topic = self._get_kafka_topic(typ)
-            self.__class__._producer.send(topic, dumped, headers=self._build_headers(headers))
+            self.__class__._producer.send(
+                topic, dumped, headers=self._build_headers(headers)
+            )
         except ValueError:
             pass
 
@@ -55,20 +58,19 @@ class AppLogger:
         serialisers = {
             str: lambda v: v.encode(),
             list: lambda v: json.dumps(v).encode(),
-            dict: lambda v: json.dumps(v).encode()
+            dict: lambda v: json.dumps(v).encode(),
         }
 
         for k, v in data.items():
             v_type = type(v)
             serialiser = serialisers.get(v_type)
-            
+
             if serialiser:
                 headers.append((k, serialiser(v)))
             else:
                 raise ValueError(f"No serialiser for value {v} of type {v_type}")
-        
+
         return headers
-            
 
     @staticmethod
     def _get_kafka_topic(event_type: Enum):

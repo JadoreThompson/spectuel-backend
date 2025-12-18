@@ -4,7 +4,7 @@ from .utils import (
     smaker_sync,
     get_db_sess,
     get_db_sess_sync,
-    write_db_url_alembic,
+    write_db_url_alembic_ini,
 )
 
 __all__ = [
@@ -14,5 +14,5 @@ __all__ = [
     "smaker_sync",
     "get_db_sess",
     "get_db_sess_sync",
-    "write_db_url_alembic",
+    "write_db_url_alembic_ini",
 ]

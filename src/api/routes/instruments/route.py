@@ -1,31 +1,28 @@
-from aiokafka import AIOKafkaProducer
 from fastapi import APIRouter, Depends, HTTPException, Query
-# from spectuel_engine_utils.commands import NewInstrumentCommand
-# from spectuel_engine_utils.enums import TimeFrame
-# from spectuel_engine_utils.events import NewTradeEvent
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
-from api.dependencies import depends_db_sess, depends_kafka_producer
+from api.dependencies import depends_db_sess
 from api.shared.models import PaginatedResponse
 from config import KAFKA_COMMANDS_TOPIC, PAGE_SIZE
 from db_models import Instruments, Orders, Trades
 from engine.commands import NewInstrumentCommand
 from engine.enums import TimeFrame
 from engine.events import NewTradeEvent
+from engine.services.command_bus import CommandBus
 from .controller import calculate_24h_stats, get_24h_stats_all, get_ohlc_data
 from .models import InstrumentCreate, OHLC, InstrumentRead, Stats24h
 
 
 route = APIRouter(prefix="/instruments", tags=["instrument"])
+command_bus = CommandBus()
 
 
 @route.post("/", status_code=201)
 async def create_instrument(
     body: InstrumentCreate,
     db_sess: AsyncSession = Depends(depends_db_sess),
-    kafka_producer: AIOKafkaProducer = Depends(depends_kafka_producer),
 ):
     """Creates a new tradeable instrument."""
     try:
@@ -36,7 +33,7 @@ async def create_instrument(
         command = NewInstrumentCommand(
             instrument_id=str(inst.instrument_id), price=body.price
         )
-        await kafka_producer.send(
+        await command_bus.put(
             KAFKA_COMMANDS_TOPIC, command.model_dump_json().encode()
         )
     except IntegrityError:

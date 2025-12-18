@@ -4,8 +4,8 @@ from fastapi import Request, WebSocket
 from fastapi.responses import JSONResponse
 
 from config import COOKIE_ALIAS
-from services import JWTService, ApiKeyService, AsyncKafkaService
 from infra.db import smaker
+from services import JWTService, ApiKeyService
 from .exc import ApiKeyError, JWTError
 from .types import JWTPayload
 
@@ -100,7 +100,3 @@ async def depends_db_sess():
         except:
             await db_sess.rollback()
             raise
-
-
-async def depends_kafka_producer():
-    return AsyncKafkaService.get_producer()

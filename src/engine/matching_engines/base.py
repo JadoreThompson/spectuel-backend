@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 from engine.execution_context import ExecutionContext
 from engine.types import MatchResult
-from orders import Order
+from engine.orders import Order
 
 
 class EngineBase(ABC):

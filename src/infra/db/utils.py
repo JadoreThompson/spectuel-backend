@@ -34,7 +34,7 @@ def get_db_sess_sync() -> Generator[Session, None, None]:
         yield sess
 
 
-def write_db_url_alembic():
+def write_db_url_alembic_ini():
     db_password = DB_PASSWORD.replace("%", "%%")
     db_url = f"postgresql+psycopg2://{DB_USERNAME}:{db_password}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 

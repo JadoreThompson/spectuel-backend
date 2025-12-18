@@ -2,11 +2,11 @@ import threading
 from typing import TYPE_CHECKING
 
 from engine.loggers.wal_logger import WALogger
-from .orderbook import OrderBook
-from .stores import OrderStore
+from engine.orderbook import OrderBook
+from engine.stores import OrderStore
 
 if TYPE_CHECKING:
-    from .matching_engines import EngineBase
+    from engine.matching_engines import EngineBase
 
 
 class ExecutionContext:

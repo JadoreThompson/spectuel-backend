@@ -21,10 +21,7 @@ from api.routes.orders.models import (
     OTOCOOrderCreate,
     OrderBase,
 )
-
-
-class OrderServiceError(Exception):
-    pass
+from .exc import OrderServiceError
 
 
 class OrderService:

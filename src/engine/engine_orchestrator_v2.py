@@ -3,19 +3,19 @@ import time
 from multiprocessing.queues import Queue as MPQueueT
 from uuid import uuid4
 
-from spectuel_engine_utils.events.enums import InstrumentEventType
-from spectuel_engine_utils.enums import StrategyType, OrderType, Side, CommandType
-from spectuel_engine_utils.commands import NewSingleOrderCommand
 from sqlalchemy import select
 
-from engine.config import SYSTEM_USER_ID
 from db_models import EngineContextSnapshots, Instruments
+from engine.commands import NewSingleOrderCommand
+from engine.config import SYSTEM_USER_ID
+from engine.enums import StrategyType, OrderType, Side, CommandType
+from engine.events.enums import InstrumentEventType
 from engine.matching_engines import SpotEngine
 from engine.loggers.wal_logger import WALogger
 from engine.restoration.engine_restorer_v2 import EngineRestorerV2
 from engine.restoration.engine_snapshotter import EngineSnapshotter
 from engine.restoration.engine_snapshotter_v2 import EngineSnapshotterV2
-from utils.db import get_db_sess
+from infra.db import get_db_sess_sync
 
 
 class EngineOrchestratorV2:
@@ -48,7 +48,7 @@ class EngineOrchestratorV2:
             isouter=True,
         )
 
-        with get_db_sess() as db_sess:
+        with get_db_sess_sync() as db_sess:
             insts = db_sess.execute(query).all()
             for inst in insts:
                 symbol = str(inst.symbol)

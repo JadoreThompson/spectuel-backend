@@ -1,23 +1,12 @@
-from datetime import datetime
 import json
 import logging
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from pydantic import ValidationError
-from spectuel_engine_utils.enums import TransactionType, Side, OrderType, OrderStatus
-from spectuel_engine_utils.events.enums import OrderEventType, TradeEventType
-from spectuel_engine_utils.events import (
-    OrderPlacedEvent,
-    OrderPartiallyFilledEvent,
-    OrderFilledEvent,
-    OrderModifiedEvent,
-    OrderCancelledEvent,
-    NewTradeEvent,
-    AssetBalanceSnapshotEvent,
-    InstrumentPriceEvent,
-)
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,7 +16,6 @@ from config import (
     KAFKA_INSTRUMENT_EVENTS_TOPIC,
     KAFKA_ORDER_EVENTS_TOPIC,
     KAFKA_TRADE_EVENTS_TOPIC,
-    SYSTEM_USER_ID,
 )
 from db_models import (
     EventLogs,
@@ -37,8 +25,21 @@ from db_models import (
     Transactions,
     AssetBalances,
 )
-from services.balance_manager import BalanceManager
-from utils.db import get_db_sess_async
+from engine.config import SYSTEM_USER_ID
+from engine.enums import TransactionType, Side, OrderType, OrderStatus
+from engine.events import (
+    OrderPlacedEvent,
+    OrderPartiallyFilledEvent,
+    OrderFilledEvent,
+    OrderModifiedEvent,
+    OrderCancelledEvent,
+    NewTradeEvent,
+    AssetBalanceSnapshotEvent,
+    InstrumentPriceEvent,
+)
+from engine.events.enums import OrderEventType, TradeEventType
+from engine.services.balance_manager import BalanceManager
+from infra.db import get_db_sess
 
 
 class EventHandler:
@@ -127,7 +128,7 @@ class EventHandler:
             return
 
         try:
-            async with get_db_sess_async() as db_sess:
+            async with get_db_sess() as db_sess:
                 db_event_log = EventLogs(
                     event_id=event.id,
                     event_type=event.type,

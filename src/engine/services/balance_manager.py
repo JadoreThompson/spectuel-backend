@@ -3,33 +3,32 @@ from typing import TYPE_CHECKING
 
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis  # Added import
-# from spectuel_engine_utils.utils.utils import get_default_cash_balance
-# from spectuel_engine_utils.events.balance import (
-#     BalanceEventBase,
-#     CashBalanceIncreasedEvent,
-#     CashBalanceDecreasedEvent,
-#     CashEscrowIncreasedEvent,
-#     CashEscrowDecreasedEvent,
-#     AssetBalanceIncreasedEvent,
-#     AssetBalanceDecreasedEvent,
-#     AssetEscrowIncreasedEvent,
-#     AssetEscrowDecreasedEvent,
-#     AskSettledEvent,
-#     BidSettledEvent,
-# )
 
 from engine.config import (
     REDIS_CASH_ESCROW_HKEY_PREFIX,
     REDIS_CASH_ESCROW_PREFIX,
     REDIS_CASH_BALANCE_HKEY_PREFIX,
     REDIS_CASH_BALANCE_PREFIX,
-    SYSTEM_USER_ID,
 )
 from engine.decorators import ignore_system_user
+from engine.events.balance import (
+    BalanceEventBase,
+    CashBalanceIncreasedEvent,
+    CashBalanceDecreasedEvent,
+    CashEscrowIncreasedEvent,
+    CashEscrowDecreasedEvent,
+    AssetBalanceIncreasedEvent,
+    AssetBalanceDecreasedEvent,
+    AssetEscrowIncreasedEvent,
+    AssetEscrowDecreasedEvent,
+    AskSettledEvent,
+    BidSettledEvent,
+)
 from engine.infra.redis import REDIS_CLIENT, REDIS_CLIENT_SYNC
+from utils import get_default_cash_balance
 
 if TYPE_CHECKING:
-    from loggers import WALogger
+    from engine.loggers import WALogger
 
 
 # Script for simple Increase/Decrease of any balance/escrow

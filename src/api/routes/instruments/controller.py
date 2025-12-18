@@ -1,10 +1,10 @@
 from datetime import timedelta
 
-from spectuel_engine_utils.enums import TimeFrame
 from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db_models import Trades
+from engine.enums import TimeFrame
 from utils import get_datetime
 from .models import OHLC, Stats24h
 

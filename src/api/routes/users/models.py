@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Literal, TypeAlias
+
 from pydantic import BaseModel, field_validator
 
 

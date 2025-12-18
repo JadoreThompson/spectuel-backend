@@ -1,6 +1,6 @@
 import asyncio
 
-from engine.services import EventHandler
+from engine.services.event_handler import EventHandler
 from runners import BaseRunner
 
 

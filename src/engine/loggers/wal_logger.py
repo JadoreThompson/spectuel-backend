@@ -1,11 +1,11 @@
 from io import TextIOWrapper
 from typing import Union
 
-
 from engine.config import WAL_FPATH
-from engine.events.enums import OrderEventType, BalanceEventType
+from engine.decorators import ignore_system_user
+from engine.events.enums import OrderEventType, BalanceEventType, LogEventType
 from engine.events import (
-        EngineEventBase,
+    EngineEventBase,
     AssetBalanceDecreasedEvent,
     AssetBalanceIncreasedEvent,
     AssetEscrowDecreasedEvent,
@@ -25,9 +25,8 @@ from engine.events import (
     NewTradeEvent,
     LogEvent,
 )
-from engine.loggers import AppLogger
+from engine.loggers import EngineLogger
 from engine.restoration.restoration_manager import RestorationManager
-from engine.decorators import ignore_system_user
 
 
 BalanceEventUnion = Union[
@@ -44,7 +43,7 @@ BalanceEventUnion = Union[
 ]
 
 
-class WALogger(AppLogger):
+class WALogger(EngineLogger):
     _log_file: TextIOWrapper | None = None
     _order_event_map = {
         OrderEventType.ORDER_PLACED: OrderPlacedEvent,
@@ -116,7 +115,11 @@ class WALogger(AppLogger):
         self.log_event(kwargs, {"user_id": user_id})
 
     def log_balance_event(
-        self, event: BalanceEventUnion | None = None, user_id: str | None = None, /, **kwargs
+        self,
+        event: BalanceEventUnion | None = None,
+        user_id: str | None = None,
+        /,
+        **kwargs,
     ) -> None:
         if event is None:
             event_cls = self._balance_event_map[kwargs["type"]]

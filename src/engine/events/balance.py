@@ -1,9 +1,6 @@
 from typing import Literal
 
 from pydantic import Field
-# from spectuel_engine_utils.enums import OrderStatus, OrderType, Side
-# from spectuel_engine_utils.models.custom import CustomBaseModel
-
 from engine.enums import OrderStatus, OrderType, Side
 from models import CustomBaseModel
 from .base import EngineEventBase

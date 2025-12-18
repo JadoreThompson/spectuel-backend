@@ -1,14 +1,6 @@
 import uuid
 from datetime import datetime
 
-from spectuel_engine_utils.enums import (
-    OrderType,
-    InstrumentStatus,
-    OrderStatus,
-    Side,
-    LiquidityRole,
-)
-from spectuel_engine_utils.utils.utils import get_default_cash_balance
 from sqlalchemy import (
     UUID,
     Integer,
@@ -21,7 +13,15 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from core.enums import OrderGroupType
+from engine.enums import (
+    OrderType,
+    InstrumentStatus,
+    OrderStatus,
+    Side,
+    LiquidityRole,
+)
+from enums import OrderGroupType
+from utils import get_default_cash_balance
 
 
 class Base(DeclarativeBase):

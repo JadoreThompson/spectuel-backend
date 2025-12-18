@@ -4,7 +4,6 @@ from uuid import UUID, uuid4
 
 from pydantic import Field
 
-# from spectuel_engine_utils.models import CustomBaseModel
 from models import CustomBaseModel
 
 

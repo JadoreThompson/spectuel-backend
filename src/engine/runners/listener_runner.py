@@ -9,16 +9,13 @@ from kafka import KafkaConsumer
 from pydantic import ValidationError
 from sqlalchemy import select
 
-from config import (
-    HEARTBEAT_STALE_THRESHOLD,
-    KAFKA_BOOTSTRAP_SERVERS,
-    KAFKA_COMMANDS_TOPIC,
-)
+from config import KAFKA_BOOTSTRAP_SERVERS, KAFKA_COMMANDS_TOPIC
 from db_models import EngineContextSnapshots, Instruments
+from engine.config import HEARTBEAT_STALE_THRESHOLD
 from engine.engine_orchestrator import EngineOrchestrator
 from engine.engine_orchestrator_v2 import EngineOrchestratorV2
+from infra.db import get_db_sess_sync
 from runners import BaseRunner
-from utils.db import get_db_sess
 
 
 class ListenerRunner(BaseRunner):
@@ -31,7 +28,7 @@ class ListenerRunner(BaseRunner):
         self._logger = logging.getLogger(self.__class__.__name__)
 
     def _get_symbols(self):
-        with get_db_sess() as db_sess:
+        with get_db_sess_sync() as db_sess:
             iids = db_sess.scalars(select(Instruments.symbol)).all()
             return [str(iid) for iid in iids]
 

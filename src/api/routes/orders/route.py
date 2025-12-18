@@ -1,12 +1,6 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from spectuel_engine_utils.enums import OrderStatus, Side
-from spectuel_engine_utils.commands import (
-    CommandType,
-    CancelOrderCommand,
-    ModifyOrderCommand,
-)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,8 +9,9 @@ from api.shared.models import PaginatedResponse
 from api.types import JWTPayload
 from config import PAGE_SIZE
 from db_models import Orders
-from services import CommandBus, OrderService
-# from .controller import cancel_all_orders as cancel_all_orders_controller
+from engine.enums import OrderStatus, Side
+from engine.services.command_bus import CommandBus
+from services import OrderService
 from .models import (
     OCOOrderCreate,
     OTOCOOrderCreate,
@@ -28,7 +23,7 @@ from .models import (
 
 
 route = APIRouter(prefix="/orders", tags=["orders"])
-command_bus = CommandBus
+command_bus = CommandBus()
 
 
 @route.post("/", status_code=202)

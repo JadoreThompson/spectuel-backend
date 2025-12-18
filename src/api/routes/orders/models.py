@@ -3,8 +3,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-# from spectuel_engine_utils.enums import OrderType, OrderStatus, StrategyType, Side
-# from spectuel_engine_utils.models import CustomBaseModel
 from engine.enums import OrderType, OrderStatus, StrategyType, Side
 from models import CustomBaseModel
 

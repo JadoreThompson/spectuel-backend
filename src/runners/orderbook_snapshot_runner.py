@@ -6,15 +6,6 @@ from collections import defaultdict
 from typing import NamedTuple
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-from spectuel_engine_utils.enums import Side, LiquidityRole, OrderStatus
-from spectuel_engine_utils.events import (
-    NewTradeEvent,
-    OrderPlacedEvent,
-    OrderCancelledEvent,
-    OrderbookSnapshotEvent,
-)
-from spectuel_engine_utils.events.enums import TradeEventType, OrderEventType
-from spectuel_engine_utils.enums import OrderType
 from sqlalchemy import select
 
 from config import (
@@ -24,7 +15,16 @@ from config import (
     KAFKA_INSTRUMENT_EVENTS_TOPIC,
 )
 from db_models import Orders
-from utils.db import get_db_sess
+from engine.enums import Side, LiquidityRole, OrderStatus
+from engine.events import (
+    NewTradeEvent,
+    OrderPlacedEvent,
+    OrderCancelledEvent,
+    OrderbookSnapshotEvent,
+)
+from engine.events.enums import TradeEventType, OrderEventType
+from engine.enums import OrderType
+from infra.db import get_db_sess
 from .base import BaseRunner
 
 

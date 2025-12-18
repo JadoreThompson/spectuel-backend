@@ -1,7 +1,6 @@
 from datetime import timedelta
 from uuid import UUID
 
-# from spectuel_engine_utils.enums import Side
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 

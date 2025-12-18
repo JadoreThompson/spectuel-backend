@@ -2,8 +2,11 @@ import logging
 from datetime import datetime, timedelta
 from typing import Generator
 
-from spectuel_engine_utils.events.enums import BalanceEventType
-from spectuel_engine_utils.events.balance import (
+from sqlalchemy import select
+
+from db_models import EventLogs
+from engine.events.enums import BalanceEventType
+from engine.events.balance import (
     CashBalanceIncreasedEvent,
     CashBalanceDecreasedEvent,
     CashEscrowIncreasedEvent,
@@ -15,14 +18,11 @@ from spectuel_engine_utils.events.balance import (
     AskSettledEvent,
     BidSettledEvent,
 )
-from sqlalchemy import select
-
-from db_models import EventLogs
-from loggers import WALogger
+from engine.infra.redis import REDIS_CLIENT_SYNC, BACKUP_REDIS_CLIENT_SYNC
+from engine.loggers import WALogger
 from engine.restoration.restoration_manager import RestorationManager
-from services.balance_manager import BalanceManager
-from utils.db import get_db_sess
-from utils.redis import REDIS_CLIENT, BACKUP_REDIS_CLIENT
+from engine.services.balance_manager import BalanceManager
+from infra.db import get_db_sess
 
 
 class BalanceManagerRestorer:
@@ -32,30 +32,30 @@ class BalanceManagerRestorer:
 
     def __init__(self) -> None:
         self._name = self.__class__.__name__
-        self._bm = BalanceManager(WALogger(self._name), BACKUP_REDIS_CLIENT)
+        self._bm = BalanceManager(WALogger(self._name), BACKUP_REDIS_CLIENT_SYNC)
         self._logger = logging.getLogger(self._name)
 
     def _get_all_redis_keys(self) -> list[str]:
         """Get all keys from the main Redis instance."""
-        return REDIS_CLIENT.keys("*")
+        return REDIS_CLIENT_SYNC.keys("*")
 
     def _restore_to_backup_redis(self, keys: list[str]) -> bool:
         """Restore keys from main Redis to backup Redis."""
-        BACKUP_REDIS_CLIENT.flushdb()
+        BACKUP_REDIS_CLIENT_SYNC.flushdb()
 
         restored_count = 0
 
         for key in keys:
-            key_type = REDIS_CLIENT.type(key).decode()
+            key_type = REDIS_CLIENT_SYNC.type(key).decode()
 
             if key_type == "string":
-                value = REDIS_CLIENT.get(key)
-                BACKUP_REDIS_CLIENT.set(key, value)
+                value = REDIS_CLIENT_SYNC.get(key)
+                BACKUP_REDIS_CLIENT_SYNC.set(key, value)
 
             elif key_type == "hash":
-                hash_data = REDIS_CLIENT.hgetall(key)
+                hash_data = REDIS_CLIENT_SYNC.hgetall(key)
                 if hash_data:
-                    BACKUP_REDIS_CLIENT.hset(key, mapping=hash_data)
+                    BACKUP_REDIS_CLIENT_SYNC.hset(key, mapping=hash_data)
             else:
                 raise NotImplementedError(
                     f"Restoration for keytype '{key_type}' hasn't been implemeted."
@@ -191,7 +191,7 @@ class BalanceManagerRestorer:
             RestorationManager.set_predicate(self._name, lambda: True)
 
             try:
-                last_save: datetime = REDIS_CLIENT.lastsave()
+                last_save: datetime = REDIS_CLIENT_SYNC.lastsave()
             except Exception as e:
                 self._logger.warning(
                     f"Could not get lastsave from Main Redis: {e}. Defaulting to 1 day ago."
@@ -211,7 +211,7 @@ class BalanceManagerRestorer:
             # Replay logs from slightly before the snapshot to ensure continuity
             self._replay_logs((last_save - timedelta(minutes=5)).timestamp())
 
-            backup_keys_count = BACKUP_REDIS_CLIENT.dbsize()
+            backup_keys_count = BACKUP_REDIS_CLIENT_SYNC.dbsize()
             self._logger.info(f"Backup Redis now contains {backup_keys_count} keys")
 
             return True

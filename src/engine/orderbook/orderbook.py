@@ -1,8 +1,8 @@
 from typing import Iterable, KeysView
 
 from sortedcontainers.sorteddict import SortedDict
-from spectuel_engine_utils.enums import Side
 
+from engine.enums import Side
 from engine.orders import Order
 from .price_level import PriceLevel
 

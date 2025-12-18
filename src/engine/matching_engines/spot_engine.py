@@ -1,14 +1,6 @@
-from spectuel_engine_utils.enums import (
-    LiquidityRole,
-    OrderType,
-    Side,
-    StrategyType,
-    CommandType,
-)
-from spectuel_engine_utils.events import OrderEventType, TradeEventType
-
 from engine.config import SYSTEM_USER_ID
-from engine.enums import MatchOutcome
+from engine.enums import MatchOutcome, LiquidityRole, OrderType, Side, StrategyType, CommandType
+from engine.events import OrderEventType, TradeEventType
 from engine.execution_context import ExecutionContext
 from engine.orderbook import OrderBook
 from engine.services.balance_manager import BalanceManager
@@ -21,7 +13,7 @@ from engine.strategies import (
 )
 from engine.strategies import StrategyBase
 from engine.types import MatchResult
-from orders import Order
+from engine.orders import Order
 from .base import EngineBase
 
 

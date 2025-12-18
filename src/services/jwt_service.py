@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from datetime import datetime, timedelta
 
 import jwt
@@ -10,7 +9,7 @@ from api.exc import JWTError
 from api.types import JWTPayload
 from config import COOKIE_ALIAS, IS_PRODUCTION, JWT_SECRET, JWT_ALGO, JWT_EXPIRY_SECS
 from db_models import Users
-from utils.db import get_db_sess
+from infra.db import get_db_sess
 from utils import get_datetime
 
 

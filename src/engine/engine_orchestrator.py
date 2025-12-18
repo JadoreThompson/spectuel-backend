@@ -2,11 +2,11 @@ import logging
 import os
 from multiprocessing.queues import Queue as MPQueueT
 
-from spectuel_engine_utils.events.enums import InstrumentEventType
 
 from engine.config import ENGINE_SNAPSHOT_FOLDER
+from engine.events.enums import InstrumentEventType
+from engine.loggers import WALogger
 from engine.matching_engines import SpotEngine
-from loggers.wal_logger import WALogger
 from engine.restoration.engine_restorer import EngineRestorer
 from engine.restoration.engine_snapshotter import EngineSnapshotter
 

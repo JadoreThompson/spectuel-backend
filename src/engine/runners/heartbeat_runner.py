@@ -7,19 +7,19 @@ import sys
 import time
 from multiprocessing.queues import Queue as MPQueueT
 
-from spectuel_engine_utils.events.instrument import InstrumentHeartbeatEvent
 
-from config import (
+from engine.events.instrument import InstrumentHeartbeatEvent
+from engine.config import (
     HEARTBEAT_CONNECT_TIMEOUT,
     HEARTBEAT_INTERVAL,
     HEARTBEAT_LISTENER_HOST,
     HEARTBEAT_LISTENER_PORT,
     HEARTBEAT_STALE_THRESHOLD,
 )
-from runners import RunnerBase
+from runners import BaseRunner
 
 
-class HeartbeatRunner(RunnerBase):
+class HeartbeatRunner(BaseRunner):
     def __init__(
         self,
         instrument_queue: MPQueueT,

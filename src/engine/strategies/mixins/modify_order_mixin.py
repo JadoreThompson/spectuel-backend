@@ -1,6 +1,6 @@
-from spectuel_engine_utils.enums import OrderType
-from spectuel_engine_utils.events.enums import OrderEventType
 
+from engine.enums import OrderType
+from engine.events.enums import OrderEventType
 from engine.execution_context import ExecutionContext
 from engine.utils import get_price_key, limit_crossable, stop_crossable
 from engine.orders import Order

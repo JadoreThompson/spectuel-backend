@@ -751,7 +751,6 @@ dependencies = [
     { name = "redis" },
     { name = "requests" },
     { name = "sortedcontainers" },
-    { name = "spectuel-engine-utils" },
     { name = "sqlalchemy" },
     { name = "uvicorn" },
     { name = "websockets" },
@@ -779,7 +778,6 @@ requires-dist = [
     { name = "redis", specifier = ">=6.4.0" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "sortedcontainers", specifier = ">=2.4.0" },
-    { name = "spectuel-engine-utils", specifier = ">=0.0.25" },
     { name = "sqlalchemy", specifier = ">=2.0.43" },
     { name = "uvicorn", specifier = ">=0.35.0" },
     { name = "websockets", specifier = ">=15.0.1" },
@@ -1102,18 +1100,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e8/c4/ba2f8066cceb6f23394729afe52f3bf7adec04bf9ed2c820b39e19299111/sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88", size = 30594, upload-time = "2021-05-16T22:03:42.897Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/32/46/9cb0e58b2deb7f82b84065f37f3bffeb12413f947f9388e4cac22c4621ce/sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0", size = 29575, upload-time = "2021-05-16T22:03:41.177Z" },
-]
-
-[[package]]
-name = "spectuel-engine-utils"
-version = "0.0.33"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pydantic" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d0/c5/117b93d00774da9d270e161ab113e670098f95b407c2f26ee4e4356450da/spectuel_engine_utils-0.0.33.tar.gz", hash = "sha256:b354b6d1ff10ac72fa9881542cdfbe3d5f1072d03b15cd89afbc05469795e4c4", size = 9559, upload-time = "2025-11-30T23:38:43.309Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8f/ec/bd278b509cd310f6253f048c208810c922f19a954270e98bd7474fef92c4/spectuel_engine_utils-0.0.33-py3-none-any.whl", hash = "sha256:66f5ca0e9c4ac17e43a0ae6d19441639a099436ab151a19f85f2842df6641f0c", size = 7556, upload-time = "2025-11-30T23:38:42.313Z" },
 ]
 
 [[package]]

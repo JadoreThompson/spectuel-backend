@@ -1,3 +1,13 @@
-from .client import REDIS_CLIENT, REDIS_CLIENT_SYNC
+from .client import (
+    REDIS_CLIENT,
+    REDIS_CLIENT_SYNC,
+    BACKUP_REDIS_CLIENT,
+    BACKUP_REDIS_CLIENT_SYNC,
+)
 
-__all__ = ["REDIS_CLIENT", 'REDIS_CLIENT_SYNC']
+__all__ = [
+    "REDIS_CLIENT",
+    "REDIS_CLIENT_SYNC",
+    "BACKUP_REDIS_CLIENT",
+    "BACKUP_REDIS_CLIENT_SYNC",
+]

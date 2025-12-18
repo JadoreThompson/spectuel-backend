@@ -23,7 +23,6 @@ class EmailService:
 
         self.sender_name = sender_name
         self.sender_email = sender_email
-        # self._http_sess = ClientSession()
         self._http_sess: ClientSession | None = None
         self._initialised = True
         self._logger = logging.getLogger("email_service")

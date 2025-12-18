@@ -1,8 +1,6 @@
 from enum import Enum
 
 
-from enum import Enum
-
 
 class Side(str, Enum):
     BID = "bid"

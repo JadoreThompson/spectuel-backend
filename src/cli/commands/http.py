@@ -19,8 +19,8 @@ def http_run():
 
     configs = (
         (ServerRunner, (), {"host": "0.0.0.0", "port": 8000}),
-        (OrderBookSnapshotRunner, (), {}),
-        (EngineHeartbeatRunner, (), {}),
+        # (OrderBookSnapshotRunner, (), {}),
+        # (EngineHeartbeatRunner, (), {}),
     )
 
     ps = [

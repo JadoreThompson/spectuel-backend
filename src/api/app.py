@@ -14,7 +14,6 @@ from api.routes.users.route import route as user_route
 from api.ws.orders.route import router as order_ws_route
 from db_models import Instruments
 from infra.db import get_db_sess
-from services import AsyncKafkaService
 from services.order_service import OrderServiceError
 
 
@@ -34,9 +33,7 @@ async def create_instruments():
 
 async def lifespan(app: FastAPI):
     await create_instruments()
-    await AsyncKafkaService.start()
     yield
-    await AsyncKafkaService.stop()
 
 
 app = FastAPI(lifespan=lifespan)

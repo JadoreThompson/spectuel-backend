@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar, Generic
 
-from spectuel_engine_utils.enums import OrderType
-
+from engine.enums import OrderType
 from engine.execution_context import ExecutionContext
 from engine.orders import Order
 

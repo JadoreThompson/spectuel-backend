@@ -1,5 +1,5 @@
 from __future__ import annotations
-from spectuel_engine_utils.enums import OrderType, Side, StrategyType
+from engine.enums import OrderType, Side, StrategyType
 from .order import Order
 
 

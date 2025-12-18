@@ -3,12 +3,12 @@ import json
 import logging
 
 from sqlalchemy import update
-from spectuel_engine_utils.enums import InstrumentStatus
 
 from config import HEARTBEAT_LISTENER_PORT
 from db_models import Instruments
+from engine.enums import InstrumentStatus
+from infra.db import get_db_sess, get_db_sess_sync
 from runners.base import BaseRunner
-from utils.db import get_db_sess, get_db_sess_sync
 
 
 class EngineHeartbeatRunner(BaseRunner):
