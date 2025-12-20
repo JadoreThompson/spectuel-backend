@@ -31,7 +31,7 @@ class EngineRestorerV2:
             self._wal_records = [LogEvent.model_validate_json(line) for line in f]
 
     def _load_ctx_snapshot(self) -> None:
-        ctx = ExecutionContext.deserialise(self._ctx_snapshot, engine=self._engine)
+        ctx = ExecutionContext.from_dict(self._ctx_snapshot, engine=self._engine)
         self._engine = SpotEngine(ctx.symbol)
         self._engine._ctx = ctx
 

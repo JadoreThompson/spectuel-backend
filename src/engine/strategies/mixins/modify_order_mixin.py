@@ -1,4 +1,3 @@
-
 from engine.enums import OrderType
 from engine.events.enums import OrderEventType
 from engine.execution_context import ExecutionContext
@@ -52,5 +51,5 @@ class ModifyOrderMixin:
             type=OrderEventType.ORDER_MODIFIED,
             order_id=order.id,
             symbol=ctx.symbol,
-            **{get_price_key(order.order_type):new_price,}
+            **{get_price_key(order.order_type): new_price}
         )

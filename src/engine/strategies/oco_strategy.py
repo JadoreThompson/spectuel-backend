@@ -104,12 +104,12 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
 
     def modify(self, cmd: dict, order: OCOOrder, ctx: ExecutionContext) -> None:
         self._modify_order(cmd, order, ctx)
-        ctx.wal_logger.log_order_event(
-            order.user_id,
-            type=OrderEventType.ORDER_MODIFIED,
-            order_id=order.id,
-            symbol=ctx.symbol,
-            limit_price=cmd.get("limit_price"),
-            stop_price=cmd.get("stop_price"),
-            details={},
-        )
+        # ctx.wal_logger.log_order_event(
+        #     order.user_id,
+        #     type=OrderEventType.ORDER_MODIFIED,
+        #     order_id=order.id,
+        #     symbol=ctx.symbol,
+        #     limit_price=cmd.get("limit_price"),
+        #     stop_price=cmd.get("stop_price"),
+        #     details={},
+        # )

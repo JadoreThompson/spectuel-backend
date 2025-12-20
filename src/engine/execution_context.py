@@ -31,23 +31,23 @@ class ExecutionContext:
         self.lock = threading.Lock()
         self.wal_logger = WALogger(symbol)
 
-    def serialise(self) -> dict:
+    def to_dict(self) -> dict:
         return {
-            "orderbook": self.orderbook.serialise(),
-            "order_store": self.order_store.serialise(),
+            "orderbook": self.orderbook.to_dict(),
+            "order_store": self.order_store.to_dict(),
             "symbol": self.symbol,
             "command_id": self.command_id if self.command_id else None,
         }
 
     @classmethod
-    def deserialise(
+    def from_dict(
         cls,
         data: dict,
         *,
         engine: "EngineBase",
     ) -> "ExecutionContext":
-        orderbook = OrderBook.deserialise(data["orderbook"])
-        order_store = OrderStore.deserialise(data["order_store"])
+        orderbook = OrderBook.from_dict(data["orderbook"])
+        order_store = OrderStore.from_dict(data["order_store"])
 
         return cls(
             engine=engine,

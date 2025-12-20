@@ -33,7 +33,7 @@ async def create_instrument(
         command = NewInstrumentCommand(
             instrument_id=str(inst.instrument_id), price=body.price
         )
-        await command_bus.put(
+        await command_bus.put_async(
             KAFKA_COMMANDS_TOPIC, command.model_dump_json().encode()
         )
     except IntegrityError:

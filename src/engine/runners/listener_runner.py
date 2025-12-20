@@ -27,16 +27,16 @@ class ListenerRunner(BaseRunner):
         )
         self._logger = logging.getLogger(self.__class__.__name__)
 
-    def _get_symbols(self):
+    def _get_symbols(self) -> tuple[str]:
         with get_db_sess_sync() as db_sess:
-            iids = db_sess.scalars(select(Instruments.symbol)).all()
-            return [str(iid) for iid in iids]
+            symbols = db_sess.scalars(select(Instruments.symbol)).all()
+            return tuple(symbols)
 
     def run(self) -> None:
         self._th.start()
-        iids = self._get_symbols()
+        symbols = self._get_symbols()
         orch = EngineOrchestratorV2(
-            heartbeat_queue=self._instrument_queue, symbols=iids
+            heartbeat_queue=self._instrument_queue, symbols=symbols
         )
         orch.initialise()
 

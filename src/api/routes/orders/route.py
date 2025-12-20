@@ -36,7 +36,7 @@ async def create_order(
     Accepts a new single order.
     """
     try:
-         return await OrderService.create(jwt.sub, details, db_sess)
+        return await OrderService.create(jwt.sub, details, db_sess)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -165,7 +165,7 @@ async def modify_order(
         limit_price=details.limit_price,
         stop_price=details.stop_price,
     )
-    await command_bus.put(command)
+    await command_bus.put_async(command)
 
 
 @route.delete("/{order_id}", status_code=202, summary="Cancel a specific order")
@@ -189,7 +189,7 @@ async def cancel_order(
         instrument_id=order.instrument_id,
     )
 
-    await command_bus.put(cmd_data)
+    await command_bus.put_async(cmd_data)
 
 
 @route.delete(

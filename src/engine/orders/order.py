@@ -22,13 +22,13 @@ class Order:
         self.executed_quantity = 0
         self.price = price
 
-    def serialise(self) -> dict:
+    def to_dict(self) -> dict:
         s = vars(self)
         s["type"] = self.__class__.__name__
         return s
 
     @classmethod
-    def deserialise(cls, data: dict) -> Order:
+    def from_dict(cls, data: dict) -> Order:
         return cls(
             id_=data["id"],
             user_id=data["user_id"],

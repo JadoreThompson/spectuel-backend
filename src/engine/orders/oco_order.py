@@ -19,20 +19,20 @@ class OCOOrder(Order):
         super().__init__(id_, user_id, strategy_type, order_type, side, quantity, price)
         self.counterparty = counterparty
 
-    def serialise(self, counterparty: dict | None =None) -> dict:
-        s = super().serialise()
+    def to_dict(self, counterparty: dict | None = None) -> dict:
+        s = super().to_dict()
 
         if counterparty:
             s["counterparty"] = counterparty
         elif self.counterparty is None:
             s["counterparty"] = None
         else:
-            s["counterparty"] = self.counterparty.serialise(s)
+            s["counterparty"] = self.counterparty.to_dict(s)
 
         return s
-    
+
     @classmethod
-    def deserialise(cls, data: dict, is_counterparty: bool = False) -> OCOOrder:
+    def from_dict(cls, data: dict, is_counterparty: bool = False) -> OCOOrder:
         counterparty = data.get("counterparty")
 
         if is_counterparty:
@@ -40,7 +40,7 @@ class OCOOrder(Order):
         elif counterparty is None:
             counterparty_order = None
         else:
-            counterparty_order = OCOOrder.deserialise(counterparty, is_counterparty=True)
+            counterparty_order = OCOOrder.from_dict(counterparty, is_counterparty=True)
 
         order = cls(
             id_=data["id"],
@@ -52,7 +52,7 @@ class OCOOrder(Order):
             price=data["price"],
             counterparty=counterparty_order,
         )
-        
+
         if not is_counterparty and counterparty_order:
             counterparty_order.counterparty = order
 

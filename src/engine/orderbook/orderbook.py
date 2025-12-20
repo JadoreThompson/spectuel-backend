@@ -156,7 +156,7 @@ class OrderBook:
             yield cur.order
             cur = cur.next
 
-    def serialise(self) -> dict:
+    def to_dict(self) -> dict:
         """
         Serialises the OrderBook including bids and asks.
 
@@ -168,12 +168,12 @@ class OrderBook:
             "starting_price": self._starting_price,
             "best_bid_price": self._best_bid_price,
             "best_ask_price": self._best_ask_price,
-            "bids": {price: level.serialise() for price, level in self._bids.items()},
-            "asks": {price: level.serialise() for price, level in self._asks.items()},
+            "bids": {price: level.to_dict() for price, level in self._bids.items()},
+            "asks": {price: level.to_dict() for price, level in self._asks.items()},
         }
 
     @classmethod
-    def deserialise(cls, data: dict) -> "OrderBook":
+    def from_dict(cls, data: dict) -> "OrderBook":
         """
         Deserialises the OrderBook from its dictionary representation.
 
@@ -191,13 +191,13 @@ class OrderBook:
 
         ob._bids = SortedDict(
             {
-                float(price): PriceLevel.deserialise(level_data)
+                float(price): PriceLevel.from_dict(level_data)
                 for price, level_data in data["bids"].items()
             }
         )
         ob._asks = SortedDict(
             {
-                float(price): PriceLevel.deserialise(level_data)
+                float(price): PriceLevel.from_dict(level_data)
                 for price, level_data in data["asks"].items()
             }
         )

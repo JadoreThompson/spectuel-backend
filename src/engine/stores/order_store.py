@@ -15,14 +15,14 @@ class OrderStore(StoreBase[Order]):
     def get(self, value: str) -> Order | None:
         return self._orders.get(value)
 
-    def serialise(self) -> dict:
-        return {order_id: order.serialise() for order_id, order in self._orders.items()}
+    def to_dict(self) -> dict:
+        return {order_id: order.to_dict() for order_id, order in self._orders.items()}
 
     @classmethod
-    def deserialise(cls, data: dict) -> "OrderStore":
+    def from_dict(cls, data: dict) -> "OrderStore":
         store = cls()
         for _, order_data in data.items():
             cls: Order = eval(order_data["type"])
-            order = cls.deserialise(order_data)
+            order = cls.from_dict(order_data)
             store.add(order)
         return store

@@ -4,6 +4,13 @@ from typing import Union
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.routes.orders.models import (
+    SingleOrderCreate,
+    OCOOrderCreate,
+    OTOOrderCreate,
+    OTOCOOrderCreate,
+    OrderBase,
+)
 from db_models import AssetBalances, Orders, Users
 from engine.commands import (
     NewSingleOrderCommand,
@@ -14,13 +21,6 @@ from engine.commands import (
 )
 from engine.enums import OrderStatus, StrategyType, Side
 from engine.services.command_bus import CommandBus
-from api.routes.orders.models import (
-    SingleOrderCreate,
-    OCOOrderCreate,
-    OTOOrderCreate,
-    OTOCOOrderCreate,
-    OrderBase,
-)
 from .exc import OrderServiceError
 
 
@@ -42,7 +42,7 @@ class OrderService:
         user_id = uuid.UUID(str(user_id))
         if cls._command_bus is None:
             cls._command_bus = CommandBus()
-            await cls._command_bus.initialise()
+            await cls._command_bus.initialise_async()
 
         if details.strategy_type == StrategyType.SINGLE:
             return await cls._create_single(user_id, details, db_sess)
@@ -102,7 +102,7 @@ class OrderService:
             **meta.model_dump(),
         )
 
-        await cls._command_bus.put(command)
+        await cls._command_bus.put_async(command)
 
         return {"order_id": str(order_id), "status": "accepted"}
 
@@ -155,7 +155,7 @@ class OrderService:
             strategy_type=StrategyType.OCO,
             legs=legs_meta,
         )
-        await cls._command_bus.put(command)
+        await cls._command_bus.put_async(command)
 
         return {"group_id": str(group_id), "order_ids": response_ids}
 
@@ -193,7 +193,7 @@ class OrderService:
             parent=OrderService._to_meta(parent_id, user_id, details.parent),
             child=OrderService._to_meta(child_id, user_id, details.child),
         )
-        await cls._command_bus.put(command)
+        await cls._command_bus.put_async(command)
 
         return {
             "group_id": str(group_id),
@@ -212,9 +212,7 @@ class OrderService:
         symbol = details.parent.symbol
 
         parent_id = uuid.uuid4()
-        db_parent = OrderService._build_db_order(
-            user_id, details.parent, parent_id
-        )
+        db_parent = OrderService._build_db_order(user_id, details.parent, parent_id)
         db_parent.order_group_id = group_id
         db_parent.group_type = StrategyType.OTOCO
         db_sess.add(db_parent)
@@ -226,9 +224,7 @@ class OrderService:
             leg_id = uuid.uuid4()
             child_ids.append(str(leg_id))
 
-            db_leg = OrderService._build_db_order(
-                user_id, symbol, leg_spec, leg_id
-            )
+            db_leg = OrderService._build_db_order(user_id, symbol, leg_spec, leg_id)
             db_leg.order_group_id = group_id
             db_leg.parent_order_id = parent_id
             db_leg.group_type = StrategyType.OTOCO
@@ -244,7 +240,7 @@ class OrderService:
             parent=OrderService._to_meta(parent_id, user_id, details.parent),
             oco_legs=legs_meta,
         )
-        await cls._command_bus.put(command)
+        await cls._command_bus.put_async(command)
 
         return {
             "group_id": str(group_id),

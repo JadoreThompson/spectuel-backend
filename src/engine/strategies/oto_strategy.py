@@ -175,6 +175,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
         if order.parent:
             if order.triggered:
                 self._modify_order(cmd, order, ctx)
+            
             elif self._validate_modify(cmd, order, ctx):
                 order.price = self._get_modified_price(cmd, order)
                 ctx.wal_logger.log_order_event(
@@ -184,13 +185,14 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
                     symbol=ctx.symbol,
                     details={"price": order.price},
                 )
+            
             return
 
         self._modify_order(cmd, order, ctx)
-        ctx.wal_logger.log_order_event(
-            order.user_id,
-            type=OrderEventType.ORDER_MODIFIED,
-            order_id=order.id,
-            symbol=ctx.symbol,
-            details={"price": order.price},
-        )
+        # ctx.wal_logger.log_order_event(
+        #     order.user_id,
+        #     type=OrderEventType.ORDER_MODIFIED,
+        #     order_id=order.id,
+        #     symbol=ctx.symbol,
+        #     details={"price": order.price},
+        # )

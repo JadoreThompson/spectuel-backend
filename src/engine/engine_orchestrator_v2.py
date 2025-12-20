@@ -117,9 +117,7 @@ class EngineOrchestratorV2:
             return
 
         if symbol not in self._payloads:
-            raise ValueError(
-                f"Received command for unknown symbol '{symbol}'"
-            )
+            raise ValueError(f"Received command for unknown symbol '{symbol}'")
 
         engine, counter, snapshotter = self._payloads[symbol]
 

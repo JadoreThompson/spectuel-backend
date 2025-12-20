@@ -43,7 +43,7 @@ if redis.call('HEXISTS', KEYS[2], ARGV[1]) == 1 then
 end
 
 if redis.call('EXISTS', KEYS[1]) == 0 then
-    redis.call('SET', KEYS[1], {get_default_cash_balance()})
+    redis.call('SET', KEYS[1])
 end
 
 local new_val = redis.call('INCRBYFLOAT', KEYS[1], ARGV[2])

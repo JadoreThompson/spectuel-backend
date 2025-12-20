@@ -23,29 +23,29 @@ class OTOOrder(Order):
         # The parent order is triggered by default; the child is not.
         self.triggered = parent is None
 
-    def serialise(self, parent: dict | None =None, child: dict | None =None) -> dict:
-        s = super().serialise()
+    def to_dict(self, parent: dict | None = None, child: dict | None = None) -> dict:
+        s = super().to_dict()
 
         if parent:
             s["parent"] = parent
         elif self.parent is None:
             s["parent"] = None
         else:
-            s["parent"] = self.parent.serialise(s)
+            s["parent"] = self.parent.to_dict(s)
 
         if child:
             s["child"] = child
         elif self.child is None:
             s["child"] = None
         else:
-            s["child"] = self.child.serialise(s)
+            s["child"] = self.child.to_dict(s)
 
         s["triggered"] = self.triggered
 
         return s
-    
+
     @classmethod
-    def deserialise(cls, data: dict, is_child: bool = False) -> OTOOrder:
+    def from_dict(cls, data: dict, is_child: bool = False) -> OTOOrder:
         parent = data.get("parent")
         child = data.get("child")
 
@@ -54,14 +54,14 @@ class OTOOrder(Order):
         elif parent is None:
             parent_order = None
         else:
-            parent_order = OTOOrder.deserialise(parent, is_child=True)
+            parent_order = OTOOrder.from_dict(parent, is_child=True)
 
         if is_child:
             child_order = None
         elif child is None:
             child_order = None
         else:
-            child_order = OTOOrder.deserialise(child, is_child=True)
+            child_order = OTOOrder.from_dict(child, is_child=True)
 
         order = cls(
             id_=data["id"],
@@ -74,7 +74,7 @@ class OTOOrder(Order):
             parent=parent_order,
             child=child_order,
         )
-        
+
         order.triggered = data["triggered"]
 
         return order

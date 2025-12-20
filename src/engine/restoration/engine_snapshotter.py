@@ -11,7 +11,7 @@ class EngineSnapshotter:
         self._counter = -1
 
     def snapshot(self) -> dict:
-        return self._engine._ctx.serialise()
+        return self._engine._ctx.to_dict()
 
     def persist_snapshot(self, snapshot: dict) -> None:
         if self._counter == -1:

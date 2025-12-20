@@ -11,7 +11,7 @@ class EngineSnapshotterV2:
         self._symbol = symbol
 
     def snapshot(self) -> dict:
-        return self._engine._ctx.serialise()
+        return self._engine._ctx.to_dict()
 
     def persist_snapshot(self, snapshot: dict) -> None:
         with get_db_sess_sync() as db_sess:

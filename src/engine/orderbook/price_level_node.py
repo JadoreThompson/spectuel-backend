@@ -1,11 +1,11 @@
 from __future__ import annotations
 from engine.orders import (
-    Order, 
+    Order,
     # These classes have to be in scope
     # during deserialisation phase
-    OCOOrder, 
-    OTOCOOrder, 
-    OTOOrder
+    OCOOrder,
+    OTOCOOrder,
+    OTOOrder,
 )
 
 
@@ -25,47 +25,26 @@ class PriceLevelNode:
         self.prev = prev
         self.next = next
 
-    def serialise(self, prev: dict | None = None, nxt: dict | None = None):
+    def to_dict(self):
         uid = id(self)
 
-        s = {"id": uid, "order": self.order.serialise(), "next": None, "prev": None}
+        s = {"id": uid, "order": self.order.to_dict(), "next": None}
 
-        if prev:
-            s["prev"] = prev
-        elif self.prev:
-            s["prev"] = self.prev.serialise(nxt=s)
-        else:
-            s["prev"] = None
-
-        if nxt:
-            s["next"] = nxt
-        elif self.next:
-            s["next"] = self.next.serialise(prev=s)
-        else:
-            s["next"] = None
+        if self.next is not None:
+            s["next"] = self.next.to_dict()
 
         return s
 
     @staticmethod
-    def deserialise(
-        data: dict | None, seen: dict | None = None
-    ) -> PriceLevelNode | None:
-        if data is None:
-            return None
-
-        if seen is None:
-            seen = {}
-
-        uid = data["id"]
-        if uid in seen:
-            return seen[uid]
+    def from_dict(data: dict, prev: Order | None = None) -> PriceLevelNode | None:
+        if not data:
+            return
 
         cls: Order = eval(data["order"]["type"])
-        order = cls.deserialise(data["order"])
+        order = cls.from_dict(data["order"])
         node = PriceLevelNode(order)
-        seen[uid] = node
 
-        node.prev = PriceLevelNode.deserialise(data["prev"], seen)
-        node.next = PriceLevelNode.deserialise(data["next"], seen)
+        node.prev = prev
+        node.next = PriceLevelNode.from_dict(data["next"], node)
 
         return node

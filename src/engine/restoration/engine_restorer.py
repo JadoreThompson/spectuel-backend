@@ -60,7 +60,7 @@ class EngineRestorer:
             ctx_data = json.load(f)
 
         self._engine = SpotEngine(instrument_id=instrument_id)
-        self._ctx = ExecutionContext.deserialise(ctx_data, engine=self._engine)
+        self._ctx = ExecutionContext.from_dict(ctx_data, engine=self._engine)
         self._engine._ctx = self._ctx
 
     def get_restored_engine(self) -> SpotEngine:

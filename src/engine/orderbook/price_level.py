@@ -66,35 +66,33 @@ class PriceLevel:
 
         self._tracker.pop(order.id)
 
-    def serialise(self) -> dict:
+    def to_dict(self) -> dict:
         """
         Serialises the PriceLevel. Since the nodes are doubly linked,
-        we only need to trigger serialization on the head. 
-        The recursive Node.serialise logic handles the rest.
+        we only need to trigger serialization on the head.
+        The recursive Node.to_dict logic handles the rest.
         """
-        return {
-            'head': self._head.serialise() if self._head else None
-        }
+        return {"head": self._head.to_dict() if self._head else None}
 
     @classmethod
-    def deserialise(cls, data: dict) -> 'PriceLevel':
+    def from_dict(cls, data: dict) -> "PriceLevel":
         """
         Rebuilds the PriceLevel.
         1. Rebuilds the linked list from the head node data.
         2. Traverses the rebuilt list to populate _tracker and _tail.
         """
         pl = cls()
-        
-        head_data = data.get('head')
+
+        head_data = data.get("head")
         if head_data:
-            pl._head = PriceLevelNode.deserialise(head_data)
+            pl._head = PriceLevelNode.from_dict(head_data)
             current = pl._head
-            
+
             while current:
                 pl._tracker[current.order.id] = current
                 pl._tail = current
                 current = current.next
-                
+
         return pl
 
     def __bool__(self) -> bool:

@@ -14,35 +14,40 @@ class CommandBus:
         self._consumer: AIOKafkaConsumer | None = None
         self._initialised = False
 
-    async def initialise(self):
+    async def initialise_async(self):
         if self._initialised:
             return
-        
+
         if self._producer is None:
             self._producer = AsyncKafkaProducer()
             await self._producer.start()
         if self._consumer is None:
             self._consumer = AsyncKafkaConsumer(KAFKA_COMMANDS_TOPIC)
             await self._consumer.start()
-        
+
         self._initialised = True
 
-    async def cleanup(self):
+    async def cleanup_async(self):
         if not self._initialised:
             raise RuntimeError("Command Bus not initialised")
-        
+
+        await self._producer.flush()
         await self._producer.stop()
         await self._consumer.stop()
+
+        self._producer = None
+        self._consumer = None
+
         self._initialised = False
 
-    async def put(self, command: CommandT) -> None:
-        await self.initialise()
+    async def put_async(self, command: CommandT) -> None:
+        await self.initialise_async()
         await self._producer.send(
             KAFKA_COMMANDS_TOPIC, command.model_dump_json().encode()
         )
 
-    async def yield_command(self) -> AsyncGenerator[dict, None]:
-        await self.initialise()
+    async def yield_command_async(self) -> AsyncGenerator[dict, None]:
+        await self.initialise_async()
         async for msg in self._consumer:
             try:
                 data = json.loads(msg.value.decode())

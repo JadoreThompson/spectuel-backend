@@ -226,9 +226,7 @@ class EventHandler:
             return
 
         # Calculate remaining quantity to refund
-        unfilled_qty = Decimal(str(order.quantity)) - Decimal(
-            str(order.executed_quantity)
-        )
+        unfilled_qty = order.quantity - order.executed_quantity
 
         if unfilled_qty <= 0:
             db_sess.add(order)
@@ -236,18 +234,16 @@ class EventHandler:
 
         if order.side == Side.BID.value:
             # BID Refund: Return Cash from Escrow to Available
-            lock_price = Decimal(str(self._get_lock_price(order)))
+            lock_price = self._get_lock_price(order)
             refund_amount = lock_price * unfilled_qty
 
-            user.escrow_balance = float(
-                Decimal(str(user.escrow_balance)) - refund_amount
-            )
-            user.cash_balance = float(Decimal(str(user.cash_balance)) + refund_amount)
+            user.escrow_balance -= refund_amount
+            user.cash_balance += refund_amount
 
             refund_tx = Transactions(
                 user_id=user.user_id,
-                amount=float(refund_amount),
-                type=TransactionType.ESCROW.value,
+                amount=refund_amount,
+                transaction_type=TransactionType.ESCROW.value,
                 related_id=str(order.order_id),
                 balance=user.cash_balance,
             )
@@ -259,13 +255,8 @@ class EventHandler:
             asset_balance = await self._ensure_asset_balance(
                 db_sess, user.user_id, order.symbol
             )
-
-            asset_balance.escrow_balance = float(
-                Decimal(str(asset_balance.escrow_balance)) - unfilled_qty
-            )
-            asset_balance.balance = float(
-                Decimal(str(asset_balance.balance)) + unfilled_qty
-            )
+            asset_balance.escrow_balance -= unfilled_qty
+            asset_balance.balance += unfilled_qty
             db_sess.add(asset_balance)
 
         db_sess.add(order)
@@ -331,8 +322,8 @@ class EventHandler:
             self._logger.error(f"User for Order '{event.order_id}' doesn't exist.")
             return
 
-        trade_price = Decimal(str(event.price))
-        trade_quantity = Decimal(str(event.quantity))
+        trade_price = event.price
+        trade_quantity = event.quantity
         trade_value = trade_price * trade_quantity
 
         new_trade = Trades(
@@ -340,52 +331,51 @@ class EventHandler:
             user_id=user.user_id,
             symbol=order.symbol,
             price=event.price,
-            quantity=event.quantity,
-            role=event.role,
+            quantity=trade_quantity,
+            role=event.role.value,
             executed_at=datetime.fromtimestamp(event.timestamp),
         )
         db_sess.add(new_trade)
         await db_sess.flush()  # Flush to generate trade_id
 
         # Update Order Stats
-        prev_exec_qty = Decimal(str(order.executed_quantity))
-        prev_avg_filled_price = Decimal(str(order.avg_fill_price or "0.0"))
+        prev_exec_qty = order.executed_quantity
+        prev_avg_filled_price = order.avg_fill_price or 0.0
 
         new_exec_qty = prev_exec_qty + trade_quantity
-
         new_avg_price = (
             (prev_avg_filled_price * prev_exec_qty) + trade_value
         ) / new_exec_qty
 
-        order.executed_quantity = float(new_exec_qty)
-        order.avg_fill_price = float(new_avg_price)
+        order.executed_quantity = new_exec_qty
+        order.avg_fill_price = new_avg_price
 
         if order.side == Side.BID.value:
-            escrow_release_amount = Decimal(str(event.price)) * trade_quantity
+            # surplus = trade_value - ()  # In case order crossed the spread
+            lock_price = self._get_lock_price(order)
+            surplus = trade_value - (lock_price * trade_quantity)
 
-            actual_cost = trade_value
-            surplus = (
-                escrow_release_amount - actual_cost
-            )  # In case order crossed the spread
-
-            user.escrow_balance = float(
-                Decimal(str(user.escrow_balance)) - escrow_release_amount
-            )
-            user.cash_balance = float(Decimal(str(user.cash_balance)) + surplus)
+            # user.escrow_balance = float(
+            #     Decimal(str(user.escrow_balance)) - escrow_release_amount
+            # )
+            user.escrow_balance -= trade_value
+            # user.cash_balance = float(Decimal(str(user.cash_balance)) + surplus)
+            user.cash_balance -= trade_value + surplus
 
             asset_balance = await self._ensure_asset_balance(
                 db_sess, user.user_id, order.symbol
             )
             # Available balance increases by trade quantity
-            asset_balance.balance = float(
-                Decimal(str(asset_balance.balance)) + trade_quantity
-            )
+            # asset_balance.balance = float(
+            #     Decimal(str(asset_balance.balance)) + trade_quantity
+            # )
+            asset_balance += trade_quantity
             db_sess.add(asset_balance)
 
             new_transaction = Transactions(
                 user_id=user.user_id,
-                amount=float(-actual_cost),
-                type=TransactionType.TRADE.value,
+                amount=-trade_value,
+                transaction_type=TransactionType.TRADE.value,
                 related_id=str(new_trade.trade_id),
                 balance=user.cash_balance,
             )
@@ -395,18 +385,21 @@ class EventHandler:
                 db_sess, user.user_id, order.symbol
             )
 
-            asset_balance.escrow_balance = float(
-                Decimal(str(asset_balance.escrow_balance)) - trade_quantity
-            )
+            # asset_balance.escrow_balance = float(
+            #     Decimal(str(asset_balance.escrow_balance)) - trade_quantity
+            # )
+            asset_balance.escrow_balance -= trade_quantity
+            asset_balance.balance -= trade_quantity
             db_sess.add(asset_balance)
 
-            revenue = trade_value
-            user.cash_balance = float(Decimal(str(user.cash_balance)) + revenue)
+            # revenue = trade_value
+            # user.cash_balance = float(Decimal(str(user.cash_balance)) + revenue)
+            user.cash_balance += trade_value
 
             new_transaction = Transactions(
                 user_id=user.user_id,
-                amount=float(revenue),
-                type=TransactionType.TRADE.value,
+                amount=trade_value,
+                transaction_type=TransactionType.TRADE.value,
                 related_id=str(new_trade.trade_id),
                 balance=user.cash_balance,
             )
