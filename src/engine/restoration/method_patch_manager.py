@@ -2,17 +2,14 @@ from types import MethodType
 from typing import Any, Callable, Generic, TypeVar, Type
 
 
-T = TypeVar("T")
-
-
-class MethodPatchManager(Generic[T]):
+class MethodPatchManager():
     """
     Patch class methods OR instance methods.
     """
 
     def __init__(
         self,
-        target: Type[T] | T,
+        target,
         method_map: dict[str, tuple[Callable[..., Any], Callable[..., Any]]],
     ) -> None:
         self.target = target

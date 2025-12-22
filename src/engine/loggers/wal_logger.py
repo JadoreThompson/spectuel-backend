@@ -3,7 +3,6 @@ from typing import Union
 
 from engine.config import WAL_FPATH
 from engine.decorators import ignore_system_user
-from engine.events.enums import OrderEventType, BalanceEventType, LogEventType
 from engine.events import (
     EngineEventBase,
     AssetBalanceDecreasedEvent,
@@ -25,6 +24,7 @@ from engine.events import (
     NewTradeEvent,
     LogEvent,
 )
+from engine.events.enums import OrderEventType, BalanceEventType, LogEventType
 from engine.loggers import EngineLogger
 from engine.restoration.restoration_manager import RestorationManager
 
@@ -65,6 +65,7 @@ class WALogger(EngineLogger):
         BalanceEventType.BID_SETTLED: BidSettledEvent,
         BalanceEventType.ASK_SETTLED: AskSettledEvent,
     }
+    _attr = None
 
     @property
     def name(self) -> str:
@@ -76,7 +77,7 @@ class WALogger(EngineLogger):
         Set the WAL file handle once. The file must be opened in append mode.
         """
         if not isinstance(file, TextIOWrapper):
-            raise TypeError("set_file expects a TextIOWrapper")
+            raise TypeError(f"set_file expects a TextIOWrapper, received {type(file)}")
 
         if "a" not in file.mode:
             raise ValueError("WAL file must be opened in append mode ('a' or 'a+')")
@@ -92,7 +93,7 @@ class WALogger(EngineLogger):
     def _write_event(self, typ: LogEventType, event: dict | EngineEventBase) -> None:
         if RestorationManager.is_restoring(self._name):
             return
-
+        
         f = self._ensure_file()
         record = LogEvent(type=typ, data=event)
         f.write(record.model_dump_json() + "\n")
@@ -109,7 +110,7 @@ class WALogger(EngineLogger):
         self.log_event(kwargs, {"user_id": user_id})
 
     @ignore_system_user
-    def log_trade_event(self, user_id: str, **kwargs) -> None:
+    def log_trade_event(self, user_id: str, /, **kwargs) -> None:
         NewTradeEvent(**kwargs)  # Validate
         self._write_event(LogEventType.TRADE_EVENT, kwargs)
         self.log_event(kwargs, {"user_id": user_id})

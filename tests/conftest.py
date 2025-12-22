@@ -1,7 +1,4 @@
 import os
-import sys
-
-# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 import tempfile
 import uuid
 
@@ -27,6 +24,12 @@ def setup_teardown(mocker, redis_client):
 
 
 @pytest.fixture
+def tmp_dir():
+    with tempfile.TemporaryDirectory() as dir:
+        yield dir
+
+
+@pytest.fixture
 def user_id_a() -> str:
     return str(uuid.uuid4())
 
@@ -42,11 +45,10 @@ def symbol() -> str:
 
 
 @pytest.fixture
-def spot_engine(symbol):
-    with tempfile.TemporaryDirectory() as f:
-        with open(os.path.join(f, "0.log"), "a") as f:
-            WALogger.set_file(f)
-            yield SpotEngine(symbol)
+def spot_engine(symbol, tmp_dir):
+    with open(os.path.join(tmp_dir, "0.log"), "a") as f:
+        WALogger.set_file(f)
+        yield SpotEngine(symbol)
 
 
 @pytest.fixture

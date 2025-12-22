@@ -42,10 +42,6 @@ if redis.call('HEXISTS', KEYS[2], ARGV[1]) == 1 then
     return val and tonumber(val) or 0
 end
 
-if redis.call('EXISTS', KEYS[1]) == 0 then
-    redis.call('SET', KEYS[1])
-end
-
 local new_val = redis.call('INCRBYFLOAT', KEYS[1], ARGV[2])
 redis.call('HSET', KEYS[2], ARGV[1], ARGV[2])
 return new_val
@@ -143,11 +139,13 @@ class BalanceManager:
         self._redis_client = redis_client
         self._redis_async_client = rediss_client_async
 
-        self._script_update = self._redis_client.register_script(LUA_UPDATE_BALANCE)
+        self._script_update_balance = self._redis_client.register_script(
+            LUA_UPDATE_BALANCE
+        )
         self._script_settle_ask = self._redis_client.register_script(LUA_SETTLE_ASK)
         self._script_settle_bid = self._redis_client.register_script(LUA_SETTLE_BID)
 
-        self._script_update_async = self._redis_async_client.register_script(
+        self._script_update_balance_async = self._redis_async_client.register_script(
             LUA_UPDATE_BALANCE
         )
         self._script_settle_ask_async = self._redis_async_client.register_script(
@@ -162,19 +160,19 @@ class BalanceManager:
 
     @staticmethod
     def get_asset_balance_hkey(symbol: str, user_id: str) -> str:
-        return f"{symbol}:{user_id}:balance:log:"
+        return f"{symbol}:{user_id}:balance:log"
 
     @staticmethod
     def get_asset_balance_key(symbol: str, user_id: str) -> str:
-        return f"{symbol}:{user_id}:balance:"
+        return f"{symbol}:{user_id}:balance"
 
     @staticmethod
     def get_asset_escrow_hkey(symbol: str, user_id: str) -> str:
-        return f"{symbol}:{user_id}:escrow:log:"
+        return f"{symbol}:{user_id}:escrow:log"
 
     @staticmethod
     def get_asset_escrow_key(symbol: str, user_id: str) -> str:
-        return f"{symbol}:{user_id}:escrow:"
+        return f"{symbol}:{user_id}:escrow"
 
     @staticmethod
     def get_cash_balance_key(user_id: str) -> str:
@@ -258,7 +256,9 @@ class BalanceManager:
         log_key = self.get_cash_balance_hkey(user_id)
 
         return float(
-            self._script_update(keys=[val_key, log_key], args=[str(event.id), amount])
+            self._script_update_balance(
+                keys=[val_key, log_key], args=[str(event.id), amount]
+            )
         )
 
     @ignore_system_user
@@ -275,7 +275,9 @@ class BalanceManager:
         log_key = self.get_cash_balance_hkey(user_id)
 
         return float(
-            self._script_update(keys=[val_key, log_key], args=[str(event.id), -amount])
+            self._script_update_balance(
+                keys=[val_key, log_key], args=[str(event.id), -amount]
+            )
         )
 
     @ignore_system_user
@@ -289,7 +291,9 @@ class BalanceManager:
         log_key = self.get_cash_escrow_hkey(user_id)
 
         return float(
-            self._script_update(keys=[val_key, log_key], args=[str(event.id), amount])
+            self._script_update_balance(
+                keys=[val_key, log_key], args=[str(event.id), amount]
+            )
         )
 
     @ignore_system_user
@@ -303,7 +307,9 @@ class BalanceManager:
         log_key = self.get_cash_escrow_hkey(user_id)
 
         return float(
-            self._script_update(keys=[val_key, log_key], args=[str(event.id), -amount])
+            self._script_update_balance(
+                keys=[val_key, log_key], args=[str(event.id), -amount]
+            )
         )
 
     @ignore_system_user
@@ -323,7 +329,9 @@ class BalanceManager:
         log_key = self.get_asset_balance_hkey(symbol, user_id)
 
         return float(
-            self._script_update(keys=[val_key, log_key], args=[str(event.id), amount])
+            self._script_update_balance(
+                keys=[val_key, log_key], args=[str(event.id), amount]
+            )
         )
 
     @ignore_system_user
@@ -343,7 +351,9 @@ class BalanceManager:
         log_key = self.get_asset_balance_hkey(symbol, user_id)
 
         return float(
-            self._script_update(keys=[val_key, log_key], args=[str(event.id), -amount])
+            self._script_update_balance(
+                keys=[val_key, log_key], args=[str(event.id), -amount]
+            )
         )
 
     @ignore_system_user
@@ -363,7 +373,9 @@ class BalanceManager:
         log_key = self.get_asset_escrow_hkey(symbol, user_id)
 
         return float(
-            self._script_update(keys=[val_key, log_key], args=[str(event.id), amount])
+            self._script_update_balance(
+                keys=[val_key, log_key], args=[str(event.id), amount]
+            )
         )
 
     @ignore_system_user
@@ -383,7 +395,9 @@ class BalanceManager:
         log_key = self.get_asset_escrow_hkey(symbol, user_id)
 
         return float(
-            self._script_update(keys=[val_key, log_key], args=[str(event.id), -amount])
+            self._script_update_balance(
+                keys=[val_key, log_key], args=[str(event.id), -amount]
+            )
         )
 
     @ignore_system_user
@@ -551,7 +565,7 @@ class BalanceManager:
         log_key = self.get_cash_balance_hkey(user_id)
 
         return float(
-            await self._script_update_async(
+            await self._script_update_balance_async(
                 keys=[val_key, log_key], args=[str(event.id), amount]
             )
         )
@@ -569,7 +583,7 @@ class BalanceManager:
         log_key = self.get_cash_balance_hkey(user_id)
 
         return float(
-            await self._script_update_async(
+            await self._script_update_balance_async(
                 keys=[val_key, log_key], args=[str(event.id), -amount]
             )
         )
@@ -584,7 +598,7 @@ class BalanceManager:
         log_key = self.get_cash_escrow_hkey(user_id)
 
         return float(
-            await self._script_update_async(
+            await self._script_update_balance_async(
                 keys=[val_key, log_key], args=[str(event.id), amount]
             )
         )
@@ -599,7 +613,7 @@ class BalanceManager:
         log_key = self.get_cash_escrow_hkey(user_id)
 
         return float(
-            await self._script_update_async(
+            await self._script_update_balance_async(
                 keys=[val_key, log_key], args=[str(event.id), -amount]
             )
         )
@@ -620,7 +634,7 @@ class BalanceManager:
         log_key = self.get_asset_balance_hkey(symbol, user_id)
 
         return float(
-            await self._script_update_async(
+            await self._script_update_balance_async(
                 keys=[val_key, log_key], args=[str(event.id), amount]
             )
         )
@@ -641,7 +655,7 @@ class BalanceManager:
         log_key = self.get_asset_balance_hkey(symbol, user_id)
 
         return float(
-            await self._script_update_async(
+            await self._script_update_balance_async(
                 keys=[val_key, log_key], args=[str(event.id), -amount]
             )
         )
@@ -662,7 +676,7 @@ class BalanceManager:
         log_key = self.get_asset_escrow_hkey(symbol, user_id)
 
         return float(
-            await self._script_update_async(
+            await self._script_update_balance_async(
                 keys=[val_key, log_key], args=[str(event.id), amount]
             )
         )
@@ -683,7 +697,7 @@ class BalanceManager:
         log_key = self.get_asset_escrow_hkey(symbol, user_id)
 
         return float(
-            await self._script_update_async(
+            await self._script_update_balance_async(
                 keys=[val_key, log_key], args=[str(event.id), -amount]
             )
         )

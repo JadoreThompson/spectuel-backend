@@ -47,7 +47,7 @@ class SpotEngine(EngineBase):
             CommandType.MODIFY_ORDER: self._handle_modify_order,
         }
         handler = handlers.get(cmd["type"])
-        if handler:
+        if handler is not None:
             handler(cmd)
 
     def _handle_new_order(self, cmd: dict) -> None:
@@ -60,7 +60,6 @@ class SpotEngine(EngineBase):
             cmd (dict): dictionary form of a NewOrderCommand
         """
         strategy = self._strategy_handlers.get(cmd["strategy_type"])
-
         if strategy is None:
             return
 

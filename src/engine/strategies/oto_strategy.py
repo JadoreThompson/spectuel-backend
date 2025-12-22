@@ -1,4 +1,3 @@
-
 from engine.enums import MatchOutcome, StrategyType, OrderType
 from engine.events.enums import OrderEventType
 from engine.execution_context import ExecutionContext
@@ -95,7 +94,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
         self, quantity: int, price: float, order: OTOOrder, ctx: ExecutionContext
     ) -> None:
         # Parent order
-        if order.child and order.executed_quantity == order.quantity:
+        if order.child is not None and order.executed_quantity == order.quantity:
             parent = order
 
             child = parent.child
@@ -175,7 +174,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
         if order.parent:
             if order.triggered:
                 self._modify_order(cmd, order, ctx)
-            
+
             elif self._validate_modify(cmd, order, ctx):
                 order.price = self._get_modified_price(cmd, order)
                 ctx.wal_logger.log_order_event(
@@ -185,7 +184,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
                     symbol=ctx.symbol,
                     details={"price": order.price},
                 )
-            
+
             return
 
         self._modify_order(cmd, order, ctx)

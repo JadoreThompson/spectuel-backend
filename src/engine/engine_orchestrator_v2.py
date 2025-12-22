@@ -25,8 +25,15 @@ class EngineOrchestratorV2:
         max_commands_per_snapshot: int = 1000,
         heartbeat_queue: MPQueueT | None = None,
     ) -> None:
-        self._payloads: dict[str, tuple[SpotEngine, int, EngineSnapshotter]] = {}
+        self._payloads: dict[str, tuple[SpotEngine, int, EngineSnapshotterV2]] = {}
         self._symbols = symbols
+        
+        if self._symbols is not None:
+            for symbol in self._symbols:
+                engine = SpotEngine(symbol)
+                snapshotter = EngineSnapshotterV2(engine, symbol)
+                self._payloads[symbol] = (engine, 0, snapshotter)
+
         self._max_commands_per_snapshot = max_commands_per_snapshot
         self._heartbeat_queue = heartbeat_queue
 
@@ -39,7 +46,8 @@ class EngineOrchestratorV2:
             Instruments.starting_price,
             EngineContextSnapshots.snapshot,
         )
-        if self._symbols:
+        if self._symbols is not None:
+            # Only these symbols otherwise get all
             query = query.where(Instruments.symbol.in_(self._symbols))
 
         query = query.join(
@@ -49,22 +57,22 @@ class EngineOrchestratorV2:
         )
 
         with get_db_sess_sync() as db_sess:
-            insts = db_sess.execute(query).all()
-            for inst in insts:
-                symbol = str(inst.symbol)
+            data = db_sess.execute(query).all()
+            for rec in data:
+                symbol = str(rec.symbol)
 
-                if inst.snapshot is None:
+                if rec.snapshot is None:
                     engine = SpotEngine(symbol)
-                    engine._ctx.orderbook._cur_price = inst.starting_price
+                    engine._ctx.orderbook._cur_price = rec.starting_price
                 else:
-                    restorer = EngineRestorerV2(inst.snapshot)
+                    restorer = EngineRestorerV2(rec.snapshot)
                     engine = restorer.get_restored_engine()
 
                 snapshotter = EngineSnapshotterV2(engine, symbol)
                 self._payloads[symbol] = (engine, 0, snapshotter)
 
-                if inst.snapshot is None:
-                    self.seed_liquidity(symbol, inst.starting_price)
+                if rec.snapshot is None:
+                    self.seed_liquidity(symbol, rec.starting_price)
 
                 self._push_to_queue("add", symbol)
 
@@ -111,7 +119,7 @@ class EngineOrchestratorV2:
             and symbol not in self._payloads
         ):
             engine, counter, snapshotter = self._payloads[symbol]
-            snapshotter = EngineSnapshotter(engine)
+            snapshotter = EngineSnapshotterV2(engine, engine._ctx.symbol)
             self._payloads[symbol] = (engine, counter, snapshotter)
             engine.handle_command(cmd)
             return

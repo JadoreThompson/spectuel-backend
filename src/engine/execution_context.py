@@ -1,7 +1,7 @@
 import threading
 from typing import TYPE_CHECKING
 
-from engine.loggers.wal_logger import WALogger
+from engine.loggers import WALogger
 from engine.orderbook import OrderBook
 from engine.stores import OrderStore
 

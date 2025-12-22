@@ -1,15 +1,15 @@
 import json
 import os
-import tempfile
 
 import pytest
-from src.engine.enums import Side
-from src.engine.events.enums import LogEventType
-from src.engine.events.enums import OrderEventType
 
+from src.engine.enums import Side
 from src.engine.events import LogEvent
-from src.engine.restoration.engine_restorer import EngineRestorer
-from src.engine.loggers import WALogger
+from src.engine.events.enums import LogEventType, OrderEventType
+# Importing WALogger through execution context to prevent
+# incorrect referencing
+from src.engine.execution_context import WALogger
+from src.engine.restoration.engine_restorer_v2 import EngineRestorerV2
 from tests.utils import create_new_order_command
 
 
@@ -24,7 +24,7 @@ def clean_walogger_singleton():
 
 
 def test_wal_resumes_logging_mid_execution_after_crash(
-    clean_walogger_singleton, user_id_a, symbol
+    clean_walogger_singleton, user_id_a, symbol, tmp_dir, mocker
 ):
     """
     Scenario:
@@ -41,64 +41,59 @@ def test_wal_resumes_logging_mid_execution_after_crash(
     5. WALogger is allowed to write the missing 'order_placed' event to the file.
     """
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # 1. Setup paths
-        snapshot_folder = os.path.join(tmpdir, "snapshots", symbol)
-        os.makedirs(snapshot_folder, exist_ok=True)
-        wal_path = os.path.join(tmpdir, "crash.log")
+    # 1. Setup paths
+    snapshot_folder = os.path.join(tmp_dir, "snapshots", symbol)
+    os.makedirs(snapshot_folder, exist_ok=True)
+    wal_path = os.path.join(tmp_dir, "crash.log")
 
-        # 2. Create the Command
-        cmd = create_new_order_command(
-            user_id=user_id_a,
-            instrument_id=symbol,
-            side=Side.ASK,
-            quantity=10,
-            price=100.0,
-        )
+    # 2. Create the Command
+    cmd = create_new_order_command(
+        user_id=user_id_a,
+        symbol=symbol,
+        side=Side.ASK,
+        quantity=10,
+        price=100.0,
+    )
 
-        # 3. Simulate the "Crash State": Write ONLY the command to the WAL
-        # We wrap it in the standard LogEvent structure
-        log_entry = LogEvent(type=LogEventType.COMMAND, data=cmd)
+    # 3. Simulate the "Crash State": Write ONLY the command to the WAL
+    # We wrap it in the standard LogEvent structure
+    log_entry = LogEvent(type=LogEventType.COMMAND, data=cmd)
 
-        with open(wal_path, "w") as f:
-            f.write(log_entry.model_dump_json() + "\n")
+    with open(wal_path, "w") as f:
+        f.write(log_entry.model_dump_json() + "\n")
 
-        # Verify initial state: File has exactly 1 line
-        with open(wal_path, "r") as f:
-            lines = f.readlines()
-            assert len(lines) == 1
+    # Verify initial state: File has exactly 1 line
+    with open(wal_path, "r") as f:
+        lines = f.readlines()
+        assert len(lines) == 1
 
-        # 4. Prepare Restoration
-        # We must open the file in append mode and set it to WALogger
-        # so the engine can write to it when it "wakes up"
-        wal_file_handle = open(wal_path, "a")
-        WALogger.set_file(wal_file_handle)
+    # 4. Prepare Restoration
+    # We must open the file in append mode and set it to WALogger
+    # so the engine can write to it when it "wakes up"
+    wal_file_handle = open(wal_path, "a")
+    WALogger.set_file(wal_file_handle)
 
-        restorer = EngineRestorer(snapshot_folder, wal_path)
+    restorer = EngineRestorerV2(wal_fpath=wal_path)
+    restorer.get_restored_engine()
 
-        # 5. Run Restoration
-        # This will process the command. internal logic should detect
-        # the missing order_placed event and allow writing.
-        engine = restorer.get_restored_engine()
+    # Close handle to ensure flush
+    wal_file_handle.close()
 
-        # Close handle to ensure flush
-        wal_file_handle.close()
+    # 6. Verify Result
+    with open(wal_path, "r") as f:
+        final_lines = f.readlines()
 
-        # 6. Verify Result
-        with open(wal_path, "r") as f:
-            final_lines = f.readlines()
+    # The file should now contain 2 lines:
+    # 1. The original Command
+    # 2. The OrderPlaced event that was generated during restoration
+    assert len(final_lines) == 2, final_lines
 
-        # The file should now contain 2 lines:
-        # 1. The original Command
-        # 2. The OrderPlaced event that was generated during restoration
-        assert len(final_lines) == 2
+    line_1 = json.loads(final_lines[0])
+    line_2 = json.loads(final_lines[1])
 
-        line_1 = json.loads(final_lines[0])
-        line_2 = json.loads(final_lines[1])
+    assert line_1["type"] == LogEventType.COMMAND
+    assert line_1["data"]["id"] == cmd["id"]
 
-        assert line_1["type"] == LogEventType.COMMAND
-        assert line_1["data"]["id"] == cmd["id"]
-
-        assert line_2["type"] == LogEventType.ORDER_EVENT
-        assert line_2["data"]["type"] == OrderEventType.ORDER_PLACED
-        assert line_2["data"]["order_id"] == cmd["order_id"]
+    assert line_2["type"] == LogEventType.ORDER_EVENT
+    assert line_2["data"]["type"] == OrderEventType.ORDER_PLACED
+    assert line_2["data"]["order_id"] == cmd["order_id"]

@@ -22,7 +22,7 @@ from engine.infra.redis import REDIS_CLIENT_SYNC, BACKUP_REDIS_CLIENT_SYNC
 from engine.loggers import WALogger
 from engine.restoration.restoration_manager import RestorationManager
 from engine.services.balance_manager import BalanceManager
-from infra.db import get_db_sess
+from infra.db import get_db_sess_sync
 
 
 class BalanceManagerRestorer:
@@ -71,7 +71,7 @@ class BalanceManagerRestorer:
     def _yield_logs(
         self, start_epoch: int, batch_size: int = 1000
     ) -> Generator[EventLogs, None, None]:
-        with get_db_sess() as db_sess:
+        with get_db_sess_sync() as db_sess:
             res = db_sess.execute(
                 select(EventLogs).where(EventLogs.timestamp >= start_epoch)
             )

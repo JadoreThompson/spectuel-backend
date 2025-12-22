@@ -1,46 +1,39 @@
 import os
-import shutil
 import tempfile
 
 import pytest
-from src.engine.enums import Side
 
-from engine.engine_orchestrator import EngineOrchestrator
+from src.engine.engine_orchestrator_v2 import EngineOrchestratorV2
+from src.engine.enums import Side
+# Importing WALogger through execution context to prevent
+# incorrect referencing
+from src.engine.execution_context import WALogger
 from src.engine.restoration.engine_restorer import EngineRestorer
 from src.engine.restoration.engine_snapshotter import EngineSnapshotter
-from src.engine.loggers import WALogger
 from tests.utils import create_new_order_command
 
 
 @pytest.fixture
-def tmp_dir_fixture():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield tmpdir
+def engine_orchestrator(spot_engine, tmp_dir):
+    fpath = os.path.join(tmp_dir, "snapshots", spot_engine._ctx.symbol)
+    os.makedirs(fpath, exist_ok=False)
 
+    orch = EngineOrchestratorV2(symbols=[spot_engine._ctx.symbol])
+    orch.initialise()
 
-@pytest.fixture
-def engine_orchestrator(spot_engine, tmp_dir_fixture):
-    fpath = os.path.join(tmp_dir_fixture, "snapshots", spot_engine._ctx.symbol)
-    os.makedirs(fpath)
-    orch = EngineOrchestrator(engines=[spot_engine])
-    
-    yield orch, tmp_dir_fixture
+    yield orch, tmp_dir
 
-    shutil.rmtree(tmp_dir_fixture)
     del orch
 
 
-def test_engine_restoration_with_snapshot(
-    engine_orchestrator, user_id_a, user_id_b
-):
-    engine_orchestrator, tmpdir = engine_orchestrator
+def test_engine_restoration_with_snapshot(engine_orchestrator, user_id_a, user_id_b):
+    engine_orchestrator, tmp_dir = engine_orchestrator
     orch_payloads = engine_orchestrator._payloads
     spot_engine = orch_payloads[[*orch_payloads.keys()][0]][0]
     balance_manager = spot_engine._balance_manager
     symbol = spot_engine._ctx.symbol
-    prev_file = WALogger._log_file
 
-    with open(os.path.join(tmpdir, "0.log"), "a") as walf:
+    with open(os.path.join(tmp_dir, "0.log"), "a", encoding="utf8") as walf:
         WALogger.set_file(walf)
 
         # Simulate some operations
@@ -62,13 +55,13 @@ def test_engine_restoration_with_snapshot(
             quantity=5,
             price=100.0,
         )
-        
+
         # Snapshot
-        sf = os.path.join(tmpdir, "snapshots", symbol)
+        sf = os.path.join(tmp_dir, "snapshots", symbol)
         snapshotter = EngineSnapshotter(spot_engine, sf)
         ctx = snapshotter.snapshot()
         snapshotter.persist_snapshot(ctx)
-        
+
         engine_orchestrator.put(cmd)
 
         # Simulate more operations
@@ -78,7 +71,7 @@ def test_engine_restoration_with_snapshot(
             side=Side.ASK,
             quantity=5,
             price=99.0,
-            details={'test_field': 'test_value'},
+            details={"test_field": "test_value"},
         )
         engine_orchestrator.put(cmd)
 
@@ -96,22 +89,13 @@ def test_engine_restoration_with_snapshot(
         assert len(ob.bids) == 0
         assert len(ob.asks) == 2
 
-    WALogger.set_file(prev_file)
 
-
-def test_engine_restoration_no_snapshot(
-    # spot_engine, balance_manager, user_id_a, user_id_b, instrument_id
-    engine_orchestrator, user_id_a, user_id_b
-):
-
-    # prev_file = WALogger._log_file
+def test_engine_restoration_no_snapshot(engine_orchestrator, user_id_a, user_id_b):
     engine_orchestrator, tmpdir = engine_orchestrator
     orch_payloads = engine_orchestrator._payloads
     spot_engine = orch_payloads[[*orch_payloads.keys()][0]][0]
     balance_manager = spot_engine._balance_manager
-    # instrument_id = spot_engine.instrument_id
     symbol = spot_engine._ctx.symbol
-    prev_file = WALogger._log_file
 
     with tempfile.TemporaryDirectory() as tmpdir:
         with open(os.path.join(tmpdir, "0.log"), "a") as walf:
@@ -149,5 +133,3 @@ def test_engine_restoration_no_snapshot(
             assert len(restored_engine._ctx.order_store._orders) == 1
             assert len(restored_engine._ctx.orderbook.bids) == 0
             assert len(restored_engine._ctx.orderbook.asks) == 1
-
-    WALogger.set_file(prev_file)

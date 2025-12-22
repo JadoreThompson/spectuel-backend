@@ -53,7 +53,7 @@ def test_oto_delayed_activation(spot_engine, test_ctx, user_id_a, user_id_b):
     # Action: User B Sells into Parent (Market Sell 10)
     spot_engine._balance_manager.increase_asset_balance(user_id_b, symbol, 10)
     fill_cmd = create_new_order_command(
-        user_id_b, symbol, Side.ASK, 10, 0.1, order_type=OrderType.MARKET
+        user_id_b, symbol, Side.ASK, 10, 90, order_type=OrderType.LIMIT
     )
     spot_engine.handle_command(fill_cmd)
 
@@ -78,9 +78,9 @@ def test_oto_immediate_match_activates_child(
     spot_engine.handle_command(maker_cmd)
 
     # Action: User A sends OTO. Parent = Buy Market (Immediate Fill). Child = Sell @ 110.
-    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000)
+    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1100)
     parent = generate_single_order_meta(
-        user_id_a, Side.BID, 10, 0.1, order_type=OrderType.MARKET
+        user_id_a, Side.BID, 10, 110, order_type=OrderType.LIMIT
     )
     child = generate_single_order_meta(user_id_a, Side.ASK, 10, 110)
 

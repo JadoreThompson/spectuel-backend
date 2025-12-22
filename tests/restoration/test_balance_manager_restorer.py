@@ -21,9 +21,9 @@ class MockEventLog:
 @pytest.fixture
 def mock_redis_clients(mocker):
     # We mock the clients imported in the restorer module
-    main_redis = mocker.patch("src.engine.restoration.balance_manager_restorer.REDIS_CLIENT")
+    main_redis = mocker.patch("src.engine.restoration.balance_manager_restorer.REDIS_CLIENT_SYNC")
     backup_redis = mocker.patch(
-        "src.engine.restoration.balance_manager_restorer.BACKUP_REDIS_CLIENT"
+        "src.engine.restoration.balance_manager_restorer.BACKUP_REDIS_CLIENT_SYNC"
     )
 
     # Mock lastsave to return a valid datetime
@@ -43,13 +43,13 @@ def mock_db_session(mocker):
     # Mock the get_db_sess context manager
     mock_sess = MagicMock()
     mocker.patch(
-        "src.engine.restoration.balance_manager_restorer.get_db_sess",
+        "src.engine.restoration.balance_manager_restorer.get_db_sess_sync",
         return_value=MagicMock(__enter__=lambda _: mock_sess),
     )
     return mock_sess
 
 
-def test_restoration_Snapshot_copy(mock_redis_clients, mock_db_session):
+def test_restoration_snapshot_copy(mock_redis_clients, mock_db_session):
     """
     Verify that existing keys in Main Redis are copied to Backup Redis.
     """
@@ -135,7 +135,7 @@ def test_settlement_replay_logic(
     log_data = {
         "id": str(uuid.uuid4()),
         "user_id": user_id_a,
-        "instrument_id": symbol,
+        "symbol": symbol,
         "quantity": 10.0,
         "price": 100.0,
         "version": 1,
@@ -146,7 +146,7 @@ def test_settlement_replay_logic(
             "id": str(uuid.uuid4()),
             "version": 1,
             "user_id": user_id_a,
-            "instrument_id": symbol,
+            "symbol": symbol,
             "amount": 10.0,
             "type": "asset_balance_decreased",
         },
@@ -154,7 +154,7 @@ def test_settlement_replay_logic(
             "id": str(uuid.uuid4()),
             "version": 1,
             "user_id": user_id_a,
-            "instrument_id": symbol,
+            "symbol": symbol,
             "amount": 10.0,
             "type": "asset_escrow_decreased",
         },

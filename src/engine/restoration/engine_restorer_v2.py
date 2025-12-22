@@ -1,17 +1,19 @@
-from typing import Type
+import logging
 
 from engine.config import WAL_FPATH
 from engine.events import LogEvent
 from engine.events.enums import LogEventType, OrderEventType
 from engine.execution_context import ExecutionContext
 from engine.matching_engines import SpotEngine
+from engine.orderbook import OrderBook
 from engine.restoration.method_patch_manager import MethodPatchManager
 from engine.restoration.restoration_manager import RestorationManager
 from engine.services.balance_manager import BalanceManager
+from engine.stores import OrderStore
 
 
 class EngineRestorerV2:
-    def __init__(self, ctx_snapshot: dict, wal_fpath: str = WAL_FPATH) -> None:
+    def __init__(self, ctx_snapshot: dict | None = None, wal_fpath: str = WAL_FPATH) -> None:
         self._ctx_snapshot = ctx_snapshot
         self._wal_fpath = wal_fpath
 
@@ -23,47 +25,50 @@ class EngineRestorerV2:
         self._reached_command = False
         self._restored = False
 
-        self._engine_pm = None
-        self._bm_pm = None
+        self._engine_pm: MethodPatchManager | None = None
+        self._bm_pm: MethodPatchManager | None = None
 
-    def _load_log_records(self) -> None:
-        with open(self._wal_fpath, "r") as f:
-            self._wal_records = [LogEvent.model_validate_json(line) for line in f]
-
-    def _load_ctx_snapshot(self) -> None:
-        ctx = ExecutionContext.from_dict(self._ctx_snapshot, engine=self._engine)
-        self._engine = SpotEngine(ctx.symbol)
-        self._engine._ctx = ctx
+        self._logger = logging.getLogger(self.__class__.__name__)
 
     def get_restored_engine(self) -> SpotEngine:
-        self._load_log_records()
         self._load_ctx_snapshot()
+        self._load_log_records()
 
-        self._bm_pm: MethodPatchManager[Type[BalanceManager]] = MethodPatchManager(
-            BalanceManager, self._build_balance_nop_patches()
-        )
-        self._engine_pm: MethodPatchManager[SpotEngine] = MethodPatchManager(
-            self._engine,
-            {
-                "_check_sufficient_balance": (
-                    self._engine._check_sufficient_balance,
-                    self._check_sufficient_balance,
-                )
-            },
-        )
+        ctx_loaded = self._engine is not None and self._ctx is not None
 
         try:
-            self._apply_patches()
+            if ctx_loaded:
+                self._bm_pm: MethodPatchManager = MethodPatchManager(
+                    BalanceManager, self._build_balance_nop_patches()
+                )
+                self._engine_pm: MethodPatchManager = MethodPatchManager(
+                    self._engine,
+                    {
+                        "_check_sufficient_balance": (
+                            self._engine._check_sufficient_balance,
+                            self._check_sufficient_balance,
+                        )
+                    },
+                )
+                self._apply_patches()
 
             while self._idx < len(self._wal_records):
                 cur_record = self._wal_records[self._idx]
 
                 if cur_record.type == LogEventType.COMMAND:
                     command = cur_record.data
+                    symbol = command["symbol"]
 
-                    inst = command["symbol"]
-                    if inst == self._ctx.symbol:
+                    if self._ctx is None and self._engine is None:
+                        self._engine = SpotEngine(symbol)
+                        self._ctx = ExecutionContext(
+                            engine=self._engine,
+                            orderbook=OrderBook(),
+                            order_store=OrderStore(),
+                            symbol=symbol                            
+                        )
 
+                    if symbol == self._ctx.symbol:
                         if self._ctx.command_id == command["id"]:
                             self._reached_command = True
                             self._idx += 1
@@ -76,8 +81,20 @@ class EngineRestorerV2:
 
             return self._engine
         finally:
-            if not self._restored:
+            if ctx_loaded and not self._restored:
                 self._restore_patches()
+
+    def _load_log_records(self) -> None:
+        with open(self._wal_fpath, "r") as f:
+            self._wal_records = [LogEvent.model_validate_json(line) for line in f]
+
+    def _load_ctx_snapshot(self) -> None:
+        if self._ctx_snapshot is not None:
+            ctx = ExecutionContext.from_dict(self._ctx_snapshot, engine=self._engine)
+            self._engine = SpotEngine(ctx.symbol)
+            self._engine._ctx = ctx
+        else:
+            self._logger.warning(f"Context snapshot is none")
 
     def _apply_patches(self) -> None:
         RestorationManager.set_predicate(

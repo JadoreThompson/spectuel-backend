@@ -2,7 +2,6 @@ import json
 import os
 from typing import Type
 
-
 from engine.config import WAL_FPATH
 from engine.events import LogEvent
 from engine.events.enums import OrderEventType, LogEventType
@@ -37,14 +36,14 @@ class EngineRestorer:
 
     def _load_snapshot_ctxs(self) -> None:
         files: list[str] = os.listdir(self._snapshot_folder)
-        instrument_id: str = os.path.basename(self._snapshot_folder)
+        symbol: str = os.path.basename(self._snapshot_folder)
         if not files:
-            self._engine = SpotEngine(instrument_id=instrument_id)
+            self._engine = SpotEngine(symbol=symbol)
             self._ctx = ExecutionContext(
                 engine=self._engine,
                 orderbook=OrderBook(),
                 order_store=OrderStore(),
-                instrument_id=instrument_id,
+                symbol=symbol,
             )
             self._engine._ctx = self._ctx
             return
@@ -59,7 +58,7 @@ class EngineRestorer:
         ) as f:
             ctx_data = json.load(f)
 
-        self._engine = SpotEngine(instrument_id=instrument_id)
+        self._engine = SpotEngine(symbol=symbol)
         self._ctx = ExecutionContext.from_dict(ctx_data, engine=self._engine)
         self._engine._ctx = self._ctx
 
@@ -89,8 +88,8 @@ class EngineRestorer:
                 if cur_record.type == LogEventType.COMMAND:
                     command = cur_record.data
 
-                    inst = command["instrument_id"]
-                    if inst == self._ctx.instrument_id:
+                    symbol = command["symbol"]
+                    if symbol == self._ctx.symbol:
 
                         if self._ctx.command_id == command["id"]:
                             self._reached_command = True
@@ -109,7 +108,7 @@ class EngineRestorer:
 
     def _apply_patches(self) -> None:
         RestorationManager.set_predicate(
-            self._engine.instrument_id, lambda: self._check_is_restoring()
+            self._engine.symbol, lambda: self._check_is_restoring()
         )
         self._bm_pm.patch()
         self._engine_pm.patch()
@@ -117,7 +116,7 @@ class EngineRestorer:
     def _restore_patches(self) -> None:
         self._bm_pm.restore()
         self._engine_pm.restore()
-        RestorationManager.remove(self._engine.instrument_id)
+        RestorationManager.remove(self._engine.symbol)
         self._engine = None
         self._bm_pm = None
         self._engine_pm = None
