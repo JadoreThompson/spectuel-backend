@@ -155,8 +155,8 @@ class BalanceManager:
             LUA_SETTLE_BID
         )
 
-    def _wal(self, event: BalanceEventBase, user_id: str) -> None:
-        self._wal_logger.log_balance_event(event, user_id)
+    def _wal(self, user_id: str, event: BalanceEventBase) -> None:
+        self._wal_logger.log_balance_event(user_id, event)
 
     @staticmethod
     def get_asset_balance_hkey(symbol: str, user_id: str) -> str:
@@ -250,7 +250,7 @@ class BalanceManager:
         event: CashBalanceIncreasedEvent | None = None,
     ) -> float:
         event = event or CashBalanceIncreasedEvent(user_id=user_id, amount=amount)
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_cash_balance_key(user_id)
         log_key = self.get_cash_balance_hkey(user_id)
@@ -269,7 +269,7 @@ class BalanceManager:
         event: CashBalanceDecreasedEvent | None = None,
     ) -> float:
         event = event or CashBalanceDecreasedEvent(user_id=user_id, amount=amount)
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_cash_balance_key(user_id)
         log_key = self.get_cash_balance_hkey(user_id)
@@ -285,7 +285,7 @@ class BalanceManager:
         self, user_id: str, amount: float, event: CashEscrowIncreasedEvent | None = None
     ) -> float:
         event = event or CashEscrowIncreasedEvent(user_id=user_id, amount=amount)
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_cash_escrow_key(user_id)
         log_key = self.get_cash_escrow_hkey(user_id)
@@ -301,7 +301,7 @@ class BalanceManager:
         self, user_id: str, amount: float, event: CashEscrowDecreasedEvent | None = None
     ) -> float:
         event = event or CashEscrowDecreasedEvent(user_id=user_id, amount=amount)
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_cash_escrow_key(user_id)
         log_key = self.get_cash_escrow_hkey(user_id)
@@ -323,7 +323,7 @@ class BalanceManager:
         event = event or AssetBalanceIncreasedEvent(
             user_id=user_id, symbol=symbol, amount=amount
         )
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_asset_balance_key(symbol, user_id)
         log_key = self.get_asset_balance_hkey(symbol, user_id)
@@ -345,7 +345,7 @@ class BalanceManager:
         event = event or AssetBalanceDecreasedEvent(
             user_id=user_id, symbol=symbol, amount=amount
         )
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_asset_balance_key(symbol, user_id)
         log_key = self.get_asset_balance_hkey(symbol, user_id)
@@ -367,7 +367,7 @@ class BalanceManager:
         event = event or AssetEscrowIncreasedEvent(
             user_id=user_id, symbol=symbol, amount=amount
         )
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_asset_escrow_key(symbol, user_id)
         log_key = self.get_asset_escrow_hkey(symbol, user_id)
@@ -389,7 +389,7 @@ class BalanceManager:
         event = event or AssetEscrowDecreasedEvent(
             user_id=user_id, symbol=symbol, amount=amount
         )
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_asset_escrow_key(symbol, user_id)
         log_key = self.get_asset_escrow_hkey(symbol, user_id)
@@ -425,7 +425,7 @@ class BalanceManager:
             ),
         )
 
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         # Keys for Lua
         keys = [
@@ -475,7 +475,7 @@ class BalanceManager:
             ),
         )
 
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         # Keys for Lua
         keys = [
@@ -497,8 +497,6 @@ class BalanceManager:
         ]
 
         self._script_settle_bid(keys=keys, args=args)
-
-    # --- Appended Async Methods ---
 
     async def get_cash_balance_async(self, user_id: str) -> float:
         key = self.get_cash_balance_key(user_id)
@@ -559,7 +557,7 @@ class BalanceManager:
         event: CashBalanceIncreasedEvent | None = None,
     ) -> float:
         event = event or CashBalanceIncreasedEvent(user_id=user_id, amount=amount)
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_cash_balance_key(user_id)
         log_key = self.get_cash_balance_hkey(user_id)
@@ -577,7 +575,7 @@ class BalanceManager:
         event: CashBalanceDecreasedEvent | None = None,
     ) -> float:
         event = event or CashBalanceDecreasedEvent(user_id=user_id, amount=amount)
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_cash_balance_key(user_id)
         log_key = self.get_cash_balance_hkey(user_id)
@@ -592,7 +590,7 @@ class BalanceManager:
         self, user_id: str, amount: float, event: CashEscrowIncreasedEvent | None = None
     ) -> float:
         event = event or CashEscrowIncreasedEvent(user_id=user_id, amount=amount)
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_cash_escrow_key(user_id)
         log_key = self.get_cash_escrow_hkey(user_id)
@@ -607,7 +605,7 @@ class BalanceManager:
         self, user_id: str, amount: float, event: CashEscrowDecreasedEvent | None = None
     ) -> float:
         event = event or CashEscrowDecreasedEvent(user_id=user_id, amount=amount)
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_cash_escrow_key(user_id)
         log_key = self.get_cash_escrow_hkey(user_id)
@@ -628,7 +626,7 @@ class BalanceManager:
         event = event or AssetBalanceIncreasedEvent(
             user_id=user_id, symbol=symbol, amount=amount
         )
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_asset_balance_key(symbol, user_id)
         log_key = self.get_asset_balance_hkey(symbol, user_id)
@@ -649,7 +647,7 @@ class BalanceManager:
         event = event or AssetBalanceDecreasedEvent(
             user_id=user_id, symbol=symbol, amount=amount
         )
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_asset_balance_key(symbol, user_id)
         log_key = self.get_asset_balance_hkey(symbol, user_id)
@@ -670,7 +668,7 @@ class BalanceManager:
         event = event or AssetEscrowIncreasedEvent(
             user_id=user_id, symbol=symbol, amount=amount
         )
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_asset_escrow_key(symbol, user_id)
         log_key = self.get_asset_escrow_hkey(symbol, user_id)
@@ -691,7 +689,7 @@ class BalanceManager:
         event = event or AssetEscrowDecreasedEvent(
             user_id=user_id, symbol=symbol, amount=amount
         )
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         val_key = self.get_asset_escrow_key(symbol, user_id)
         log_key = self.get_asset_escrow_hkey(symbol, user_id)
@@ -726,7 +724,7 @@ class BalanceManager:
             ),
         )
 
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         # Keys for Lua
         keys = [
@@ -775,7 +773,7 @@ class BalanceManager:
             ),
         )
 
-        self._wal(event, user_id)
+        self._wal(user_id, event)
 
         # Keys for Lua
         keys = [

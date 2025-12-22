@@ -117,8 +117,8 @@ class WALogger(EngineLogger):
 
     def log_balance_event(
         self,
-        event: BalanceEventUnion | None = None,
         user_id: str | None = None,
+        event: BalanceEventUnion | None = None,
         /,
         **kwargs,
     ) -> None:
