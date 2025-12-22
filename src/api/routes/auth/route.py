@@ -21,9 +21,10 @@ from config import (
     REDIS_EMAIL_VERIFICATION_EXPIRY_SECS,
 )
 from db_models import Users
+from engine.services.balance_manager import BalanceManager
 from infra.redis import REDIS_CLIENT 
 from services import JWTService, EmailService
-from utils import get_datetime
+from utils import get_datetime, get_default_cash_balance
 from .controller import gen_verification_code
 from .models import (
     UpdateEmail,
@@ -41,7 +42,7 @@ from .models import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 em_service = EmailService("No-Reply", "no-reply@domain.com")
 pw_hasher = PasswordHasher()
-
+balance_manager = BalanceManager()
 
 @router.get("/ws-token", response_model=WsTokenResponse)
 async def get_ws_token(jwt: JWTPayload = Depends(depends_jwt(is_authenticated=False))):
@@ -204,7 +205,6 @@ async def verify_email(
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     key = f"{REDIS_EMAIL_VERIFICATION_KEY_PREFIX}{str(jwt.sub)}"
-    # code = await REDIS_CLIENT.get(key)
     payload = await REDIS_CLIENT.get(key)
     if not payload:
         raise HTTPException(status_code=400, detail="No code found")
@@ -220,6 +220,7 @@ async def verify_email(
     user = await db_sess.scalar(select(Users).where(Users.user_id == jwt.sub))
     user.authenticated_at = get_datetime()
     rsp = await JWTService.set_persistant_jwt_cookie(user, db_sess)
+    await balance_manager.increase_cash_balance_async(user.user_id, get_default_cash_balance())
     await db_sess.commit()
     return rsp
 

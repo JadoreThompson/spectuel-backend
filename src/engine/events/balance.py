@@ -1,6 +1,7 @@
 from typing import Literal
 
 from pydantic import Field
+
 from engine.enums import OrderStatus, OrderType, Side
 from models import CustomBaseModel
 from .base import EngineEventBase
