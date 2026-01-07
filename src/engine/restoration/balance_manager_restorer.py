@@ -80,7 +80,7 @@ class BalanceManagerRestorer:
                 for r in row:
                     yield r
 
-    def _replay_logs(self, start_epoch: int) -> bool:
+    def _replay_logs(self, start_epoch: int) -> None:
         """
         Replay all balance-related logs from the database starting from start_epoch.
         """
@@ -88,97 +88,89 @@ class BalanceManagerRestorer:
             event_type = log.data.get("type")
             data = log.data
 
-            try:
-                # Cash Balance Events
-                if event_type == BalanceEventType.CASH_BALANCE_INCREASED:
-                    event = CashBalanceIncreasedEvent(**data)
-                    self._bm.increase_cash_balance(
-                        user_id=event.user_id, amount=event.amount, event=event
-                    )
-                elif event_type == BalanceEventType.CASH_BALANCE_DECREASED:
-                    event = CashBalanceDecreasedEvent(**data)
-                    self._bm.decrease_cash_balance(
-                        user_id=event.user_id, amount=event.amount, event=event
-                    )
-
-                # Cash Escrow Events
-                elif event_type == BalanceEventType.CASH_ESCROW_INCREASED:
-                    event = CashEscrowIncreasedEvent(**data)
-                    self._bm.increase_cash_escrow(
-                        user_id=event.user_id, amount=event.amount, event=event
-                    )
-                elif event_type == BalanceEventType.CASH_ESCROW_DECREASED:
-                    event = CashEscrowDecreasedEvent(**data)
-                    self._bm.decrease_cash_escrow(
-                        user_id=event.user_id, amount=event.amount, event=event
-                    )
-
-                # Asset Balance Events
-                elif event_type == BalanceEventType.ASSET_BALANCE_INCREASED:
-                    event = AssetBalanceIncreasedEvent(**data)
-                    self._bm.increase_asset_balance(
-                        user_id=event.user_id,
-                        symbol=event.symbol,
-                        amount=event.amount,
-                        event=event,
-                    )
-                elif event_type == BalanceEventType.ASSET_BALANCE_DECREASED:
-                    event = AssetBalanceDecreasedEvent(**data)
-                    self._bm.decrease_asset_balance(
-                        user_id=event.user_id,
-                        symbol=event.symbol,
-                        amount=event.amount,
-                        event=event,
-                    )
-
-                # Asset Escrow Events
-                elif event_type == BalanceEventType.ASSET_ESCROW_INCREASED:
-                    event = AssetEscrowIncreasedEvent(**data)
-                    self._bm.increase_asset_escrow(
-                        user_id=event.user_id,
-                        symbol=event.symbol,
-                        amount=event.amount,
-                        event=event,
-                    )
-                elif event_type == BalanceEventType.ASSET_ESCROW_DECREASED:
-                    event = AssetEscrowDecreasedEvent(**data)
-                    self._bm.decrease_asset_escrow(
-                        user_id=event.user_id,
-                        symbol=event.symbol,
-                        amount=event.amount,
-                        event=event,
-                    )
-
-                # Settlement Events
-                elif event_type == BalanceEventType.ASK_SETTLED:
-                    event = AskSettledEvent(**data)
-                    self._bm.settle_ask(
-                        user_id=event.user_id,
-                        symbol=event.symbol,
-                        quantity=event.quantity,
-                        price=event.price,
-                        event=event,
-                    )
-                elif event_type == BalanceEventType.BID_SETTLED:
-                    event = BidSettledEvent(**data)
-                    self._bm.settle_bid(
-                        user_id=event.user_id,
-                        symbol=event.symbol,
-                        quantity=event.quantity,
-                        price=event.price,
-                        event=event,
-                    )
-
-                else:
-                    continue
-
-            except Exception as e:
-                self._logger.error(
-                    f"Failed to replay event {log.event_id} ({event_type}): {e}"
+            if event_type == BalanceEventType.CASH_BALANCE_INCREASED:
+                event = CashBalanceIncreasedEvent(**data)
+                self._bm.increase_cash_balance(
+                    user_id=event.user_id, amount=event.amount, event=event
+                )
+            elif event_type == BalanceEventType.CASH_BALANCE_DECREASED:
+                event = CashBalanceDecreasedEvent(**data)
+                self._bm.decrease_cash_balance(
+                    user_id=event.user_id, amount=event.amount, event=event
                 )
 
+            # Cash Escrow Events
+            elif event_type == BalanceEventType.CASH_ESCROW_INCREASED:
+                event = CashEscrowIncreasedEvent(**data)
+                self._bm.increase_cash_escrow(
+                    user_id=event.user_id, amount=event.amount, event=event
+                )
+            elif event_type == BalanceEventType.CASH_ESCROW_DECREASED:
+                event = CashEscrowDecreasedEvent(**data)
+                self._bm.decrease_cash_escrow(
+                    user_id=event.user_id, amount=event.amount, event=event
+                )
+
+            # Asset Balance Events
+            elif event_type == BalanceEventType.ASSET_BALANCE_INCREASED:
+                event = AssetBalanceIncreasedEvent(**data)
+                self._bm.increase_asset_balance(
+                    user_id=event.user_id,
+                    symbol=event.symbol,
+                    amount=event.amount,
+                    event=event,
+                )
+            elif event_type == BalanceEventType.ASSET_BALANCE_DECREASED:
+                event = AssetBalanceDecreasedEvent(**data)
+                self._bm.decrease_asset_balance(
+                    user_id=event.user_id,
+                    symbol=event.symbol,
+                    amount=event.amount,
+                    event=event,
+                )
+
+            # Asset Escrow Events
+            elif event_type == BalanceEventType.ASSET_ESCROW_INCREASED:
+                event = AssetEscrowIncreasedEvent(**data)
+                self._bm.increase_asset_escrow(
+                    user_id=event.user_id,
+                    symbol=event.symbol,
+                    amount=event.amount,
+                    event=event,
+                )
+            elif event_type == BalanceEventType.ASSET_ESCROW_DECREASED:
+                event = AssetEscrowDecreasedEvent(**data)
+                self._bm.decrease_asset_escrow(
+                    user_id=event.user_id,
+                    symbol=event.symbol,
+                    amount=event.amount,
+                    event=event,
+                )
+
+            # Settlement Events
+            elif event_type == BalanceEventType.ASK_SETTLED:
+                event = AskSettledEvent(**data)
+                self._bm.settle_ask(
+                    user_id=event.user_id,
+                    symbol=event.symbol,
+                    quantity=event.quantity,
+                    price=event.price,
+                    event=event,
+                )
+            elif event_type == BalanceEventType.BID_SETTLED:
+                event = BidSettledEvent(**data)
+                self._bm.settle_bid(
+                    user_id=event.user_id,
+                    symbol=event.symbol,
+                    quantity=event.quantity,
+                    price=event.price,
+                    event=event,
+                )
+
+            else:
+                continue
+
         self._logger.info("Finished replaying all balance logs")
-        return True
 
     def restore_balance_manager(self) -> bool:
         """
@@ -194,7 +186,7 @@ class BalanceManagerRestorer:
                 last_save: datetime = REDIS_CLIENT_SYNC.lastsave()
             except Exception as e:
                 self._logger.warning(
-                    f"Could not get lastsave from Main Redis: {e}. Defaulting to 1 day ago."
+                    "Could not get lastsave from Main Redis. Defaulting to 1 day ago.", exc_info=e
                 )
                 last_save = datetime.now() - timedelta(days=1)
 
