@@ -1,11 +1,14 @@
+from typing import Literal
 import uuid
 from datetime import datetime
 
 from sqlalchemy import (
     UUID,
+    BigInteger,
     Integer,
     Float,
     ForeignKey,
+    Numeric,
     String,
     DateTime,
     text,
@@ -20,8 +23,19 @@ from engine.enums import (
     Side,
     LiquidityRole,
 )
+from engine.events.enums import BalanceEventType
 from enums import OrderGroupType
 from utils import get_default_cash_balance
+
+
+def uuid_pk():
+    return mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+
+def balance_field(**kw):
+    return mapped_column(
+        Numeric(precision=12, scale=2, asdecimal=False), nullable=False, **kw
+    )
 
 
 class Base(DeclarativeBase):
@@ -31,16 +45,15 @@ class Base(DeclarativeBase):
 class Users(Base):
     __tablename__ = "users"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
-    )
+    user_id: Mapped[uuid.UUID] = uuid_pk()
     username: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     password: Mapped[str] = mapped_column(String, nullable=False)
-    cash_balance: Mapped[float] = mapped_column(
-        Float, nullable=False, default=get_default_cash_balance
-    )
-    escrow_balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.00)
+
+    # Use balance_field for consistency
+    cash_balance: Mapped[float] = balance_field(default=get_default_cash_balance)
+    escrow_balance: Mapped[float] = balance_field(default=0.00)
+
     api_key: Mapped[str] = mapped_column(String, nullable=True)
     jwt: Mapped[str] = mapped_column(String, nullable=True)
 
@@ -58,7 +71,6 @@ class Users(Base):
         server_onupdate=text("NOW()"),
     )
 
-    # Relationships
     orders = relationship("Orders", back_populates="user", cascade="all, delete-orphan")
     trades = relationship("Trades", back_populates="user", cascade="all, delete-orphan")
     transactions = relationship(
@@ -72,9 +84,7 @@ class Users(Base):
 class Instruments(Base):
     __tablename__ = "instruments"
 
-    instrument_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
-    )
+    instrument_id: Mapped[uuid.UUID] = uuid_pk()
     symbol: Mapped[str] = mapped_column(
         String(20), unique=True, nullable=False, index=True
     )
@@ -83,15 +93,11 @@ class Instruments(Base):
         String, nullable=False, default=InstrumentStatus.DOWN
     )
 
-    # Relationships
-
 
 class Orders(Base):
     __tablename__ = "orders"
 
-    order_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
-    )
+    order_id: Mapped[uuid.UUID] = uuid_pk()
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
     )
@@ -125,7 +131,6 @@ class Orders(Base):
         server_onupdate=text("NOW()"),
     )
 
-    # Relationships
     user = relationship("Users", back_populates="orders")
     trades = relationship(
         "Trades", back_populates="order", cascade="all, delete-orphan"
@@ -135,9 +140,7 @@ class Orders(Base):
 class Trades(Base):
     __tablename__ = "trades"
 
-    trade_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
-    )
+    trade_id: Mapped[uuid.UUID] = uuid_pk()
     order_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("orders.order_id"), nullable=False
     )
@@ -153,7 +156,6 @@ class Trades(Base):
         DateTime(timezone=True), nullable=False, server_default=text("NOW()")
     )
 
-    # Relationships
     order = relationship("Orders", back_populates="trades")
     user = relationship("Users", back_populates="trades")
 
@@ -161,26 +163,23 @@ class Trades(Base):
 class AssetBalances(Base):
     __tablename__ = "asset_balances"
 
-    asset_balance_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
-    )
+    asset_balance_id: Mapped[uuid.UUID] = uuid_pk()
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.user_id")
     )
     symbol: Mapped[str] = mapped_column(String, nullable=False)
-    balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.00)
-    escrow_balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.00)
 
-    # Relationships
+    # Use balance_field for both balance and escrow_balance
+    balance: Mapped[float] = balance_field(default=0.00)
+    escrow_balance: Mapped[float] = balance_field(default=0.00)
+
     user = relationship("Users", back_populates="asset_balances")
 
 
 class Transactions(Base):
     __tablename__ = "transactions"
 
-    transaction_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
-    )
+    transaction_id: Mapped[uuid.UUID] = uuid_pk()
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
     )
@@ -193,16 +192,13 @@ class Transactions(Base):
         DateTime(timezone=True), nullable=False, server_default=text("NOW()")
     )
 
-    # Relationships
     user = relationship("Users", back_populates="transactions")
 
 
 class EventLogs(Base):
     __tablename__ = "event_logs"
 
-    event_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, unique=True
-    )
+    event_id: Mapped[uuid.UUID] = uuid_pk()
     event_type: Mapped[str] = mapped_column(String, nullable=False)
     data: Mapped[dict] = mapped_column(JSONB, nullable=False)
     timestamp: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -211,8 +207,6 @@ class EventLogs(Base):
 class EngineContextSnapshots(Base):
     __tablename__ = "engine_context_snapshots"
 
-    snapshot_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
-    )
+    snapshot_id: Mapped[uuid.UUID] = uuid_pk()
     symbol: Mapped[str] = mapped_column(String, nullable=False)
     snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
