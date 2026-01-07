@@ -71,6 +71,26 @@ class AssetEscrowDecreasedEvent(BalanceEventBase):
     amount: float
 
 
+class AskSettledEvent(BalanceEventBase):
+    type: Literal[BalanceEventType.ASK_SETTLED] = BalanceEventType.ASK_SETTLED
+    symbol: str
+    quantity: float
+    price: float
+    asset_escrow_decreased: AssetEscrowDecreasedEvent
+    asset_balance_decreased: AssetBalanceDecreasedEvent
+    cash_balance_increased: CashBalanceIncreasedEvent
+
+
+class BidSettledEvent(BalanceEventBase):
+    type: Literal[BalanceEventType.BID_SETTLED] = BalanceEventType.BID_SETTLED
+    symbol: str
+    quantity: float
+    price: float
+    cash_escrow_decreased: CashEscrowDecreasedEvent
+    cash_balance_decreased: CashBalanceDecreasedEvent
+    asset_balance_increased: AssetBalanceIncreasedEvent
+
+
 class AssetBalanceSnapshotOrder(CustomBaseModel):
     order_id: str
     order_type: OrderType
@@ -90,23 +110,3 @@ class AssetBalanceSnapshotEvent(BalanceEventBase):
     symbol: str
     available_asset_balance: int
     available_cash_balance: float
-
-
-class AskSettledEvent(BalanceEventBase):
-    type: Literal[BalanceEventType.ASK_SETTLED] = BalanceEventType.ASK_SETTLED
-    symbol: str
-    quantity: float
-    price: float
-    asset_escrow_decreased: AssetEscrowDecreasedEvent
-    asset_balance_decreased: AssetBalanceDecreasedEvent
-    cash_balance_increased: CashBalanceIncreasedEvent
-
-
-class BidSettledEvent(BalanceEventBase):
-    type: Literal[BalanceEventType.BID_SETTLED] = BalanceEventType.BID_SETTLED
-    symbol: str
-    quantity: float
-    price: float
-    cash_escrow_decreased: CashEscrowDecreasedEvent
-    cash_balance_decreased: CashBalanceDecreasedEvent
-    asset_balance_increased: AssetBalanceIncreasedEvent
