@@ -13,6 +13,7 @@ from api.dependencies import depends_db_sess
 from api.types import JWTPayload
 from config import (
     MAX_EMAIL_VERIFICATION_ATTEMPTS,
+    NEW_USER_COMMAND_ID,
     PW_HASH_SALT,
     REDIS_CHANGE_EMAIL_KEY_PREFIX,
     REDIS_CHANGE_PASSWORD_KEY_PREFIX,
@@ -22,7 +23,7 @@ from config import (
 )
 from db_models import Users
 from engine.services.balance_manager import BalanceManager
-from infra.redis import REDIS_CLIENT 
+from infra.redis import REDIS_CLIENT
 from services import JWTService, EmailService
 from utils import get_datetime, get_default_cash_balance
 from .controller import gen_verification_code
@@ -43,6 +44,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 em_service = EmailService("No-Reply", "no-reply@domain.com")
 pw_hasher = PasswordHasher()
 balance_manager = BalanceManager()
+
 
 @router.get("/ws-token", response_model=WsTokenResponse)
 async def get_ws_token(jwt: JWTPayload = Depends(depends_jwt(is_authenticated=False))):
@@ -220,7 +222,9 @@ async def verify_email(
     user = await db_sess.scalar(select(Users).where(Users.user_id == jwt.sub))
     user.authenticated_at = get_datetime()
     rsp = await JWTService.set_persistant_jwt_cookie(user, db_sess)
-    await balance_manager.increase_cash_balance_async(user.user_id, get_default_cash_balance())
+    await balance_manager.increase_cash_balance_async(
+        user.user_id, get_default_cash_balance(), NEW_USER_COMMAND_ID
+    )
     await db_sess.commit()
     return rsp
 

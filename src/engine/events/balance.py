@@ -11,6 +11,7 @@ from .enums import BalanceEventType
 class BalanceEventBase(EngineEventBase):
     user_id: str
     version: int = 1
+    command_id: str
 
 
 class CashBalanceIncreasedEvent(BalanceEventBase):
@@ -79,6 +80,7 @@ class AskSettledEvent(BalanceEventBase):
     asset_escrow_decreased: AssetEscrowDecreasedEvent
     asset_balance_decreased: AssetBalanceDecreasedEvent
     cash_balance_increased: CashBalanceIncreasedEvent
+    trade_event_id: str
 
 
 class BidSettledEvent(BalanceEventBase):
@@ -89,6 +91,7 @@ class BidSettledEvent(BalanceEventBase):
     cash_escrow_decreased: CashEscrowDecreasedEvent
     cash_balance_decreased: CashBalanceDecreasedEvent
     asset_balance_increased: AssetBalanceIncreasedEvent
+    trade_event_id: str
 
 
 class AssetBalanceSnapshotOrder(CustomBaseModel):

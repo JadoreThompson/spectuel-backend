@@ -1,5 +1,12 @@
 from engine.config import SYSTEM_USER_ID
-from engine.enums import MatchOutcome, LiquidityRole, OrderType, Side, StrategyType, CommandType
+from engine.enums import (
+    MatchOutcome,
+    LiquidityRole,
+    OrderType,
+    Side,
+    StrategyType,
+    CommandType,
+)
 from engine.events import OrderEventType, TradeEventType
 from engine.execution_context import ExecutionContext
 from engine.orderbook import OrderBook
@@ -217,6 +224,8 @@ class SpotEngine(EngineBase):
         Handles the logic for a single trade event: updating quantities,
         notifying strategies, and removing filled orders.
         """
+        command_id = ctx.command_id
+
         self._ctx.wal_logger.log_trade_event(
             taker_order.user_id,
             type=TradeEventType.NEW_TRADE,
@@ -225,6 +234,7 @@ class SpotEngine(EngineBase):
             quantity=quantity,
             price=price,
             role=LiquidityRole.TAKER,
+            command_id=command_id,
         )
         self._ctx.wal_logger.log_trade_event(
             maker_order.user_id,
@@ -234,6 +244,7 @@ class SpotEngine(EngineBase):
             quantity=quantity,
             price=price,
             role=LiquidityRole.MAKER,
+            command_id=command_id,
         )
 
         prev_taker_exec_quantity = taker_order.executed_quantity
@@ -250,10 +261,11 @@ class SpotEngine(EngineBase):
                 self._balance_manager.increase_cash_escrow(
                     maker_order.user_id,
                     maker_order.quantity * maker_order.price,
+                    command_id,
                 )
             else:
                 self._balance_manager.increase_asset_escrow(
-                    maker_order.user_id, ctx.symbol, maker_order.quantity
+                    maker_order.user_id, ctx.symbol, maker_order.quantity, command_id
                 )
 
         if prev_taker_exec_quantity == 0:
@@ -261,25 +273,26 @@ class SpotEngine(EngineBase):
                 self._balance_manager.increase_cash_escrow(
                     taker_order.user_id,
                     taker_order.quantity * taker_order.price,
+                    command_id,
                 )
             else:
                 self._balance_manager.increase_asset_escrow(
-                    taker_order.user_id, ctx.symbol, taker_order.quantity
+                    taker_order.user_id, ctx.symbol, taker_order.quantity, command_id
                 )
 
         if taker_order.side == Side.BID:
             self._balance_manager.settle_bid(
-                taker_order.user_id, ctx.symbol, quantity, price
+                taker_order.user_id, ctx.symbol, quantity, price, command_id
             )
             self._balance_manager.settle_ask(
-                maker_order.user_id, ctx.symbol, quantity, price
+                maker_order.user_id, ctx.symbol, quantity, price, command_id
             )
         else:
             self._balance_manager.settle_ask(
-                taker_order.user_id, ctx.symbol, quantity, price
+                taker_order.user_id, ctx.symbol, quantity, price, command_id
             )
             self._balance_manager.settle_bid(
-                maker_order.user_id, ctx.symbol, quantity, price
+                maker_order.user_id, ctx.symbol, quantity, price, command_id
             )
 
         taker_strategy = self._strategy_handlers[taker_order.strategy_type]

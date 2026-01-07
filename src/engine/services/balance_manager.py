@@ -2,7 +2,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from redis import Redis
-from redis.asyncio import Redis as AsyncRedis  # Added import
+from redis.asyncio import Redis as AsyncRedis
 
 from engine.config import (
     REDIS_CASH_ESCROW_HKEY_PREFIX,
@@ -247,9 +247,12 @@ class BalanceManager:
         self,
         user_id: str,
         amount: float,
+        command_id: str,
         event: CashBalanceIncreasedEvent | None = None,
     ) -> float:
-        event = event or CashBalanceIncreasedEvent(user_id=user_id, amount=amount)
+        event = event or CashBalanceIncreasedEvent(
+            user_id=user_id, amount=amount, command_id=command_id
+        )
         self._wal(user_id, event)
 
         val_key = self.get_cash_balance_key(user_id)
@@ -266,9 +269,12 @@ class BalanceManager:
         self,
         user_id: str,
         amount: float,
+        command_id: str,
         event: CashBalanceDecreasedEvent | None = None,
     ) -> float:
-        event = event or CashBalanceDecreasedEvent(user_id=user_id, amount=amount)
+        event = event or CashBalanceDecreasedEvent(
+            user_id=user_id, amount=amount, command_id=command_id
+        )
         self._wal(user_id, event)
 
         val_key = self.get_cash_balance_key(user_id)
@@ -282,9 +288,15 @@ class BalanceManager:
 
     @ignore_system_user
     def increase_cash_escrow(
-        self, user_id: str, amount: float, event: CashEscrowIncreasedEvent | None = None
+        self,
+        user_id: str,
+        amount: float,
+        command_id: str,
+        event: CashEscrowIncreasedEvent | None = None,
     ) -> float:
-        event = event or CashEscrowIncreasedEvent(user_id=user_id, amount=amount)
+        event = event or CashEscrowIncreasedEvent(
+            user_id=user_id, amount=amount, command_id=command_id
+        )
         self._wal(user_id, event)
 
         val_key = self.get_cash_escrow_key(user_id)
@@ -298,9 +310,15 @@ class BalanceManager:
 
     @ignore_system_user
     def decrease_cash_escrow(
-        self, user_id: str, amount: float, event: CashEscrowDecreasedEvent | None = None
+        self,
+        user_id: str,
+        amount: float,
+        command_id: str,
+        event: CashEscrowDecreasedEvent | None = None,
     ) -> float:
-        event = event or CashEscrowDecreasedEvent(user_id=user_id, amount=amount)
+        event = event or CashEscrowDecreasedEvent(
+            user_id=user_id, amount=amount, command_id=command_id
+        )
         self._wal(user_id, event)
 
         val_key = self.get_cash_escrow_key(user_id)
@@ -318,10 +336,11 @@ class BalanceManager:
         user_id: str,
         symbol: str,
         amount: float,
+        command_id: str,
         event: AssetBalanceIncreasedEvent | None = None,
     ) -> float:
         event = event or AssetBalanceIncreasedEvent(
-            user_id=user_id, symbol=symbol, amount=amount
+            user_id=user_id, symbol=symbol, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)
 
@@ -340,10 +359,11 @@ class BalanceManager:
         user_id: str,
         symbol: str,
         amount: float,
+        command_id: str,
         event: AssetBalanceDecreasedEvent | None = None,
     ) -> float:
         event = event or AssetBalanceDecreasedEvent(
-            user_id=user_id, symbol=symbol, amount=amount
+            user_id=user_id, symbol=symbol, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)
 
@@ -362,10 +382,11 @@ class BalanceManager:
         user_id: str,
         symbol: str,
         amount: float,
+        command_id: str,
         event: AssetEscrowIncreasedEvent | None = None,
     ) -> float:
         event = event or AssetEscrowIncreasedEvent(
-            user_id=user_id, symbol=symbol, amount=amount
+            user_id=user_id, symbol=symbol, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)
 
@@ -384,10 +405,11 @@ class BalanceManager:
         user_id: str,
         symbol: str,
         amount: float,
+        command_id: str,
         event: AssetEscrowDecreasedEvent | None = None,
     ) -> float:
         event = event or AssetEscrowDecreasedEvent(
-            user_id=user_id, symbol=symbol, amount=amount
+            user_id=user_id, symbol=symbol, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)
 
@@ -407,6 +429,7 @@ class BalanceManager:
         symbol: str,
         quantity: float,
         price: float,
+        command_id: str,
         event: AskSettledEvent | None = None,
     ) -> None:
         event = event or AskSettledEvent(
@@ -415,14 +438,15 @@ class BalanceManager:
             quantity=quantity,
             price=price,
             asset_balance_decreased=AssetBalanceDecreasedEvent(
-                user_id=user_id, symbol=symbol, amount=quantity
+                user_id=user_id, symbol=symbol, amount=quantity, command_id=command_id
             ),
             asset_escrow_decreased=AssetEscrowDecreasedEvent(
-                user_id=user_id, symbol=symbol, amount=quantity
+                user_id=user_id, symbol=symbol, amount=quantity, command_id=command_id
             ),
             cash_balance_increased=CashBalanceIncreasedEvent(
-                user_id=user_id, amount=quantity * price
+                user_id=user_id, amount=quantity * price, command_id=command_id
             ),
+            command_id=command_id,
         )
 
         self._wal(user_id, event)
@@ -455,6 +479,7 @@ class BalanceManager:
         symbol: str,
         quantity: float,
         price: float,
+        command_id: str,
         event: BidSettledEvent | None = None,
     ) -> None:
         total = quantity * price
@@ -465,14 +490,15 @@ class BalanceManager:
             quantity=quantity,
             price=price,
             cash_escrow_decreased=CashEscrowDecreasedEvent(
-                user_id=user_id, amount=total
+                user_id=user_id, amount=total, command_id=command_id
             ),
             cash_balance_decreased=CashBalanceDecreasedEvent(
-                user_id=user_id, amount=total
+                user_id=user_id, amount=total, command_id=command_id
             ),
             asset_balance_increased=AssetBalanceIncreasedEvent(
-                user_id=user_id, symbol=symbol, amount=quantity
+                user_id=user_id, symbol=symbol, amount=quantity, command_id=command_id
             ),
+            command_id=command_id,
         )
 
         self._wal(user_id, event)
@@ -498,65 +524,72 @@ class BalanceManager:
 
         self._script_settle_bid(keys=keys, args=args)
 
-    async def get_cash_balance_async(self, user_id: str) -> float:
-        key = self.get_cash_balance_key(user_id)
-        balance = await self._redis_async_client.get(key)
-        if balance is None:
-            await self._redis_async_client.set(key, "0")
-            return 0.0
-        return float(balance)
+    # NOTE: DEL
+    # async def get_cash_balance_async(self, user_id: str) -> float:
+    #     key = self.get_cash_balance_key(user_id)
+    #     balance = await self._redis_async_client.get(key)
+    #     if balance is None:
+    #         await self._redis_async_client.set(key, "0")
+    #         return 0.0
+    #     return float(balance)
 
-    async def get_cash_escrow_async(self, user_id: str) -> float:
-        key = self.get_cash_escrow_key(user_id)
-        escrow = await self._redis_async_client.get(key)
-        if escrow is None:
-            await self._redis_async_client.set(key, "0")
-            return 0.0
-        return float(escrow)
+    # NOTE: DEL
+    # async def get_cash_escrow_async(self, user_id: str) -> float:
+    #     key = self.get_cash_escrow_key(user_id)
+    #     escrow = await self._redis_async_client.get(key)
+    #     if escrow is None:
+    #         await self._redis_async_client.set(key, "0")
+    #         return 0.0
+    #     return float(escrow)
 
-    async def get_available_cash_balance_async(self, user_id: str) -> float:
-        bal_key = self.get_cash_balance_key(user_id)
-        esc_key = self.get_cash_escrow_key(user_id)
+    # NOTE: DEL
+    # async def get_available_cash_balance_async(self, user_id: str) -> float:
+    #     bal_key = self.get_cash_balance_key(user_id)
+    #     esc_key = self.get_cash_escrow_key(user_id)
 
-        balance = await self._redis_async_client.get(bal_key)
-        escrow = await self._redis_async_client.get(esc_key)
+    #     balance = await self._redis_async_client.get(bal_key)
+    #     escrow = await self._redis_async_client.get(esc_key)
 
-        if balance is None:
-            await self._redis_async_client.set(bal_key, "0")
-            balance = "0"
+    #     if balance is None:
+    #         await self._redis_async_client.set(bal_key, "0")
+    #         balance = "0"
 
-        if escrow is None:
-            await self._redis_async_client.set(esc_key, "0")
-            escrow = "0"
+    #     if escrow is None:
+    #         await self._redis_async_client.set(esc_key, "0")
+    #         escrow = "0"
 
-        return float(balance) - float(escrow)
+    #     return float(balance) - float(escrow)
 
-    async def get_available_asset_balance_async(
-        self, user_id: str, symbol: str
-    ) -> float:
-        bal_key = self.get_asset_balance_key(symbol, user_id)
-        esc_key = self.get_asset_escrow_key(symbol, user_id)
+    # NOTE: DEL
+    # async def get_available_asset_balance_async(
+    #     self, user_id: str, symbol: str
+    # ) -> float:
+    #     bal_key = self.get_asset_balance_key(symbol, user_id)
+    #     esc_key = self.get_asset_escrow_key(symbol, user_id)
 
-        balance = await self._redis_async_client.get(bal_key)
-        escrow = await self._redis_async_client.get(esc_key)
+    #     balance = await self._redis_async_client.get(bal_key)
+    #     escrow = await self._redis_async_client.get(esc_key)
 
-        if balance is None:
-            await self._redis_async_client.set(bal_key, "0")
-            balance = "0"
+    #     if balance is None:
+    #         await self._redis_async_client.set(bal_key, "0")
+    #         balance = "0"
 
-        if escrow is None:
-            await self._redis_async_client.set(esc_key, "0")
-            escrow = "0"
+    #     if escrow is None:
+    #         await self._redis_async_client.set(esc_key, "0")
+    #         escrow = "0"
 
-        return float(balance) - float(escrow)
+    #     return float(balance) - float(escrow)
 
     async def increase_cash_balance_async(
         self,
         user_id: str,
         amount: float,
+        command_id: str,
         event: CashBalanceIncreasedEvent | None = None,
     ) -> float:
-        event = event or CashBalanceIncreasedEvent(user_id=user_id, amount=amount)
+        event = event or CashBalanceIncreasedEvent(
+            user_id=user_id, amount=amount, command_id=command_id
+        )
         self._wal(user_id, event)
 
         val_key = self.get_cash_balance_key(user_id)
@@ -568,230 +601,239 @@ class BalanceManager:
             )
         )
 
-    async def decrease_cash_balance_async(
-        self,
-        user_id: str,
-        amount: float,
-        event: CashBalanceDecreasedEvent | None = None,
-    ) -> float:
-        event = event or CashBalanceDecreasedEvent(user_id=user_id, amount=amount)
-        self._wal(user_id, event)
+    # NOTE: DEL
+    # async def decrease_cash_balance_async(
+    #     self,
+    #     user_id: str,
+    #     amount: float,
+    #     event: CashBalanceDecreasedEvent | None = None,
+    # ) -> float:
+    #     event = event or CashBalanceDecreasedEvent(user_id=user_id, amount=amount)
+    #     self._wal(user_id, event)
 
-        val_key = self.get_cash_balance_key(user_id)
-        log_key = self.get_cash_balance_hkey(user_id)
+    #     val_key = self.get_cash_balance_key(user_id)
+    #     log_key = self.get_cash_balance_hkey(user_id)
 
-        return float(
-            await self._script_update_balance_async(
-                keys=[val_key, log_key], args=[str(event.id), -amount]
-            )
-        )
+    #     return float(
+    #         await self._script_update_balance_async(
+    #             keys=[val_key, log_key], args=[str(event.id), -amount]
+    #         )
+    #     )
 
-    async def increase_cash_escrow_async(
-        self, user_id: str, amount: float, event: CashEscrowIncreasedEvent | None = None
-    ) -> float:
-        event = event or CashEscrowIncreasedEvent(user_id=user_id, amount=amount)
-        self._wal(user_id, event)
+    # NOTE: DEL
+    # async def increase_cash_escrow_async(
+    #     self, user_id: str, amount: float, event: CashEscrowIncreasedEvent | None = None
+    # ) -> float:
+    #     event = event or CashEscrowIncreasedEvent(user_id=user_id, amount=amount)
+    #     self._wal(user_id, event)
 
-        val_key = self.get_cash_escrow_key(user_id)
-        log_key = self.get_cash_escrow_hkey(user_id)
+    #     val_key = self.get_cash_escrow_key(user_id)
+    #     log_key = self.get_cash_escrow_hkey(user_id)
 
-        return float(
-            await self._script_update_balance_async(
-                keys=[val_key, log_key], args=[str(event.id), amount]
-            )
-        )
+    #     return float(
+    #         await self._script_update_balance_async(
+    #             keys=[val_key, log_key], args=[str(event.id), amount]
+    #         )
+    #     )
 
-    async def decrease_cash_escrow_async(
-        self, user_id: str, amount: float, event: CashEscrowDecreasedEvent | None = None
-    ) -> float:
-        event = event or CashEscrowDecreasedEvent(user_id=user_id, amount=amount)
-        self._wal(user_id, event)
+    # NOTE: DEL
+    # async def decrease_cash_escrow_async(
+    #     self, user_id: str, amount: float, event: CashEscrowDecreasedEvent | None = None
+    # ) -> float:
+    #     event = event or CashEscrowDecreasedEvent(user_id=user_id, amount=amount)
+    #     self._wal(user_id, event)
 
-        val_key = self.get_cash_escrow_key(user_id)
-        log_key = self.get_cash_escrow_hkey(user_id)
+    #     val_key = self.get_cash_escrow_key(user_id)
+    #     log_key = self.get_cash_escrow_hkey(user_id)
 
-        return float(
-            await self._script_update_balance_async(
-                keys=[val_key, log_key], args=[str(event.id), -amount]
-            )
-        )
+    #     return float(
+    #         await self._script_update_balance_async(
+    #             keys=[val_key, log_key], args=[str(event.id), -amount]
+    #         )
+    #     )
 
-    async def increase_asset_balance_async(
-        self,
-        user_id: str,
-        symbol: str,
-        amount: float,
-        event: AssetBalanceIncreasedEvent | None = None,
-    ) -> float:
-        event = event or AssetBalanceIncreasedEvent(
-            user_id=user_id, symbol=symbol, amount=amount
-        )
-        self._wal(user_id, event)
+    # NOTE: DEL
+    # async def increase_asset_balance_async(
+    #     self,
+    #     user_id: str,
+    #     symbol: str,
+    #     amount: float,
+    #     event: AssetBalanceIncreasedEvent | None = None,
+    # ) -> float:
+    #     event = event or AssetBalanceIncreasedEvent(
+    #         user_id=user_id, symbol=symbol, amount=amount
+    #     )
+    #     self._wal(user_id, event)
 
-        val_key = self.get_asset_balance_key(symbol, user_id)
-        log_key = self.get_asset_balance_hkey(symbol, user_id)
+    #     val_key = self.get_asset_balance_key(symbol, user_id)
+    #     log_key = self.get_asset_balance_hkey(symbol, user_id)
 
-        return float(
-            await self._script_update_balance_async(
-                keys=[val_key, log_key], args=[str(event.id), amount]
-            )
-        )
+    #     return float(
+    #         await self._script_update_balance_async(
+    #             keys=[val_key, log_key], args=[str(event.id), amount]
+    #         )
+    #     )
 
-    async def decrease_asset_balance_async(
-        self,
-        user_id: str,
-        symbol: str,
-        amount: float,
-        event: AssetBalanceDecreasedEvent | None = None,
-    ) -> float:
-        event = event or AssetBalanceDecreasedEvent(
-            user_id=user_id, symbol=symbol, amount=amount
-        )
-        self._wal(user_id, event)
+    # NOTE: DEL
+    # async def decrease_asset_balance_async(
+    #     self,
+    #     user_id: str,
+    #     symbol: str,
+    #     amount: float,
+    #     event: AssetBalanceDecreasedEvent | None = None,
+    # ) -> float:
+    #     event = event or AssetBalanceDecreasedEvent(
+    #         user_id=user_id, symbol=symbol, amount=amount
+    #     )
+    #     self._wal(user_id, event)
 
-        val_key = self.get_asset_balance_key(symbol, user_id)
-        log_key = self.get_asset_balance_hkey(symbol, user_id)
+    #     val_key = self.get_asset_balance_key(symbol, user_id)
+    #     log_key = self.get_asset_balance_hkey(symbol, user_id)
 
-        return float(
-            await self._script_update_balance_async(
-                keys=[val_key, log_key], args=[str(event.id), -amount]
-            )
-        )
+    #     return float(
+    #         await self._script_update_balance_async(
+    #             keys=[val_key, log_key], args=[str(event.id), -amount]
+    #         )
+    #     )
 
-    async def increase_asset_escrow_async(
-        self,
-        user_id: str,
-        symbol: str,
-        amount: float,
-        event: AssetEscrowIncreasedEvent | None = None,
-    ) -> float:
-        event = event or AssetEscrowIncreasedEvent(
-            user_id=user_id, symbol=symbol, amount=amount
-        )
-        self._wal(user_id, event)
+    # NOTE: DEL
+    # async def increase_asset_escrow_async(
+    #     self,
+    #     user_id: str,
+    #     symbol: str,
+    #     amount: float,
+    #     event: AssetEscrowIncreasedEvent | None = None,
+    # ) -> float:
+    #     event = event or AssetEscrowIncreasedEvent(
+    #         user_id=user_id, symbol=symbol, amount=amount
+    #     )
+    #     self._wal(user_id, event)
 
-        val_key = self.get_asset_escrow_key(symbol, user_id)
-        log_key = self.get_asset_escrow_hkey(symbol, user_id)
+    #     val_key = self.get_asset_escrow_key(symbol, user_id)
+    #     log_key = self.get_asset_escrow_hkey(symbol, user_id)
 
-        return float(
-            await self._script_update_balance_async(
-                keys=[val_key, log_key], args=[str(event.id), amount]
-            )
-        )
+    #     return float(
+    #         await self._script_update_balance_async(
+    #             keys=[val_key, log_key], args=[str(event.id), amount]
+    #         )
+    #     )
 
-    async def decrease_asset_escrow_async(
-        self,
-        user_id: str,
-        symbol: str,
-        amount: float,
-        event: AssetEscrowDecreasedEvent | None = None,
-    ) -> float:
-        event = event or AssetEscrowDecreasedEvent(
-            user_id=user_id, symbol=symbol, amount=amount
-        )
-        self._wal(user_id, event)
+    # NOTE: DEL
+    # async def decrease_asset_escrow_async(
+    #     self,
+    #     user_id: str,
+    #     symbol: str,
+    #     amount: float,
+    #     event: AssetEscrowDecreasedEvent | None = None,
+    # ) -> float:
+    #     event = event or AssetEscrowDecreasedEvent(
+    #         user_id=user_id, symbol=symbol, amount=amount
+    #     )
+    #     self._wal(user_id, event)
 
-        val_key = self.get_asset_escrow_key(symbol, user_id)
-        log_key = self.get_asset_escrow_hkey(symbol, user_id)
+    #     val_key = self.get_asset_escrow_key(symbol, user_id)
+    #     log_key = self.get_asset_escrow_hkey(symbol, user_id)
 
-        return float(
-            await self._script_update_balance_async(
-                keys=[val_key, log_key], args=[str(event.id), -amount]
-            )
-        )
+    #     return float(
+    #         await self._script_update_balance_async(
+    #             keys=[val_key, log_key], args=[str(event.id), -amount]
+    #         )
+    #     )
 
-    async def settle_ask_async(
-        self,
-        user_id: str,
-        symbol: str,
-        quantity: float,
-        price: float,
-        event: AskSettledEvent | None = None,
-    ) -> None:
-        event = event or AskSettledEvent(
-            user_id=user_id,
-            symbol=symbol,
-            quantity=quantity,
-            price=price,
-            asset_balance_decreased=AssetBalanceDecreasedEvent(
-                user_id=user_id, symbol=symbol, amount=quantity
-            ),
-            asset_escrow_decreased=AssetEscrowDecreasedEvent(
-                user_id=user_id, symbol=symbol, amount=quantity
-            ),
-            cash_balance_increased=CashBalanceIncreasedEvent(
-                user_id=user_id, amount=quantity * price
-            ),
-        )
+    # NOTE: DEL
+    # async def settle_ask_async(
+    #     self,
+    #     user_id: str,
+    #     symbol: str,
+    #     quantity: float,
+    #     price: float,
+    #     event: AskSettledEvent | None = None,
+    # ) -> None:
+    #     event = event or AskSettledEvent(
+    #         user_id=user_id,
+    #         symbol=symbol,
+    #         quantity=quantity,
+    #         price=price,
+    #         asset_balance_decreased=AssetBalanceDecreasedEvent(
+    #             user_id=user_id, symbol=symbol, amount=quantity
+    #         ),
+    #         asset_escrow_decreased=AssetEscrowDecreasedEvent(
+    #             user_id=user_id, symbol=symbol, amount=quantity
+    #         ),
+    #         cash_balance_increased=CashBalanceIncreasedEvent(
+    #             user_id=user_id, amount=quantity * price
+    #         ),
+    #     )
 
-        self._wal(user_id, event)
+    #     self._wal(user_id, event)
 
-        # Keys for Lua
-        keys = [
-            self.get_asset_escrow_key(symbol, user_id),  # KEYS[1]
-            self.get_asset_escrow_hkey(symbol, user_id),  # KEYS[2]
-            self.get_asset_balance_key(symbol, user_id),  # KEYS[3]
-            self.get_asset_balance_hkey(symbol, user_id),  # KEYS[4]
-            self.get_cash_balance_key(user_id),  # KEYS[5]
-            self.get_cash_balance_hkey(user_id),  # KEYS[6]
-        ]
+    #     # Keys for Lua
+    #     keys = [
+    #         self.get_asset_escrow_key(symbol, user_id),  # KEYS[1]
+    #         self.get_asset_escrow_hkey(symbol, user_id),  # KEYS[2]
+    #         self.get_asset_balance_key(symbol, user_id),  # KEYS[3]
+    #         self.get_asset_balance_hkey(symbol, user_id),  # KEYS[4]
+    #         self.get_cash_balance_key(user_id),  # KEYS[5]
+    #         self.get_cash_balance_hkey(user_id),  # KEYS[6]
+    #     ]
 
-        # Args for Lua
-        args = [
-            quantity,  # ARGV[1]
-            price,  # ARGV[2]
-            str(event.asset_escrow_decreased.id),  # ARGV[3]
-            str(event.asset_balance_decreased.id),  # ARGV[4]
-            str(event.cash_balance_increased.id),  # ARGV[5]
-        ]
+    #     # Args for Lua
+    #     args = [
+    #         quantity,  # ARGV[1]
+    #         price,  # ARGV[2]
+    #         str(event.asset_escrow_decreased.id),  # ARGV[3]
+    #         str(event.asset_balance_decreased.id),  # ARGV[4]
+    #         str(event.cash_balance_increased.id),  # ARGV[5]
+    #     ]
 
-        await self._script_settle_ask_async(keys=keys, args=args)
+    #     await self._script_settle_ask_async(keys=keys, args=args)
 
-    async def settle_bid_async(
-        self,
-        user_id: str,
-        symbol: str,
-        quantity: float,
-        price: float,
-        event: BidSettledEvent | None = None,
-    ) -> None:
-        total = quantity * price
+    # NOTE: DEL
+    # async def settle_bid_async(
+    #     self,
+    #     user_id: str,
+    #     symbol: str,
+    #     quantity: float,
+    #     price: float,
+    #     event: BidSettledEvent | None = None,
+    # ) -> None:
+    #     total = quantity * price
 
-        event = event or BidSettledEvent(
-            user_id=user_id,
-            symbol=symbol,
-            quantity=quantity,
-            price=price,
-            cash_escrow_decreased=CashEscrowDecreasedEvent(
-                user_id=user_id, amount=total
-            ),
-            cash_balance_decreased=CashBalanceDecreasedEvent(
-                user_id=user_id, amount=total
-            ),
-            asset_balance_increased=AssetBalanceIncreasedEvent(
-                user_id=user_id, symbol=symbol, amount=quantity
-            ),
-        )
+    #     event = event or BidSettledEvent(
+    #         user_id=user_id,
+    #         symbol=symbol,
+    #         quantity=quantity,
+    #         price=price,
+    #         cash_escrow_decreased=CashEscrowDecreasedEvent(
+    #             user_id=user_id, amount=total
+    #         ),
+    #         cash_balance_decreased=CashBalanceDecreasedEvent(
+    #             user_id=user_id, amount=total
+    #         ),
+    #         asset_balance_increased=AssetBalanceIncreasedEvent(
+    #             user_id=user_id, symbol=symbol, amount=quantity
+    #         ),
+    #     )
 
-        self._wal(user_id, event)
+    #     self._wal(user_id, event)
 
-        # Keys for Lua
-        keys = [
-            self.get_cash_escrow_key(user_id),  # KEYS[1]
-            self.get_cash_escrow_hkey(user_id),  # KEYS[2]
-            self.get_cash_balance_key(user_id),  # KEYS[3]
-            self.get_cash_balance_hkey(user_id),  # KEYS[4]
-            self.get_asset_balance_key(symbol, user_id),  # KEYS[5]
-            self.get_asset_balance_hkey(symbol, user_id),  # KEYS[6]
-        ]
+    #     # Keys for Lua
+    #     keys = [
+    #         self.get_cash_escrow_key(user_id),  # KEYS[1]
+    #         self.get_cash_escrow_hkey(user_id),  # KEYS[2]
+    #         self.get_cash_balance_key(user_id),  # KEYS[3]
+    #         self.get_cash_balance_hkey(user_id),  # KEYS[4]
+    #         self.get_asset_balance_key(symbol, user_id),  # KEYS[5]
+    #         self.get_asset_balance_hkey(symbol, user_id),  # KEYS[6]
+    #     ]
 
-        # Args for Lua
-        args = [
-            quantity,  # ARGV[1]
-            price,  # ARGV[2]
-            str(event.cash_escrow_decreased.id),  # ARGV[3]
-            str(event.cash_balance_decreased.id),  # ARGV[4]
-            str(event.asset_balance_increased.id),  # ARGV[5]
-        ]
+    #     # Args for Lua
+    #     args = [
+    #         quantity,  # ARGV[1]
+    #         price,  # ARGV[2]
+    #         str(event.cash_escrow_decreased.id),  # ARGV[3]
+    #         str(event.cash_balance_decreased.id),  # ARGV[4]
+    #         str(event.asset_balance_increased.id),  # ARGV[5]
+    #     ]
 
-        await self._script_settle_bid_async(keys=keys, args=args)
+    #     await self._script_settle_bid_async(keys=keys, args=args)
