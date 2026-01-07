@@ -80,4 +80,4 @@ class EngineLogger:
             return KAFKA_BALANCE_EVENTS_TOPIC
         if isinstance(event_type, TradeEventType):
             return KAFKA_TRADE_EVENTS_TOPIC
-        raise ValueError("Topic for '{event_type}' not found")
+        raise ValueError(f"Topic for '{event_type}' not found")
