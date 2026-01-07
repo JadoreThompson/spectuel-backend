@@ -19,7 +19,7 @@ from engine.commands import (
     NewOTOCOOrderCommand,
     SingleOrderMeta,
 )
-from engine.enums import OrderStatus, StrategyType, Side
+from engine.enums import OrderStatus, StrategyType
 from engine.services.command_bus import CommandBus
 from .exc import OrderServiceError
 
@@ -59,17 +59,16 @@ class OrderService:
 
     @classmethod
     async def _create_single(
-        cls,
-        user_id: uuid.UUID,
-        details: SingleOrderCreate,
-        db_sess: AsyncSession,
+        cls, user_id: uuid.UUID, details: SingleOrderCreate, db_sess: AsyncSession
     ) -> dict:
-        price = details.limit_price or details.stop_price
+        # NOTE: Escrow logic to be carried out by the matching
+        # engine and corresponding event handler services.
+        # price = details.limit_price or details.stop_price
 
-        if details.side == Side.BID:
-            await cls._escrow_bid(details.quantity * price, user_id, db_sess)
-        else:
-            await cls._escrow_ask(details.quantity, user_id, details.symbol, db_sess)
+        # if details.side == Side.BID:
+        #     await cls._escrow_bid(details.quantity * price, user_id, db_sess)
+        # else:
+        #     await cls._escrow_ask(details.quantity, user_id, details.symbol, db_sess)
 
         order_id = uuid.uuid4()
         db_order = Orders(
@@ -108,10 +107,7 @@ class OrderService:
 
     @classmethod
     async def _create_oco(
-        cls,
-        user_id: uuid.UUID,
-        details: OCOOrderCreate,
-        db_sess: AsyncSession,
+        cls, user_id: uuid.UUID, details: OCOOrderCreate, db_sess: AsyncSession
     ) -> dict:
         group_id = uuid.uuid4()
         legs_meta = []
@@ -161,10 +157,7 @@ class OrderService:
 
     @classmethod
     async def _create_oto(
-        cls,
-        user_id: uuid.UUID,
-        details: OTOOrderCreate,
-        db_sess: AsyncSession,
+        cls, user_id: uuid.UUID, details: OTOOrderCreate, db_sess: AsyncSession
     ) -> dict:
         group_id = uuid.uuid4()
 
@@ -203,10 +196,7 @@ class OrderService:
 
     @classmethod
     async def _create_otoco(
-        cls,
-        user_id: uuid.UUID,
-        details: OTOCOOrderCreate,
-        db_sess: AsyncSession,
+        cls, user_id: uuid.UUID, details: OTOCOOrderCreate, db_sess: AsyncSession
     ) -> dict:
         group_id = uuid.uuid4()
         symbol = details.parent.symbol
@@ -260,11 +250,7 @@ class OrderService:
 
     @classmethod
     async def _escrow_ask(
-        cls,
-        quantity: float,
-        user_id: uuid.UUID,
-        symbol: str,
-        db_sess: AsyncSession,
+        cls, quantity: float, user_id: uuid.UUID, symbol: str, db_sess: AsyncSession
     ):
         asset_balance = await db_sess.scalar(
             select(AssetBalances).where(
@@ -287,20 +273,11 @@ class OrderService:
 
         asset_balance.escrow_balance += quantity
 
-    # @classmethod
-    # async def _get_instrument_id(cls, symbol: str, db_sess: AsyncSession) -> None:
-    #     iid = await db_sess.scalar(
-    #         select(Instruments.instrument_id).where(Instruments.symbol == symbol)
-    #     )
-    #     return iid
+        return
 
     @classmethod
     def _build_db_order(
-        cls,
-        symbol: str,
-        user_id: uuid.UUID,
-        details: OrderBase,
-        order_id: uuid.UUID,
+        cls, symbol: str, user_id: uuid.UUID, details: OrderBase, order_id: uuid.UUID
     ) -> Orders:
         """Helper to map API model to DB model."""
         return Orders(
