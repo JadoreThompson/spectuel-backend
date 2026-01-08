@@ -68,7 +68,7 @@ class EngineHeartbeatRunner(BaseRunner):
         except ConnectionResetError:
             self._logger.warning(f"Connection reset by peer {addr}")
         except Exception as e:
-            self._logger.error(f"Error handling client {addr}: {e}")
+            self._logger.error(f"Error handling client {addr}", exc_info=e)
         finally:
             self._logger.info(f"Connection closed for {addr}")
             self._handle_disconnection(transport)

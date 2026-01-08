@@ -25,7 +25,7 @@ class OTOCOOrder(Order):
         self.child_b = child_b
         self.counterparty = counterparty
         # The parent order is triggered by default; children are not.
-        self.triggered = parent is None
+        self.active = parent is None
 
     def to_dict(
         self,
@@ -64,7 +64,7 @@ class OTOCOOrder(Order):
         else:
             s["counterparty"] = self.counterparty.to_dict(s)
 
-        s["triggered"] = self.triggered
+        s["triggered"] = self.active
 
         return s
 

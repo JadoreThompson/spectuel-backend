@@ -1,4 +1,3 @@
-
 from engine.enums import MatchOutcome, OrderType, StrategyType
 from engine.events.enums import OrderEventType
 from engine.execution_context import ExecutionContext
@@ -55,9 +54,9 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
         child_a.counterparty = child_b
         child_b.counterparty = child_a
 
-        ctx.order_store.add(parent_order)
-        ctx.order_store.add(child_a)
-        ctx.order_store.add(child_b)
+        # ctx.order_store.add(parent_order)
+        # ctx.order_store.add(child_a)
+        # ctx.order_store.add(child_b)
 
         # Check if parent is matchable
         matchable = True
@@ -70,19 +69,27 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
                 parent_data["stop_price"], parent_order.side, ctx.orderbook
             )
 
+        command_id = ctx.command_id
         if matchable:
             result = ctx.engine.match(parent_order, ctx)
             parent_order.executed_quantity = result.quantity
 
             if result.outcome == MatchOutcome.INSUFFICIENT_BALANCE:
+                ctx.logger.log_order_event(
+                    parent_order.user_id,
+                    type=OrderEventType.ORDER_CANCELLED,
+                    order_id=parent_order.id,
+                    symbol=ctx.symbol,
+                    command_id=command_id,
+                    details={
+                        "reason": f"Insufficient balance to place OTO parent order {parent_order.id}."
+                    },
+                )
+                ctx.engine._release_escrow(parent_order)
                 return
 
             if result.outcome == MatchOutcome.SUCCESS:
-                ctx.order_store.remove(parent_order)
-                ctx.orderbook.append(child_a, child_a.price)
-                ctx.orderbook.append(child_b, child_b.price)
-
-                ctx.wal_logger.log_order_event(
+                ctx.logger.log_order_event(
                     child_a.user_id,
                     type=OrderEventType.ORDER_PLACED,
                     order_id=child_a.id,
@@ -91,8 +98,9 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
                     quantity=child_a.quantity,
                     price=child_a.price,
                     side=child_a.side,
+                    command_id=command_id,
                 )
-                ctx.wal_logger.log_order_event(
+                ctx.logger.log_order_event(
                     child_b.user_id,
                     type=OrderEventType.ORDER_PLACED,
                     order_id=child_b.id,
@@ -101,11 +109,18 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
                     quantity=child_b.quantity,
                     price=child_b.price,
                     side=child_b.side,
+                    command_id=command_id,
                 )
+
+                # ctx.order_store.remove(parent_order)
+                ctx.order_store.add(child_a)
+                ctx.order_store.add(child_b)
+                ctx.orderbook.append(child_a, child_a.price)
+                ctx.orderbook.append(child_b, child_b.price)
+
                 return
 
-        ctx.orderbook.append(parent_order, parent_order.price)
-        ctx.wal_logger.log_order_event(
+        ctx.logger.log_order_event(
             parent_order.user_id,
             type=OrderEventType.ORDER_PLACED,
             order_id=parent_order.id,
@@ -114,18 +129,21 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
             quantity=parent_order.quantity,
             price=parent_order.price,
             side=parent_order.side,
+            command_id=command_id,
         )
+        ctx.orderbook.append(parent_order, parent_order.price)
+        ctx.order_store.add(parent_order)
+        ctx.order_store.add(child_a)
+        ctx.order_store.add(child_b)
 
     def handle_filled(
         self, quantity: int, price: float, order: OTOCOOrder, ctx: ExecutionContext
     ):
         # Parent filled: trigger OCO children
         if order.child_a and order.executed_quantity == order.quantity:
-            order.triggered = False
+            order.active = False
             for child in (order.child_a, order.child_b):
-                child.triggered = True
-                ctx.orderbook.append(child, child.price)
-                ctx.wal_logger.log_order_event(
+                ctx.logger.log_order_event(
                     child.user_id,
                     type=OrderEventType.ORDER_PLACED,
                     order_id=child.id,
@@ -134,83 +152,115 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
                     quantity=child.quantity,
                     price=child.price,
                     side=child.side,
+                    command_id=ctx.command_id,
                 )
+                child.active = True
+                ctx.orderbook.append(child, child.price)
             ctx.order_store.remove(order)
             return
 
         # Child filled: cancel its counterparty
         if order.counterparty and order.executed_quantity == order.quantity:
             counterparty = order.counterparty
-            ctx.orderbook.remove(counterparty, counterparty.price)
-            ctx.order_store.remove(order)
-            ctx.order_store.remove(counterparty)
-            ctx.wal_logger.log_order_event(
+            ctx.logger.log_order_event(
                 counterparty.user_id,
                 type=OrderEventType.ORDER_CANCELLED,
                 order_id=counterparty.id,
                 symbol=ctx.symbol,
-                details={"reason": f"OCO peer {order.id} was filled."},
+                details={"reason": f"OCO peer '{order.id}' was filled."},
+                command_id=ctx.command_id,
             )
+
+            ctx.orderbook.remove(counterparty, counterparty.price)
+            ctx.order_store.remove(order)
+            ctx.order_store.remove(counterparty)
+            ctx.engine._release_escrow(order)
 
     def handle_cancel(self, order: OTOCOOrder, ctx: ExecutionContext) -> None:
         if order.child_a:  # parent
+            ctx.logger.log_order_event(
+                order.user_id,
+                type=OrderEventType.ORDER_CANCELLED,
+                order_id=order.id,
+                symbol=ctx.symbol,
+                details={
+                    "reason": "Parent order cancelled.",
+                },
+                command_id=ctx.command_id,
+            )
+            
             ctx.orderbook.remove(order, order.price)
             ctx.order_store.remove(order)
             ctx.order_store.remove(order.child_a)
             ctx.order_store.remove(order.child_b)
 
-            ctx.wal_logger.log_order_event(
-                order.user_id,
-                type=OrderEventType.ORDER_CANCELLED,
-                order_id=order.id,
-                symbol=ctx.symbol,
-                details={},
-            )
-            for child in (order.child_a, order.child_b):
-                ctx.wal_logger.log_order_event(
-                    child.user_id,
-                    type=OrderEventType.ORDER_CANCELLED,
-                    order_id=child.id,
-                    symbol=ctx.symbol,
-                    details={"reason": "Parent order cancelled."},
-                )
+            # for child in (order.child_a, order.child_b):
+            #     ctx.logger.log_order_event(
+            #         child.user_id,
+            #         type=OrderEventType.ORDER_CANCELLED,
+            #         order_id=child.id,
+            #         symbol=ctx.symbol,
+            #         details={"reason": "Parent order cancelled."},
+            #     )
             return
 
         # child
         counterparty = order.counterparty
-        if order.triggered:
-            ctx.orderbook.remove(order, order.price)
-            ctx.orderbook.remove(counterparty, counterparty.price)
-        else:
-            ctx.orderbook.remove(order.parent, order.parent.price)
-
-        ctx.order_store.remove(order)
-        ctx.order_store.remove(counterparty)
-        if order.parent.triggered:
-            ctx.wal_logger.log_order_event(
+        
+        if order.active:
+            ctx.logger.log_order_event(
                 order.user_id,
                 type=OrderEventType.ORDER_CANCELLED,
                 order_id=order.id,
                 symbol=ctx.symbol,
-                details={},
+                details={
+                    "reason": "User cancelled active OCO leg.",
+                },
+                command_id=ctx.command_id,
             )
-        ctx.wal_logger.log_order_event(
-            counterparty.user_id,
-            type=OrderEventType.ORDER_CANCELLED,
-            order_id=counterparty.id,
-            symbol=ctx.symbol,
-            details={},
-        )
+            ctx.logger.log_order_event(
+                counterparty.user_id,
+                type=OrderEventType.ORDER_CANCELLED,
+                order_id=counterparty.id,
+                symbol=ctx.symbol,
+                details={
+                    "reason": "User cancelled active OCO leg order.",
+                },
+                command_id=ctx.command_id,
+            )
+            ctx.orderbook.remove(order, order.price)
+            ctx.orderbook.remove(counterparty, counterparty.price)
+            ctx.engine._release_escrow(order)
+        else:
+            parent = order.parent
+            ctx.logger.log_order_event(
+                order.user_id,
+                type=OrderEventType.ORDER_CANCELLED,
+                order_id=order.id,
+                symbol=ctx.symbol,
+                details={
+                    "reason": "User cancelled inactive OCO leg.",
+                },
+                command_id=ctx.command_id,
+            )
+            ctx.orderbook.remove(parent, parent.price)
+            ctx.order_store.remove(parent)
+            ctx.engine._release_escrow(parent)
+
+        ctx.order_store.remove(order)
+        ctx.order_store.remove(counterparty)
 
     def modify(self, cmd: dict, order: OTOCOOrder, ctx: ExecutionContext):
-        if order.triggered:
+        if order.active:
             self._modify_order(cmd, order, ctx)
         elif self._validate_modify(cmd, order, ctx):
-            order.price = self._get_modified_price(cmd, order)
-            ctx.wal_logger.log_order_event(
+            new_price = self._get_modified_price(cmd, order)
+            ctx.logger.log_order_event(
                 order.user_id,
                 type=OrderEventType.ORDER_MODIFIED,
                 order_id=order.id,
                 symbol=ctx.symbol,
-                **{get_price_key(order.order_type): order.price},
+                **{get_price_key(order.order_type): new_price},
+                command_id=ctx.command_id,
             )
+            order.price = new_price

@@ -29,7 +29,7 @@ class ExecutionContext:
         self.symbol = symbol
         self.command_id = command_id  # Current command being executed
         self.lock = threading.Lock()
-        self.wal_logger = WALogger(symbol)
+        self.logger = WALogger(symbol)
 
     def to_dict(self) -> dict:
         return {

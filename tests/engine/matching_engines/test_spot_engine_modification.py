@@ -14,7 +14,8 @@ def create_modify_command(order_id, limit_price=None, stop_price=None):
     ).model_dump(mode="json")
 
 
-def test_modify_order_limit_price_success(spot_engine, test_ctx, user_id_a):
+def test_modify_order_limit_price_success(spot_engine, test_ctx, user_id_a, command_id
+                                          ):
     """
     Scenario: User places Limit Bid @ 100. Modifies to 101.
     Result: Order stays in book, price updates to 101.
@@ -22,7 +23,7 @@ def test_modify_order_limit_price_success(spot_engine, test_ctx, user_id_a):
     symbol = test_ctx.symbol
 
     # 1. Place Initial Order
-    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000)
+    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000, command_id)
     cmd = create_new_order_command(user_id_a, symbol, Side.BID, 10, 100)
     spot_engine.handle_command(cmd)
 
@@ -44,7 +45,7 @@ def test_modify_order_limit_price_success(spot_engine, test_ctx, user_id_a):
 
 
 def test_modify_order_reject_crossing_spread(
-    spot_engine, test_ctx, user_id_a, user_id_b
+    spot_engine, test_ctx, user_id_a, user_id_b, command_id
 ):
     """
     Scenario:
@@ -56,8 +57,8 @@ def test_modify_order_reject_crossing_spread(
     symbol = test_ctx.symbol
 
     # Setup
-    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000)
-    spot_engine._balance_manager.increase_asset_balance(user_id_b, symbol, 10)
+    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000, command_id)
+    spot_engine._balance_manager.increase_asset_balance(user_id_b, symbol, 10, command_id)
 
     cmd_a = create_new_order_command(user_id_a, symbol, Side.BID, 10, 100)
     cmd_b = create_new_order_command(user_id_b, symbol, Side.ASK, 10, 105)
@@ -79,11 +80,11 @@ def test_modify_order_reject_crossing_spread(
     assert order.price == 100.0
 
 
-def test_modify_stop_order(spot_engine, test_ctx, user_id_a):
+def test_modify_stop_order(spot_engine, test_ctx, user_id_a, command_id):
     """Verify modifying a stop price works."""
     symbol = test_ctx.symbol
 
-    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000)
+    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000, command_id)
     cmd = create_new_order_command(
         user_id_a, symbol, Side.BID, 10, 110, order_type=OrderType.STOP
     )

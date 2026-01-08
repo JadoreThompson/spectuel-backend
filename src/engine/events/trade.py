@@ -9,6 +9,7 @@ from .enums import TradeEventType
 class NewTradeEvent(EngineEventBase):
     type: Literal[TradeEventType.NEW_TRADE] = TradeEventType.NEW_TRADE
     version: int = 1
+    command_id: str
     order_id: UUID
     symbol: str
     role: LiquidityRole

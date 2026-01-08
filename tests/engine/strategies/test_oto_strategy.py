@@ -4,7 +4,7 @@ from tests.utils import create_new_order_command, create_cancel_command
 from tests.engine.utils import generate_single_order_meta, create_oto_command
 
 
-def test_oto_passive_parent_placement(spot_engine, test_ctx, user_id_a):
+def test_oto_passive_parent_placement(spot_engine, test_ctx, user_id_a, command_id):
     """
     Verify that if Parent does NOT cross the spread, it goes to book,
     and Child remains inactive (not in book).
@@ -12,7 +12,7 @@ def test_oto_passive_parent_placement(spot_engine, test_ctx, user_id_a):
     # 1. Setup: Clean book.
     symbol = test_ctx.symbol
 
-    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000)
+    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000, command_id)
 
     # 2. Parent: Buy 10 @ 90 (Passive). Child: Sell 10 @ 100.
     parent = generate_single_order_meta(user_id_a, Side.BID, 10, 90)
@@ -33,25 +33,25 @@ def test_oto_passive_parent_placement(spot_engine, test_ctx, user_id_a):
 
     # Child should NOT be in book yet (inactive)
     assert 100 not in test_ctx.orderbook.asks
-    assert child_order.triggered is False
+    assert child_order.active is False
 
 
-def test_oto_delayed_activation(spot_engine, test_ctx, user_id_a, user_id_b):
+def test_oto_delayed_activation(spot_engine, test_ctx, user_id_a, user_id_b, command_id):
     """Verify Child activates when Passive Parent is filled later."""
     symbol = test_ctx.symbol
     
     # Setup Passive Parent
-    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000)
+    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000, command_id)
     parent = generate_single_order_meta(user_id_a, Side.BID, 10, 90)
     child = generate_single_order_meta(user_id_a, Side.ASK, 10, 100)  # Sell @ 100
     spot_engine.handle_command(create_oto_command(user_id_a, symbol, parent, child))
 
     # Verify Child Inactive
     child_order = test_ctx.order_store.get(child["order_id"])
-    assert child_order.triggered is False
+    assert child_order.active is False
 
     # Action: User B Sells into Parent (Market Sell 10)
-    spot_engine._balance_manager.increase_asset_balance(user_id_b, symbol, 10)
+    spot_engine._balance_manager.increase_asset_balance(user_id_b, symbol, 10, command_id)
     fill_cmd = create_new_order_command(
         user_id_b, symbol, Side.ASK, 10, 90, order_type=OrderType.LIMIT
     )
@@ -63,22 +63,22 @@ def test_oto_delayed_activation(spot_engine, test_ctx, user_id_a, user_id_b):
 
     # Child Activated
     child_order = test_ctx.order_store.get(child["order_id"])
-    assert child_order.triggered is True
+    assert child_order.active is True
     # Child is a Sell Limit @ 100, should be in Asks
     assert 100 in test_ctx.orderbook.asks
 
 
 def test_oto_immediate_match_activates_child(
-    spot_engine, test_ctx, user_id_a, user_id_b, symbol
+    spot_engine, test_ctx, user_id_a, user_id_b, symbol, command_id
 ):
     """Verify immediate parent match activates child immediately."""
     # Setup: User B provides liquidity (Sell Limit @ 100)
-    spot_engine._balance_manager.increase_asset_balance(user_id_b, symbol, 10)
+    spot_engine._balance_manager.increase_asset_balance(user_id_b, symbol, 10, command_id)
     maker_cmd = create_new_order_command(user_id_b, symbol, Side.ASK, 10, 100)
     spot_engine.handle_command(maker_cmd)
 
     # Action: User A sends OTO. Parent = Buy Market (Immediate Fill). Child = Sell @ 110.
-    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1100)
+    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1100, command_id)
     parent = generate_single_order_meta(
         user_id_a, Side.BID, 10, 110, order_type=OrderType.LIMIT
     )
@@ -94,15 +94,15 @@ def test_oto_immediate_match_activates_child(
     # Child (Sell @ 110) should be in book immediately
     assert 110 in test_ctx.orderbook.asks
     child_order = test_ctx.order_store.get(child["order_id"])
-    assert child_order.triggered is True
+    assert child_order.active is True
 
 
-def test_oto_cancel_child_cancels_parent(spot_engine, test_ctx, user_id_a, symbol):
+def test_oto_cancel_child_cancels_parent(spot_engine, test_ctx, user_id_a, symbol, command_id):
     """
     Verify upwards cascading cancellation:
     Cancelling the inactive child should cancel the pending parent.
     """
-    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000)
+    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000, command_id)
     parent = generate_single_order_meta(user_id_a, Side.BID, 10, 90)
     child = generate_single_order_meta(user_id_a, Side.ASK, 10, 110)
     spot_engine.handle_command(create_oto_command(user_id_a, symbol, parent, child))

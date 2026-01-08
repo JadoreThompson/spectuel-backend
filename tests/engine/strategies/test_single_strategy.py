@@ -3,7 +3,7 @@ from tests.utils import create_new_order_command, create_cancel_command
 from src.engine.enums import Side
 
 
-def test_single_order_placed_in_book(spot_engine, test_ctx, user_id_a):
+def test_single_order_placed_in_book(spot_engine, test_ctx, user_id_a, command_id):
     """
     Visualize Flow:
     1. User wants to place a BID for 10 units @ 99 ($990 total).
@@ -16,7 +16,7 @@ def test_single_order_placed_in_book(spot_engine, test_ctx, user_id_a):
     balance_manager = spot_engine._balance_manager
 
     # Setup: User has funds and the API escrows them.
-    balance_manager.increase_cash_escrow(user_id_a, 990)  # 10 * 99
+    balance_manager.increase_cash_escrow(user_id_a, 990, command_id)  # 10 * 99
 
     cmd = create_new_order_command(user_id_a, symbol, Side.BID, 10, 99)
     spot_engine.handle_command(cmd)
@@ -27,13 +27,13 @@ def test_single_order_placed_in_book(spot_engine, test_ctx, user_id_a):
     assert order.price == 99
 
 
-def test_single_order_cancel(spot_engine, test_ctx, user_id_a):
+def test_single_order_cancel(spot_engine, test_ctx, user_id_a, command_id):
     symbol = test_ctx.symbol
 
     balance_manager = spot_engine._balance_manager
 
     # Setup: Place an order first, including escrow.
-    balance_manager.increase_cash_escrow(user_id_a, 990)
+    balance_manager.increase_cash_escrow(user_id_a, 990, command_id)
     place_cmd = create_new_order_command(user_id_a, symbol, Side.BID, 10, 99)
     spot_engine.handle_command(place_cmd)
 

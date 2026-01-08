@@ -3,11 +3,11 @@ from src.engine.enums import Side, StrategyType
 from tests.utils import create_new_order_command
 
 
-def test_full_match(spot_engine, test_ctx, user_id_a, user_id_b):
+def test_full_match(spot_engine, test_ctx, user_id_a, user_id_b, command_id):
     symbol = test_ctx.symbol
     # User A has 10 units of the asset.
     balance_manager = spot_engine._balance_manager
-    balance_manager.increase_asset_balance(user_id_a, symbol, 10)
+    balance_manager.increase_asset_balance(user_id_a, symbol, 10, command_id)
     ask_cmd = create_new_order_command(user_id_a, symbol, Side.ASK, 10, 100)
     spot_engine.handle_command(ask_cmd)
 
@@ -16,7 +16,7 @@ def test_full_match(spot_engine, test_ctx, user_id_a, user_id_b):
 
     # Set initial cash balance. No escrow as it's a limit order
     # so we can't apply any escrow yet.
-    balance_manager.increase_cash_balance(user_id_b, 1000)
+    balance_manager.increase_cash_balance(user_id_b, 1000, command_id)
     bid_cmd = create_new_order_command(user_id_b, symbol, Side.BID, 10, 100)
     spot_engine.handle_command(bid_cmd)
 
@@ -34,15 +34,15 @@ def test_full_match(spot_engine, test_ctx, user_id_a, user_id_b):
     assert balance_manager.get_available_asset_balance(user_id_b, symbol) == 10
 
 
-def test_partial_match(spot_engine, test_ctx, user_id_a, user_id_b):
+def test_partial_match(spot_engine, test_ctx, user_id_a, user_id_b, command_id):
     symbol = test_ctx.symbol    
     balance_manager = spot_engine._balance_manager
 
-    balance_manager.increase_asset_balance(user_id_a, symbol, 5)
+    balance_manager.increase_asset_balance(user_id_a, symbol, 5, command_id)
     ask_cmd = create_new_order_command(user_id_a, symbol, Side.ASK, 5, 100)
     spot_engine.handle_command(ask_cmd)
 
-    balance_manager.increase_cash_balance(user_id_b, 1000)
+    balance_manager.increase_cash_balance(user_id_b, 1000, command_id)
     bid_cmd = create_new_order_command(user_id_b, symbol, Side.BID, 10, 100)
     spot_engine.handle_command(bid_cmd)
 
@@ -66,18 +66,18 @@ def test_partial_match(spot_engine, test_ctx, user_id_a, user_id_b):
 
 
 def test_insufficient_balance_cancels_order(
-    spot_engine, test_ctx, user_id_a, user_id_b, mocker
+    spot_engine, test_ctx, user_id_a, user_id_b, mocker, command_id,
 ):
     symbol = test_ctx.symbol
     balance_manager = spot_engine._balance_manager
 
     # Set User A's cash balance to be exactly 500.
-    balance_manager.increase_asset_balance(user_id_b, symbol, 10)
+    balance_manager.increase_asset_balance(user_id_b, symbol, 10, command_id)
     ask_cmd = create_new_order_command(user_id_b, symbol, Side.ASK, 10, 100)
     spot_engine.handle_command(ask_cmd)
 
     initial_balance = balance_manager.get_available_cash_balance(user_id_a)
-    balance_manager.decrease_cash_balance(user_id_a, initial_balance - 500)
+    balance_manager.decrease_cash_balance(user_id_a, initial_balance - 500, command_id)
     assert balance_manager.get_available_cash_balance(user_id_a) == 500
 
     # Spy on the cancel handler to confirm it's called for the right reason.

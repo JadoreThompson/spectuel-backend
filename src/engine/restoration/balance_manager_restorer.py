@@ -91,24 +91,24 @@ class BalanceManagerRestorer:
             if event_type == BalanceEventType.CASH_BALANCE_INCREASED:
                 event = CashBalanceIncreasedEvent(**data)
                 self._bm.increase_cash_balance(
-                    user_id=event.user_id, amount=event.amount, event=event
+                    user_id=event.user_id, amount=event.amount, command_id=event.command_id, event=event
                 )
             elif event_type == BalanceEventType.CASH_BALANCE_DECREASED:
                 event = CashBalanceDecreasedEvent(**data)
                 self._bm.decrease_cash_balance(
-                    user_id=event.user_id, amount=event.amount, event=event
+                    user_id=event.user_id, amount=event.amount, command_id=event.command_id,event=event
                 )
 
             # Cash Escrow Events
             elif event_type == BalanceEventType.CASH_ESCROW_INCREASED:
                 event = CashEscrowIncreasedEvent(**data)
                 self._bm.increase_cash_escrow(
-                    user_id=event.user_id, amount=event.amount, event=event
+                    user_id=event.user_id, amount=event.amount, command_id=event.command_id,event=event
                 )
             elif event_type == BalanceEventType.CASH_ESCROW_DECREASED:
                 event = CashEscrowDecreasedEvent(**data)
                 self._bm.decrease_cash_escrow(
-                    user_id=event.user_id, amount=event.amount, event=event
+                    user_id=event.user_id, amount=event.amount, command_id=event.command_id,event=event
                 )
 
             # Asset Balance Events
@@ -118,6 +118,7 @@ class BalanceManagerRestorer:
                     user_id=event.user_id,
                     symbol=event.symbol,
                     amount=event.amount,
+                    command_id=event.command_id,
                     event=event,
                 )
             elif event_type == BalanceEventType.ASSET_BALANCE_DECREASED:
@@ -126,6 +127,7 @@ class BalanceManagerRestorer:
                     user_id=event.user_id,
                     symbol=event.symbol,
                     amount=event.amount,
+                    command_id=event.command_id,
                     event=event,
                 )
 
@@ -136,6 +138,7 @@ class BalanceManagerRestorer:
                     user_id=event.user_id,
                     symbol=event.symbol,
                     amount=event.amount,
+                    command_id=event.command_id,
                     event=event,
                 )
             elif event_type == BalanceEventType.ASSET_ESCROW_DECREASED:
@@ -144,6 +147,7 @@ class BalanceManagerRestorer:
                     user_id=event.user_id,
                     symbol=event.symbol,
                     amount=event.amount,
+                    command_id=event.command_id,
                     event=event,
                 )
 
@@ -155,6 +159,8 @@ class BalanceManagerRestorer:
                     symbol=event.symbol,
                     quantity=event.quantity,
                     price=event.price,
+                    command_id=event.command_id,
+                    trade_event_id=event.trade_event_id,
                     event=event,
                 )
             elif event_type == BalanceEventType.BID_SETTLED:
@@ -164,11 +170,10 @@ class BalanceManagerRestorer:
                     symbol=event.symbol,
                     quantity=event.quantity,
                     price=event.price,
+                    command_id=event.command_id,
+                    trade_event_id=event.trade_event_id,
                     event=event,
                 )
-
-            else:
-                continue
 
         self._logger.info("Finished replaying all balance logs")
 

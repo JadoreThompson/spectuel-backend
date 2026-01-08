@@ -1,4 +1,3 @@
-
 from engine.enums import MatchOutcome, OrderType, StrategyType
 from engine.events.enums import OrderEventType
 from engine.execution_context import ExecutionContext
@@ -40,23 +39,22 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
             order.executed_quantity = result.quantity
 
             if result.outcome == MatchOutcome.INSUFFICIENT_BALANCE:
-                ctx.wal_logger.log_order_event(
+                ctx.logger.log_order_event(
                     order.user_id,
                     type=OrderEventType.ORDER_CANCELLED,
                     order_id=order.id,
                     symbol=ctx.symbol,
                     details={"reason": "Insufficient funds"},
+                    command_id=ctx.command_id,
                 )
+                ctx.engine._release_escrow(order)
                 return
 
             if result.outcome == MatchOutcome.SUCCESS:
                 return
 
         # Add to orderbook/store if not fully matched
-        ctx.order_store.add(order)
-        ctx.orderbook.append(order, order.price)
-
-        ctx.wal_logger.log_order_event(
+        ctx.logger.log_order_event(
             order.user_id,
             type=OrderEventType.ORDER_PLACED,
             order_id=order.id,
@@ -65,8 +63,11 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
             quantity=order.quantity,
             price=order.price,
             side=order.side,
+            command_id=ctx.command_id,
         )
 
+        ctx.order_store.add(order)
+        ctx.orderbook.append(order, order.price)
         # ctx.wal_logger.log_order_event(
         #     order.user_id,
         #     type=OrderEventType.ORDER_PARTIALLY_FILLED,
@@ -84,15 +85,16 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
             ctx.order_store.remove(order)
 
     def handle_cancel(self, order: Order, ctx: ExecutionContext) -> None:
-        ctx.orderbook.remove(order, order.price)
-        ctx.order_store.remove(order)
-        ctx.wal_logger.log_order_event(
+        ctx.logger.log_order_event(
             order.user_id,
             type=OrderEventType.ORDER_CANCELLED,
             order_id=order.id,
             symbol=ctx.symbol,
-            details={"reason": "Cancelled"},
+            details={"reason": "User cancelled order."},
+            command_id=ctx.command_id,
         )
+        ctx.orderbook.remove(order, order.price)
+        ctx.order_store.remove(order)
 
     def modify(self, cmd: dict, order: Order, ctx: ExecutionContext) -> None:
         self._modify_order(cmd, order, ctx)

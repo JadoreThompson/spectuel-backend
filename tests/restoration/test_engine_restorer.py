@@ -26,7 +26,7 @@ def engine_orchestrator(spot_engine, tmp_dir):
     del orch
 
 
-def test_engine_restoration_with_snapshot(engine_orchestrator, user_id_a, user_id_b):
+def test_engine_restoration_with_snapshot(engine_orchestrator, user_id_a, user_id_b, command_id):
     engine_orchestrator, tmp_dir = engine_orchestrator
     orch_payloads = engine_orchestrator._payloads
     spot_engine = orch_payloads[[*orch_payloads.keys()][0]][0]
@@ -37,7 +37,7 @@ def test_engine_restoration_with_snapshot(engine_orchestrator, user_id_a, user_i
         WALogger.set_file(walf)
 
         # Simulate some operations
-        balance_manager.increase_asset_balance(user_id_a, symbol, 20)
+        balance_manager.increase_asset_balance(user_id_a, symbol, 20, command_id)
         cmd = create_new_order_command(
             user_id=user_id_a,
             symbol=symbol,
@@ -47,7 +47,7 @@ def test_engine_restoration_with_snapshot(engine_orchestrator, user_id_a, user_i
         )
         engine_orchestrator.put(cmd)
 
-        balance_manager.increase_cash_balance(user_id_b, 1000)
+        balance_manager.increase_cash_balance(user_id_b, 1000, command_id)
         cmd = create_new_order_command(
             user_id=user_id_b,
             symbol=symbol,
@@ -90,7 +90,7 @@ def test_engine_restoration_with_snapshot(engine_orchestrator, user_id_a, user_i
         assert len(ob.asks) == 2
 
 
-def test_engine_restoration_no_snapshot(engine_orchestrator, user_id_a, user_id_b):
+def test_engine_restoration_no_snapshot(engine_orchestrator, user_id_a, user_id_b, command_id):
     engine_orchestrator, tmpdir = engine_orchestrator
     orch_payloads = engine_orchestrator._payloads
     spot_engine = orch_payloads[[*orch_payloads.keys()][0]][0]
@@ -102,7 +102,7 @@ def test_engine_restoration_no_snapshot(engine_orchestrator, user_id_a, user_id_
             WALogger.set_file(walf)
 
             # Simulate some operations
-            balance_manager.increase_asset_balance(user_id_a, symbol, 20)
+            balance_manager.increase_asset_balance(user_id_a, symbol, 20, command_id)
             cmd = create_new_order_command(
                 user_id=user_id_a,
                 symbol=symbol,
@@ -112,7 +112,7 @@ def test_engine_restoration_no_snapshot(engine_orchestrator, user_id_a, user_id_
             )
             engine_orchestrator.put(cmd)
 
-            balance_manager.increase_cash_balance(user_id_b, 1000)
+            balance_manager.increase_cash_balance(user_id_b, 1000, command_id)
             cmd = create_new_order_command(
                 user_id=user_id_b,
                 symbol=symbol,

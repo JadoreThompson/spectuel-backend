@@ -40,7 +40,7 @@ class SpotEngine(EngineBase):
             symbol=symbol,
         )
 
-        self._balance_manager = BalanceManager(self._ctx.wal_logger)
+        self._balance_manager = BalanceManager(self._ctx.logger)
 
     @property
     def symbol(self) -> str:
@@ -225,9 +225,11 @@ class SpotEngine(EngineBase):
         notifying strategies, and removing filled orders.
         """
         command_id = ctx.command_id
-
-        self._ctx.wal_logger.log_trade_event(
+        taker_trade_event_id = self._ctx.logger.generate_id()
+        maker_trade_event_id = self._ctx.logger.generate_id()
+        self._ctx.logger.log_trade_event(
             taker_order.user_id,
+            id=taker_trade_event_id,
             type=TradeEventType.NEW_TRADE,
             order_id=taker_order.id,
             symbol=ctx.symbol,
@@ -236,8 +238,9 @@ class SpotEngine(EngineBase):
             role=LiquidityRole.TAKER,
             command_id=command_id,
         )
-        self._ctx.wal_logger.log_trade_event(
+        self._ctx.logger.log_trade_event(
             maker_order.user_id,
+            id=maker_trade_event_id,
             type=TradeEventType.NEW_TRADE,
             order_id=maker_order.id,
             symbol=ctx.symbol,
@@ -282,17 +285,37 @@ class SpotEngine(EngineBase):
 
         if taker_order.side == Side.BID:
             self._balance_manager.settle_bid(
-                taker_order.user_id, ctx.symbol, quantity, price, command_id
+                taker_order.user_id,
+                ctx.symbol,
+                quantity,
+                price,
+                command_id,
+                trade_event_id=taker_trade_event_id,
             )
             self._balance_manager.settle_ask(
-                maker_order.user_id, ctx.symbol, quantity, price, command_id
+                maker_order.user_id,
+                ctx.symbol,
+                quantity,
+                price,
+                command_id,
+                trade_event_id=maker_trade_event_id,
             )
         else:
             self._balance_manager.settle_ask(
-                taker_order.user_id, ctx.symbol, quantity, price, command_id
+                taker_order.user_id,
+                ctx.symbol,
+                quantity,
+                price,
+                command_id,
+                trade_event_id=taker_trade_event_id,
             )
             self._balance_manager.settle_bid(
-                maker_order.user_id, ctx.symbol, quantity, price, command_id
+                maker_order.user_id,
+                ctx.symbol,
+                quantity,
+                price,
+                command_id,
+                trade_event_id=maker_trade_event_id,
             )
 
         taker_strategy = self._strategy_handlers[taker_order.strategy_type]
@@ -309,7 +332,7 @@ class SpotEngine(EngineBase):
             if order.executed_quantity == order.quantity
             else OrderEventType.ORDER_PARTIALLY_FILLED
         )
-        self._ctx.wal_logger.log_order_event(
+        self._ctx.logger.log_order_event(
             order.user_id,
             type=etype,
             order_id=order.id,
@@ -317,4 +340,28 @@ class SpotEngine(EngineBase):
             executed_quantity=order.executed_quantity,
             quantity=order.quantity,
             price=price,
+            command_id=self._ctx.command_id,
         )
+
+    def _release_escrow(self, order: Order) -> None:
+        """
+        Releases the remaining quantity for an order if the executed
+        quantity is greater than 0.
+
+        Args:
+            order (Order): The order to release escrow for.
+        """
+        command_id = self._ctx.command_id
+
+        if order.side == Side.BID:
+            unfilled_qty = order.quantity - order.executed_quantity
+            if unfilled_qty > 0:
+                self._balance_manager.decrease_cash_escrow(
+                    order.user_id, unfilled_qty * order.price, command_id
+                )
+        else:
+            unfilled_qty = order.quantity - order.executed_quantity
+            if unfilled_qty > 0:
+                self._balance_manager.decrease_asset_escrow(
+                    order.user_id, self._ctx.symbol, unfilled_qty, command_id
+                )

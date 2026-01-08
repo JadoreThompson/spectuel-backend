@@ -21,7 +21,7 @@ class OTOOrder(Order):
         self.parent = parent
         self.child = child
         # The parent order is triggered by default; the child is not.
-        self.triggered = parent is None
+        self.active = parent is None
 
     def to_dict(self, parent: dict | None = None, child: dict | None = None) -> dict:
         s = super().to_dict()
@@ -40,7 +40,7 @@ class OTOOrder(Order):
         else:
             s["child"] = self.child.to_dict(s)
 
-        s["triggered"] = self.triggered
+        s["triggered"] = self.active
 
         return s
 
@@ -75,6 +75,6 @@ class OTOOrder(Order):
             child=child_order,
         )
 
-        order.triggered = data["triggered"]
+        order.active = data["triggered"]
 
         return order

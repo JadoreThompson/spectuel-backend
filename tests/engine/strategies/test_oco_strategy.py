@@ -4,12 +4,12 @@ from tests.utils import create_new_order_command, create_cancel_command
 from tests.engine.utils import generate_single_order_meta, create_oco_command
 
 
-def test_oco_placement_and_linkage(spot_engine, test_ctx, user_id_a):
+def test_oco_placement_and_linkage(spot_engine, test_ctx, user_id_a, command_id):
     """Verify both legs are placed and linked correctly."""
     symbol = test_ctx.symbol
 
     # 1. Setup Balance
-    spot_engine._balance_manager.increase_asset_balance(user_id_a, symbol, 20)
+    spot_engine._balance_manager.increase_asset_balance(user_id_a, symbol, 20, command_id)
 
     # 2. Create Command (Sell 10 @ 100, Sell 10 @ 110)
     leg_a = generate_single_order_meta(user_id_a, Side.ASK, 10, 100)
@@ -33,19 +33,19 @@ def test_oco_placement_and_linkage(spot_engine, test_ctx, user_id_a):
 
 
 def test_oco_full_fill_cancels_other(
-    spot_engine, test_ctx, user_id_a, user_id_b
+    spot_engine, test_ctx, user_id_a, user_id_b, command_id
 ):
     """Verify full fill of Leg A cancels Leg B."""
     symbol = test_ctx.symbol
 
     # Setup
-    spot_engine._balance_manager.increase_asset_balance(user_id_a, symbol, 20)
+    spot_engine._balance_manager.increase_asset_balance(user_id_a, symbol, 20, command_id)
     leg_a = generate_single_order_meta(user_id_a, Side.ASK, 10, 100)
     leg_b = generate_single_order_meta(user_id_a, Side.ASK, 10, 110)
     spot_engine.handle_command(create_oco_command(user_id_a, symbol, leg_a, leg_b))
 
     # Match Leg A (Buy 10 @ 100)
-    spot_engine._balance_manager.increase_cash_balance(user_id_b, 1000)
+    spot_engine._balance_manager.increase_cash_balance(user_id_b, 1000, command_id)
     buy_cmd = create_new_order_command(user_id_b, symbol, Side.BID, 10, 100)
     spot_engine.handle_command(buy_cmd)
 
@@ -58,19 +58,19 @@ def test_oco_full_fill_cancels_other(
 
 
 def test_oco_partial_fill_persistence(
-    spot_engine, test_ctx, user_id_a, user_id_b
+    spot_engine, test_ctx, user_id_a, user_id_b, command_id
 ):
     """Verify partial fill of Leg A DOES NOT cancel Leg B."""
     symbol = test_ctx.symbol
 
     # Setup
-    spot_engine._balance_manager.increase_asset_balance(user_id_a, symbol, 20)
+    spot_engine._balance_manager.increase_asset_balance(user_id_a, symbol, 20, command_id)
     leg_a = generate_single_order_meta(user_id_a, Side.ASK, 10, 100)
     leg_b = generate_single_order_meta(user_id_a, Side.ASK, 10, 110)
     spot_engine.handle_command(create_oco_command(user_id_a, symbol, leg_a, leg_b))
 
     # Partially Match Leg A (Buy 5 @ 100)
-    spot_engine._balance_manager.increase_cash_balance(user_id_b, 500)
+    spot_engine._balance_manager.increase_cash_balance(user_id_b, 500, command_id)
     buy_cmd = create_new_order_command(user_id_b, symbol, Side.BID, 5, 100)
     spot_engine.handle_command(buy_cmd)
 
@@ -87,11 +87,11 @@ def test_oco_partial_fill_persistence(
     assert 110 in test_ctx.orderbook.asks
 
 
-def test_oco_manual_cancel(spot_engine, test_ctx, user_id_a):
+def test_oco_manual_cancel(spot_engine, test_ctx, user_id_a, command_id):
     """Verify cancelling one leg manually cancels the other."""
     symbol = test_ctx.symbol
     
-    spot_engine._balance_manager.increase_asset_balance(user_id_a, symbol, 20)
+    spot_engine._balance_manager.increase_asset_balance(user_id_a, symbol, 20, command_id)
     leg_a = generate_single_order_meta(user_id_a, Side.ASK, 10, 100)
     leg_b = generate_single_order_meta(user_id_a, Side.ASK, 10, 110)
     spot_engine.handle_command(create_oco_command(user_id_a, symbol, leg_a, leg_b))

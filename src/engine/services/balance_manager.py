@@ -430,6 +430,7 @@ class BalanceManager:
         quantity: float,
         price: float,
         command_id: str,
+        trade_event_id: str,
         event: AskSettledEvent | None = None,
     ) -> None:
         event = event or AskSettledEvent(
@@ -447,6 +448,7 @@ class BalanceManager:
                 user_id=user_id, amount=quantity * price, command_id=command_id
             ),
             command_id=command_id,
+            trade_event_id=trade_event_id,
         )
 
         self._wal(user_id, event)
@@ -480,6 +482,7 @@ class BalanceManager:
         quantity: float,
         price: float,
         command_id: str,
+        trade_event_id: str,
         event: BidSettledEvent | None = None,
     ) -> None:
         total = quantity * price
@@ -499,6 +502,7 @@ class BalanceManager:
                 user_id=user_id, symbol=symbol, amount=quantity, command_id=command_id
             ),
             command_id=command_id,
+            trade_event_id=trade_event_id,
         )
 
         self._wal(user_id, event)

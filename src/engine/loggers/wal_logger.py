@@ -1,3 +1,4 @@
+import uuid
 from io import TextIOWrapper
 from typing import Union
 
@@ -65,7 +66,6 @@ class WALogger(EngineLogger):
         BalanceEventType.BID_SETTLED: BidSettledEvent,
         BalanceEventType.ASK_SETTLED: AskSettledEvent,
     }
-    _attr = None
 
     @property
     def name(self) -> str:
@@ -96,7 +96,8 @@ class WALogger(EngineLogger):
         
         f = self._ensure_file()
         record = LogEvent(type=typ, data=event)
-        f.write(record.model_dump_json() + "\n")
+        dumped = record.model_dump_json() + "\n"
+        f.write(dumped)
         f.flush()  # Ensure durability
 
     def log_command(self, command: dict) -> None:
@@ -133,3 +134,7 @@ class WALogger(EngineLogger):
 
     def log_instrument_event(self, **kwargs) -> None:
         self._write_event(LogEventType.INSTRUMENT_EVENT, kwargs)
+
+    @staticmethod
+    def generate_id() -> str:
+        return str(uuid.uuid4())

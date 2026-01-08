@@ -34,14 +34,7 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
         order_a.counterparty = order_b
         order_b.counterparty = order_a
 
-        # Add to orderbook/store
-        ctx.orderbook.append(order_a, order_a.price)
-        ctx.orderbook.append(order_b, order_b.price)
-        ctx.order_store.add(order_a)
-        ctx.order_store.add(order_b)
-
-        # WAL log for both legs
-        ctx.wal_logger.log_order_event(
+        ctx.logger.log_order_event(
             order_a.user_id,
             type=OrderEventType.ORDER_PLACED,
             order_id=order_a.id,
@@ -49,9 +42,10 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
             executed_quantity=order_a.executed_quantity,
             quantity=order_a.quantity,
             price=order_a.price,
-            side=order_a.side
+            side=order_a.side,
+            command_id=ctx.command_id,
         )
-        ctx.wal_logger.log_order_event(
+        ctx.logger.log_order_event(
             order_b.user_id,
             type=OrderEventType.ORDER_PLACED,
             order_id=order_b.id,
@@ -59,8 +53,15 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
             executed_quantity=order_b.executed_quantity,
             quantity=order_b.quantity,
             price=order_b.price,
-            side=order_b.side
+            side=order_b.side,
+            command_id=ctx.command_id,
         )
+
+        # Add to orderbook/store
+        ctx.orderbook.append(order_a, order_a.price)
+        ctx.orderbook.append(order_b, order_b.price)
+        ctx.order_store.add(order_a)
+        ctx.order_store.add(order_b)
 
     def handle_filled(
         self, quantity: int, price: float, order: OCOOrder, ctx: ExecutionContext
@@ -68,39 +69,46 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
         if order.executed_quantity != order.quantity:
             return
 
-        self._cancel(order, ctx)
-
-        ctx.wal_logger.log_order_event(
+        ctx.logger.log_order_event(
             order.user_id,
             type=OrderEventType.ORDER_CANCELLED,
             order_id=order.counterparty.id,
             symbol=ctx.symbol,
+            command_id=ctx.command_id,
             details={"reason": f"OCO peer {order.id} was filled."},
         )
 
-    def handle_cancel(self, order: OCOOrder, ctx: ExecutionContext) -> None:
         self._cancel(order, ctx)
+
+    def handle_cancel(self, order: OCOOrder, ctx: ExecutionContext) -> None:
         # WAL log both legs
-        ctx.wal_logger.log_order_event(
+        ctx.logger.log_order_event(
             order.user_id,
             type=OrderEventType.ORDER_CANCELLED,
             order_id=order.id,
             symbol=ctx.symbol,
+            command_id=ctx.command_id,
             details={"reason": "Client requested cancel."},
         )
-        ctx.wal_logger.log_order_event(
+        ctx.logger.log_order_event(
             order.user_id,
             type=OrderEventType.ORDER_CANCELLED,
             order_id=order.counterparty.id,
             symbol=ctx.symbol,
+            command_id=ctx.command_id,
             details={"reason": "Client requested cancel."},
         )
+
+        self._cancel(order, ctx)
 
     def _cancel(self, order: OCOOrder, ctx: ExecutionContext) -> None:
         ctx.orderbook.remove(order, order.price)
         ctx.orderbook.remove(order.counterparty, order.counterparty.price)
         ctx.order_store.remove(order)
         ctx.order_store.remove(order.counterparty)
+        
+        ctx.engine._release_escrow(order)
+        ctx.engine._release_escrow(order.counterparty)
 
     def modify(self, cmd: dict, order: OCOOrder, ctx: ExecutionContext) -> None:
         self._modify_order(cmd, order, ctx)

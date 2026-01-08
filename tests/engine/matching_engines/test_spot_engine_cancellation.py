@@ -3,7 +3,7 @@ from src.engine.enums import Side
 from tests.utils import create_new_order_command, create_cancel_command
 
 
-def test_cancel_single_order(spot_engine, test_ctx, user_id_a):
+def test_cancel_single_order(spot_engine, test_ctx, user_id_a, command_id):
     """
     Scenario: Place order, Cancel order.
     Result: Order removed from Book and Store.
@@ -11,7 +11,7 @@ def test_cancel_single_order(spot_engine, test_ctx, user_id_a):
     symbol = test_ctx.symbol
 
     # 1. Place
-    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000)
+    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000, command_id)
     place_cmd = create_new_order_command(user_id_a, symbol, Side.BID, 10, 100)
     spot_engine.handle_command(place_cmd)
 
@@ -28,7 +28,7 @@ def test_cancel_single_order(spot_engine, test_ctx, user_id_a):
     assert test_ctx.order_store.get(place_cmd["order_id"]) is None
 
 
-def test_cancel_partial_fill_order(spot_engine, test_ctx, user_id_a, user_id_b):
+def test_cancel_partial_fill_order(spot_engine, test_ctx, user_id_a, user_id_b, command_id):
     """
     Scenario: Order A (10) partially filled by Order B (5). Cancel remainder of A.
     Result: A removed.
@@ -36,8 +36,8 @@ def test_cancel_partial_fill_order(spot_engine, test_ctx, user_id_a, user_id_b):
     symbol = test_ctx.symbol
 
     # 1. Place A (10 @ 100)
-    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000)
-    spot_engine._balance_manager.increase_asset_balance(user_id_b, symbol, 10)
+    spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000, command_id)
+    spot_engine._balance_manager.increase_asset_balance(user_id_b, symbol, 10, command_id)
 
     cmd_a = create_new_order_command(user_id_a, symbol, Side.BID, 10, 100)
     spot_engine.handle_command(cmd_a)
@@ -66,7 +66,7 @@ def test_cancel_non_existent_order(spot_engine, test_ctx):
     Result: No crash, state unchanged.
     """
     symbol = test_ctx.symbol
-    
+
     import uuid
 
     random_id = str(uuid.uuid4())

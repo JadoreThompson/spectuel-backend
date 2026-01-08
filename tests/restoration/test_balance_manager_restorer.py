@@ -14,6 +14,7 @@ class MockEventLog:
     def __init__(self, type, data, timestamp):
         self.data = data
         self.data["type"] = type
+        self.data['command_id'] = str(uuid.uuid4())
         self.timestamp = timestamp
         self.event_id = data.get("id", str(uuid.uuid4()))
 
@@ -123,7 +124,7 @@ def test_restoration_log_replay(mock_redis_clients, mock_db_session, user_id_a, 
 
 
 def test_settlement_replay_logic(
-    mock_redis_clients, mock_db_session, user_id_a, symbol
+    mock_redis_clients, mock_db_session, user_id_a, symbol, command_id,
 ):
     """
     Verify complex event (Ask Settled) is dispatched correctly.
@@ -139,6 +140,8 @@ def test_settlement_replay_logic(
         "quantity": 10.0,
         "price": 100.0,
         "version": 1,
+        'command_id': command_id,
+        'trade_event_id': str(uuid.uuid4()),
         # Pydantic model usually requires sub-events, but if they handle defaults or
         # use default_factory, we might get away with minimal data.
         # Assuming the dict stored in DB is the full dump:
@@ -149,6 +152,7 @@ def test_settlement_replay_logic(
             "symbol": symbol,
             "amount": 10.0,
             "type": "asset_balance_decreased",
+            'command_id': command_id,
         },
         "asset_escrow_decreased": {
             "id": str(uuid.uuid4()),
@@ -157,6 +161,7 @@ def test_settlement_replay_logic(
             "symbol": symbol,
             "amount": 10.0,
             "type": "asset_escrow_decreased",
+            'command_id': command_id,
         },
         "cash_balance_increased": {
             "id": str(uuid.uuid4()),
@@ -164,6 +169,7 @@ def test_settlement_replay_logic(
             "user_id": user_id_a,
             "amount": 1000.0,
             "type": "cash_balance_increased",
+            'command_id': command_id,
         },
     }
 

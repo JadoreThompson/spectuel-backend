@@ -40,6 +40,11 @@ def user_id_b() -> str:
 
 
 @pytest.fixture
+def command_id() -> str:
+    return str(uuid.uuid4())
+
+
+@pytest.fixture
 def symbol() -> str:
     return "TEST-BTCUSD"
 

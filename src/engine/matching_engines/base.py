@@ -11,3 +11,6 @@ class EngineBase(ABC):
 
     @abstractmethod
     def match(self, taker_order: Order, ctx: ExecutionContext) -> MatchResult: ...
+
+    @abstractmethod
+    def _release_escrow(self, order: Order) -> None: ...

@@ -18,38 +18,46 @@ class ModifyOrderMixin:
         return new_price
 
     def _validate_modify(self, cmd: dict, order: Order, ctx: ExecutionContext) -> bool:
-        log_modify_reject = lambda: ctx.wal_logger.log_order_event(
-            order.user_id,
-            type=OrderEventType.ORDER_MODIFY_REJECTED,
-            order_id=order.id,
-            symbol=ctx.symbol,
-            reason="Modification would cross the spread.",
-        )
-
         if cmd["limit_price"] is not None and order.order_type == OrderType.LIMIT:
             if limit_crossable(cmd["limit_price"], order.side, ctx.orderbook):
-                log_modify_reject()
+                ctx.logger.log_order_event(
+                    order.user_id,
+                    type=OrderEventType.ORDER_MODIFY_REJECTED,
+                    order_id=order.id,
+                    symbol=ctx.symbol,
+                    command_id=ctx.command_id,
+                    reason="Modification would cross the spread.",
+                )
                 return False
 
         if cmd["stop_price"] is not None and order.order_type == OrderType.STOP:
             if stop_crossable(cmd["stop_price"], order.side, ctx.orderbook):
-                log_modify_reject()
+                ctx.logger.log_order_event(
+                    order.user_id,
+                    type=OrderEventType.ORDER_MODIFY_REJECTED,
+                    order_id=order.id,
+                    symbol=ctx.symbol,
+                    command_id=ctx.command_id,
+                    reason="Modification would cross the spread.",
+                )
                 return False
 
         return True
 
+    # TODO: Check if user has sufficient balance for modified order
     def _modify_order(self, cmd: dict, order: Order, ctx: ExecutionContext) -> None:
         if not self._validate_modify(cmd, order, ctx):
             return
 
         new_price = self._get_modified_price(cmd, order)
-        ctx.orderbook.remove(order, order.price)
-        order.price = new_price
-        ctx.orderbook.append(order, order.price)
-        ctx.wal_logger.log_order_event(
+        ctx.logger.log_order_event(
             order.user_id,
             type=OrderEventType.ORDER_MODIFIED,
             order_id=order.id,
             symbol=ctx.symbol,
+            command_id=ctx.command_id,
             **{get_price_key(order.order_type): new_price}
         )
+        ctx.orderbook.remove(order, order.price)
+        order.price = new_price
+        ctx.orderbook.append(order, order.price)
