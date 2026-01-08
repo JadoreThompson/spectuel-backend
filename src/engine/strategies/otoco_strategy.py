@@ -193,6 +193,7 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
             ctx.order_store.remove(order)
             ctx.order_store.remove(order.child_a)
             ctx.order_store.remove(order.child_b)
+            ctx.engine._release_escrow(order)
 
             # for child in (order.child_a, order.child_b):
             #     ctx.logger.log_order_event(

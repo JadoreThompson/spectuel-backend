@@ -95,6 +95,7 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
         )
         ctx.orderbook.remove(order, order.price)
         ctx.order_store.remove(order)
+        ctx.engine._release_escrow(order)
 
     def modify(self, cmd: dict, order: Order, ctx: ExecutionContext) -> None:
         self._modify_order(cmd, order, ctx)
