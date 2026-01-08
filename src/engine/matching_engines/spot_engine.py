@@ -325,6 +325,7 @@ class SpotEngine(EngineBase):
 
         if maker_order.executed_quantity == maker_order.quantity:
             ctx.orderbook.remove(maker_order, price)
+            ctx.order_store.remove(maker_order)
 
     def _log_fill_event(self, order: Order, price: float, symbol: str) -> None:
         etype = (

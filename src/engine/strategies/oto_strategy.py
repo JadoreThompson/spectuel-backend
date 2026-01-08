@@ -117,12 +117,6 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
 
             ctx.orderbook.append(child, child.price)
             ctx.order_store.add(child)
-            ctx.order_store.remove(parent)
-
-        # Child order filled
-        elif order.executed_quantity == order.quantity:
-            ctx.orderbook.remove(order, order.price)
-            ctx.order_store.remove(order)
 
     def handle_cancel(self, order: OTOOrder, ctx: ExecutionContext):
         if order.child is not None:

@@ -68,21 +68,14 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
 
         ctx.order_store.add(order)
         ctx.orderbook.append(order, order.price)
-        # ctx.wal_logger.log_order_event(
-        #     order.user_id,
-        #     type=OrderEventType.ORDER_PARTIALLY_FILLED,
-        #     order_id=order.id,
-        #     symbol=ctx.symbol,
-        #     executed_quantity=order.executed_quantity,
-        #     quantity=order.quantity,
-        #     price=price,
-        # )
 
     def handle_filled(
         self, quantity: int, price: float, order: Order, ctx: ExecutionContext
     ):
-        if order.executed_quantity == order.quantity:
-            ctx.order_store.remove(order)
+        """
+        If the order is fully filled the engine would've already removed it from
+        both the orderbook and the order store.
+        """
 
     def handle_cancel(self, order: Order, ctx: ExecutionContext) -> None:
         ctx.logger.log_order_event(
@@ -99,12 +92,3 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
 
     def modify(self, cmd: dict, order: Order, ctx: ExecutionContext) -> None:
         self._modify_order(cmd, order, ctx)
-        # ctx.wal_logger.log_order_event(
-        #     order.user_id,
-        #     type=OrderEventType.ORDER_MODIFIED,
-        #     order_id=order.id,
-        #     symbol=ctx.symbol,
-        #     limit_price=cmd.get("limit_price"),
-        #     stop_price=cmd.get("stop_price"),
-        #     details={},
-        # )

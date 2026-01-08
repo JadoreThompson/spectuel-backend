@@ -5,6 +5,7 @@ from engine.utils import get_price_key, limit_crossable, stop_crossable
 from engine.orders import OTOCOOrder
 from .base import StrategyBase
 from .mixins import ModifyOrderMixin
+from .oco_strategy import OCOStrategy
 
 
 class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
@@ -53,10 +54,6 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
         parent_order.child_b = child_b
         child_a.counterparty = child_b
         child_b.counterparty = child_a
-
-        # ctx.order_store.add(parent_order)
-        # ctx.order_store.add(child_a)
-        # ctx.order_store.add(child_b)
 
         # Check if parent is matchable
         matchable = True
@@ -156,25 +153,11 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
                 )
                 child.active = True
                 ctx.orderbook.append(child, child.price)
-            ctx.order_store.remove(order)
             return
 
         # Child filled: cancel its counterparty
-        if order.counterparty and order.executed_quantity == order.quantity:
-            counterparty = order.counterparty
-            ctx.logger.log_order_event(
-                counterparty.user_id,
-                type=OrderEventType.ORDER_CANCELLED,
-                order_id=counterparty.id,
-                symbol=ctx.symbol,
-                details={"reason": f"OCO peer '{order.id}' was filled."},
-                command_id=ctx.command_id,
-            )
-
-            ctx.orderbook.remove(counterparty, counterparty.price)
-            ctx.order_store.remove(order)
-            ctx.order_store.remove(counterparty)
-            ctx.engine._release_escrow(order)
+        if order.counterparty:
+            OCOStrategy.handle_cancel(self, order.counterparty, ctx)
 
     def handle_cancel(self, order: OTOCOOrder, ctx: ExecutionContext) -> None:
         if order.child_a:  # parent
@@ -195,14 +178,6 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
             ctx.order_store.remove(order.child_b)
             ctx.engine._release_escrow(order)
 
-            # for child in (order.child_a, order.child_b):
-            #     ctx.logger.log_order_event(
-            #         child.user_id,
-            #         type=OrderEventType.ORDER_CANCELLED,
-            #         order_id=child.id,
-            #         symbol=ctx.symbol,
-            #         details={"reason": "Parent order cancelled."},
-            #     )
             return
 
         # child

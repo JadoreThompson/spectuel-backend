@@ -66,9 +66,7 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
     def handle_filled(
         self, quantity: int, price: float, order: OCOOrder, ctx: ExecutionContext
     ) -> None:
-        if order.executed_quantity != order.quantity:
-            return
-
+        counterparty = order.counterparty
         ctx.logger.log_order_event(
             order.user_id,
             type=OrderEventType.ORDER_CANCELLED,
@@ -77,11 +75,14 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
             command_id=ctx.command_id,
             details={"reason": f"OCO peer {order.id} was filled."},
         )
+        ctx.orderbook.remove(counterparty, counterparty.price)
+        ctx.order_store.remove(counterparty)
+        ctx.engine._release_escrow(order)
 
-        self._cancel(order, ctx)
 
     def handle_cancel(self, order: OCOOrder, ctx: ExecutionContext) -> None:
         # WAL log both legs
+        counterparty = order.counterparty
         ctx.logger.log_order_event(
             order.user_id,
             type=OrderEventType.ORDER_CANCELLED,
@@ -93,13 +94,18 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
         ctx.logger.log_order_event(
             order.user_id,
             type=OrderEventType.ORDER_CANCELLED,
-            order_id=order.counterparty.id,
+            order_id=counterparty.id,
             symbol=ctx.symbol,
             command_id=ctx.command_id,
             details={"reason": "Client requested cancel."},
         )
 
-        self._cancel(order, ctx)
+        ctx.orderbook.remove(order, order.price)
+        ctx.orderbook.remove(counterparty, counterparty.price)
+        ctx.order_store.remove(order)
+        ctx.order_store.remove(counterparty)
+        
+        ctx.engine._release_escrow(order)
 
     def _cancel(self, order: OCOOrder, ctx: ExecutionContext) -> None:
         ctx.orderbook.remove(order, order.price)
@@ -112,12 +118,3 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
 
     def modify(self, cmd: dict, order: OCOOrder, ctx: ExecutionContext) -> None:
         self._modify_order(cmd, order, ctx)
-        # ctx.wal_logger.log_order_event(
-        #     order.user_id,
-        #     type=OrderEventType.ORDER_MODIFIED,
-        #     order_id=order.id,
-        #     symbol=ctx.symbol,
-        #     limit_price=cmd.get("limit_price"),
-        #     stop_price=cmd.get("stop_price"),
-        #     details={},
-        # )

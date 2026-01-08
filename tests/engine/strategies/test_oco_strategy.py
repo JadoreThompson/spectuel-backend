@@ -60,7 +60,7 @@ def test_oco_full_fill_cancels_other(
 def test_oco_partial_fill_persistence(
     spot_engine, test_ctx, user_id_a, user_id_b, command_id
 ):
-    """Verify partial fill of Leg A DOES NOT cancel Leg B."""
+    """Verify partial fill of Leg A cancels Leg B."""
     symbol = test_ctx.symbol
 
     # Setup
@@ -83,8 +83,8 @@ def test_oco_partial_fill_persistence(
     assert order_a.executed_quantity == 5
 
     # Leg B MUST still exist
-    assert order_b is not None
-    assert 110 in test_ctx.orderbook.asks
+    assert order_b is None
+    assert 110 not in test_ctx.orderbook.asks
 
 
 def test_oco_manual_cancel(spot_engine, test_ctx, user_id_a, command_id):
