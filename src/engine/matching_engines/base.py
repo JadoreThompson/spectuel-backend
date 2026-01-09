@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 
 from engine.execution_context import ExecutionContext
-from engine.types import MatchResult
 from engine.orders import Order
+from engine.types import MatchResult
 
 
 class EngineBase(ABC):

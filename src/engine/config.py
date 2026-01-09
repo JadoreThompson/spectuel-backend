@@ -3,13 +3,6 @@ import os
 from config import BASE_PATH
 
 
-# Path
-WAL_FPATH = os.path.join(BASE_PATH, "wal.log")
-# Top level where each folder for each instrument's snapshots live
-ENGINE_SNAPSHOT_FOLDER = os.path.join(BASE_PATH, "snapshots")
-os.makedirs(ENGINE_SNAPSHOT_FOLDER, exist_ok=True)
-
-
 # Redis
 ENGINE_REDIS_DB = int(os.getenv("ENGINE_REDIS_DB"))
 REDIS_CASH_BALANCE_PREFIX = os.getenv("REDIS_CASH_BALANCE_PREFIX")

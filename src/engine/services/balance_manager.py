@@ -25,6 +25,7 @@ from engine.events.balance import (
     BidSettledEvent,
 )
 from engine.infra.redis import REDIS_CLIENT, REDIS_CLIENT_SYNC
+from engine.utils import get_asset_balance_key
 from utils import get_default_cash_balance
 
 if TYPE_CHECKING:
@@ -128,13 +129,13 @@ class BalanceManager:
     def __init__(
         self,
         symbol: str,
-        wal_logger: "EngineLogger | None" = None,
+        engine_logger: "EngineLogger | None" = None,
         redis_client: Redis = REDIS_CLIENT_SYNC,
         rediss_client_async: AsyncRedis = REDIS_CLIENT,
     ) -> None:
         self._symbol = symbol
-        self.engine_logger = wal_logger
-        if wal_logger is None:
+        self.engine_logger = engine_logger
+        if engine_logger is None:
             self._logger.warning("BalanceManager initialised with no EngineLogger")
 
         self._redis_client = redis_client
@@ -163,9 +164,6 @@ class BalanceManager:
 
     def get_asset_balance_hkey(self, user_id: str) -> str:
         return f"{self._symbol}:{user_id}:balance:log"
-
-    def get_asset_balance_key(self, user_id: str) -> str:
-        return f"{self._symbol}:{user_id}:balance"
 
     def get_asset_escrow_hkey(self, user_id: str) -> str:
         return f"{self._symbol}:{user_id}:escrow:log"
@@ -213,8 +211,8 @@ class BalanceManager:
         return float(balance) - float(escrow)
 
     def get_available_asset_balance(self, user_id: str) -> float:
-        bal_key = self.get_asset_balance_key(self._symbol, user_id)
-        esc_key = self.get_asset_escrow_key(self._symbol, user_id)
+        bal_key = get_asset_balance_key(self._symbol, user_id)
+        esc_key = self.get_asset_escrow_key(user_id)
 
         balance = self._redis_client.get(bal_key)
         escrow = self._redis_client.get(esc_key)
@@ -294,6 +292,8 @@ class BalanceManager:
                 keys=[val_key, log_key], args=[str(event.id), amount]
             )
         )
+    
+
 
     @ignore_system_user
     def decrease_cash_escrow(
@@ -330,8 +330,8 @@ class BalanceManager:
         )
         self._wal(user_id, event)
 
-        val_key = self.get_asset_balance_key(self._symbol, user_id)
-        log_key = self.get_asset_balance_hkey(self._symbol, user_id)
+        val_key = get_asset_balance_key(self._symbol, user_id)
+        log_key = self.get_asset_balance_hkey(user_id)
 
         return float(
             self._script_update_balance(
@@ -352,8 +352,8 @@ class BalanceManager:
         )
         self._wal(user_id, event)
 
-        val_key = self.get_asset_balance_key(self._symbol, user_id)
-        log_key = self.get_asset_balance_hkey(self._symbol, user_id)
+        val_key = get_asset_balance_key(self._symbol, user_id)
+        log_key = self.get_asset_balance_hkey(user_id)
 
         return float(
             self._script_update_balance(
@@ -374,8 +374,8 @@ class BalanceManager:
         )
         self._wal(user_id, event)
 
-        val_key = self.get_asset_escrow_key(self._symbol, user_id)
-        log_key = self.get_asset_escrow_hkey(self._symbol, user_id)
+        val_key = self.get_asset_escrow_key(user_id)
+        log_key = self.get_asset_escrow_hkey(user_id)
 
         return float(
             self._script_update_balance(
@@ -396,8 +396,8 @@ class BalanceManager:
         )
         self._wal(user_id, event)
 
-        val_key = self.get_asset_escrow_key(self._symbol, user_id)
-        log_key = self.get_asset_escrow_hkey(self._symbol, user_id)
+        val_key = self.get_asset_escrow_key(user_id)
+        log_key = self.get_asset_escrow_hkey(user_id)
 
         return float(
             self._script_update_balance(
@@ -443,10 +443,10 @@ class BalanceManager:
 
         # Keys for Lua
         keys = [
-            self.get_asset_escrow_key(self._symbol, user_id),  # KEYS[1]
-            self.get_asset_escrow_hkey(self._symbol, user_id),  # KEYS[2]
-            self.get_asset_balance_key(self._symbol, user_id),  # KEYS[3]
-            self.get_asset_balance_hkey(self._symbol, user_id),  # KEYS[4]
+            self.get_asset_escrow_key(user_id),  # KEYS[1]
+            self.get_asset_escrow_hkey(user_id),  # KEYS[2]
+            get_asset_balance_key(self._symbol, user_id),  # KEYS[3]
+            self.get_asset_balance_hkey(user_id),  # KEYS[4]
             self.get_cash_balance_key(user_id),  # KEYS[5]
             self.get_cash_balance_hkey(user_id),  # KEYS[6]
         ]
@@ -503,8 +503,8 @@ class BalanceManager:
             self.get_cash_escrow_hkey(user_id),  # KEYS[2]
             self.get_cash_balance_key(user_id),  # KEYS[3]
             self.get_cash_balance_hkey(user_id),  # KEYS[4]
-            self.get_asset_balance_key(self._symbol, user_id),  # KEYS[5]
-            self.get_asset_balance_hkey(self._symbol, user_id),  # KEYS[6]
+            get_asset_balance_key(self._symbol, user_id),  # KEYS[5]
+            self.get_asset_balance_hkey(user_id),  # KEYS[6]
         ]
 
         # Args for Lua

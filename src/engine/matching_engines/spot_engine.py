@@ -48,7 +48,7 @@ class SpotEngine(EngineBase):
             engine_logger=logger,
         )
 
-        self._balance_manager = BalanceManager(self._ctx.engine_logger)
+        self._balance_manager = BalanceManager(symbol, self._ctx.engine_logger)
 
     @property
     def symbol(self) -> str:
@@ -71,13 +71,16 @@ class SpotEngine(EngineBase):
         }
         handler = handlers.get(cmd["type"])
         if handler is not None:
-            self._ctx.prev_command_id = self._ctx.cur_command_id
             self._ctx.cur_command_id = cmd["id"]
             self._ctx.engine_logger.log_command_event(
-                event_type=CommandEventType.COMMAND_RECEIVED,
+                type=CommandEventType.COMMAND_RECEIVED,
+                command=cmd,
             )
             handler(cmd)
-            self._ctx.prev_commited_command_id = self._ctx.cur_command_id
+            self._ctx.engine_logger.log_command_event(
+                type=CommandEventType.COMMAND_PROCESSED,
+                command_id=self._ctx.cur_command_id
+            )
 
     def _handle_new_order(self, cmd: dict) -> None:
         """

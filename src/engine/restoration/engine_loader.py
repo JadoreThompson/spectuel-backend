@@ -26,12 +26,8 @@ class EngineLoadContext(NamedTuple):
 
 class EngineLoader:
     @classmethod
-    # def load_engines(cls,symbols: list[str] | None = None) -> dict[str, EngineSlot]:
-    # def load_engines(cls, symbols: list[str] | None = None) -> list[SpotEngine]:
     def load_engines(cls, symbols: list[str] | None = None) -> list[EngineLoadContext]:
         """Loads engines from DB or Snapshots and returns a map of EngineSlots."""
-        # engines: dict[str, EngineSlot] = {}
-        # engines: list[SpotEngine] = []
         ctxs: list[EngineLoadContext] = []
 
         query = select(

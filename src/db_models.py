@@ -49,8 +49,8 @@ class Users(Base):
     password: Mapped[str] = mapped_column(String, nullable=False)
 
     # Use balance_field for consistency
-    cash_balance: Mapped[float] = balance_field(default=get_default_cash_balance)
-    escrow_balance: Mapped[float] = balance_field(default=0.00)
+    # cash_balance: Mapped[float] = balance_field(default=get_default_cash_balance)
+    # escrow_balance: Mapped[float] = balance_field(default=0.00)
 
     api_key: Mapped[str] = mapped_column(String, nullable=True)
     jwt: Mapped[str] = mapped_column(String, nullable=True)

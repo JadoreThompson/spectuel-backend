@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 from engine.enums import OrderType, OrderStatus, StrategyType, Side
 from models import CustomBaseModel
 
+
 class OrderBase(CustomBaseModel):
     order_type: OrderType
     side: Side

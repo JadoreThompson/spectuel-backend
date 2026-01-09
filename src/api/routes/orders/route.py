@@ -10,7 +10,6 @@ from api.types import JWTPayload
 from config import PAGE_SIZE
 from db_models import Orders
 from engine.enums import OrderStatus, Side
-from engine.services.command_bus import CommandBus
 from services import OrderService
 from .models import (
     OCOOrderCreate,
@@ -23,7 +22,6 @@ from .models import (
 
 
 route = APIRouter(prefix="/orders", tags=["orders"])
-command_bus = CommandBus()
 
 
 @route.post("/", status_code=202)

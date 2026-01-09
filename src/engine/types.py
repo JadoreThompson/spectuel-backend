@@ -9,5 +9,5 @@ EngineEventCategory = Literal["balance", "command", "order", "trade"]
 
 class MatchResult(NamedTuple):
     outcome: MatchOutcome
-    quantity: int
+    quantity: float
     price: float | None

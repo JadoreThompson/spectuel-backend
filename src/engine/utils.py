@@ -25,9 +25,5 @@ def stop_crossable(price: float, side: Side, ob: OrderBook) -> bool:
     )
 
 
-def get_symbol_balance_hkey(symbol: str) -> str:
-    return f"{symbol}.balances"
-
-
-def get_symbol_escrows_hkey(symbol: str) -> str:
-    return f"{symbol}.escrows"
+def get_asset_balance_key(symbol: str, user_id: str) -> str:
+    return f"{symbol}:{user_id}:balance"

@@ -1,7 +1,6 @@
-from .balance_event_handler import BalanceEventHandler
 from .base import BaseEventHandler
 from .order_event_handler import OrderEventHandler
 from .kafka_fanout import KafkaFanout
 
 
-__all__ = ["BalanceEventHandler", "BaseEventHandler", "OrderEventHandler", "KafkaFanout"]
+__all__ = ["BaseEventHandler", "OrderEventHandler", "KafkaFanout"]

@@ -17,9 +17,17 @@ from infra.db import get_db_sess_sync
 from infra.kafka import KafkaConsumer
 
 
-
 class EngineOrchestrator:
+    """ """
+
     def __init__(self, symbol: str, shadow: bool = True) -> None:
+        """
+        Args:
+            symbol (str): Which symbol's commands to process
+            shadow (bool, optional): Whether or not to create a shadow engine.
+                If false the snapshot engine will not be created and the snapshots
+                therefore will not be created either.
+        """
         self._symbol = symbol
         self._shadow = shadow
         self._engine: SpotEngine | None = None
@@ -51,10 +59,11 @@ class EngineOrchestrator:
         if load_ctx.partition is not None and load_ctx.offset is not None:
             tp = TopicPartition(topic=topic, partition=load_ctx.partition)
             self._kafka_consumer.assign([tp])
+            # +1 to skip the last fully processed command
             self._kafka_consumer.seek(tp, load_ctx.offset + 1)
 
         if self._shadow:
-            self._logger.info(f"Creating shadow slot")
+            self._logger.info(f"Creating shadow engine for {self._symbol}")
             self._create_shadow()
 
         try:
@@ -84,7 +93,8 @@ class EngineOrchestrator:
 
     def _create_shadow(self) -> None:
         """
-        Creates the shadow engine
+        Creates the shadow engineand launches it within a seperate
+        process.
         """
         shadow_ctx = ExecutionContext.from_dict(self._engine._ctx.to_dict())
         shadow_ctx.engine_logger = ShadowEngineLogger(f"ShadowEngine-{self._symbol}")
@@ -96,9 +106,13 @@ class EngineOrchestrator:
         log_event_hook = lambda event: event_queue.put_nowait(event)
         self._engine.ctx.engine_logger.on_log_command_event = log_event_hook
         self._engine.ctx.engine_logger.on_log_event = log_event_hook
-        self._logger.info("Added push to queue hook for log command event and log event")
+        self._logger.info(
+            "Added push to queue hook for log command event and log event"
+        )
 
-        manager = EngineShadowManager(shadow_engine, event_queue, sentinel=-1, snapshot_interval=10_000)
+        manager = EngineShadowManager(
+            shadow_engine, event_queue, sentinel=-1, snapshot_interval=10_000
+        )
         self._logger.info("Created snapshot manager for shadow engine.")
 
         self._logger.info("Launching shadow process...")
