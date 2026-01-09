@@ -1,0 +1,2 @@
+class DuplicateEventLogExc(Exception):
+    pass

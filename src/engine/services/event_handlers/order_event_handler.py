@@ -19,6 +19,7 @@ from engine.events import (
 from engine.events.enums import OrderEventType
 from infra.kafka import AsyncKafkaConsumer
 from .base import BaseEventHandler
+from .exc import DuplicateEventLogExc
 
 
 class OrderEventHandler(BaseEventHandler):
@@ -81,6 +82,8 @@ class OrderEventHandler(BaseEventHandler):
             self._logger.error(
                 f"Validation error for event data: {event_data}", exc_info=True
             )
+        except DuplicateEventLogExc as e:
+            self._logger.error(f"{str(e)}")
         except Exception:
             self._logger.error("Error processing order event", exc_info=True)
 

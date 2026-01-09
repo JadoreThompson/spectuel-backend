@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db_models import EventLogs
 from engine.events import EngineEventBase
 from infra.db import get_db_sess
+from .exc import DuplicateEventLogExc
 
 
 class BaseEventHandler:
@@ -27,6 +28,10 @@ class BaseEventHandler:
         event = event_cls(**event_data)
 
         async with get_db_sess() as db_sess:
+            existing = db_sess.get(EventLogs, event.id)
+            if existing:
+                raise DuplicateEventLogExc(f"Event log with id '{event.id}' already exists.")
+            
             event_log = EventLogs(
                 event_id=event.id,
                 event_type=event.type,

@@ -27,7 +27,7 @@ class KafkaFanout:
             vals = enum_type.__members__.values()
             self._routers.update({val: topic for val in vals})
 
-    async def start(self):
+    async def run(self):
         self._init()
 
         try:
@@ -45,7 +45,6 @@ class KafkaFanout:
                                 msg.value,
                                 headers=msg.headers,
                             )
-
         finally:
             await self._kafka_producer.stop()
             await self._kafka_consumer.stop()
