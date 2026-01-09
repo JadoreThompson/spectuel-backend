@@ -8,7 +8,9 @@ from engine.enums import (
     CommandType,
 )
 from engine.events import OrderEventType, TradeEventType
+from engine.events.enums import CommandEventType
 from engine.execution_context import ExecutionContext
+from engine.loggers import EngineLogger
 from engine.orderbook import OrderBook
 from engine.services.balance_manager import BalanceManager
 from engine.stores import OrderStore
@@ -25,7 +27,12 @@ from .base import EngineBase
 
 
 class SpotEngine(EngineBase):
-    def __init__(self, symbol: str):
+    def __init__(
+        self,
+        symbol: str,
+        ctx: ExecutionContext | None = None,
+        logger: EngineLogger | None = None,
+    ) -> None:
         self._strategy_handlers: dict[StrategyType, StrategyBase] = {
             StrategyType.SINGLE: SingleOrderStrategy(),
             StrategyType.OCO: OCOStrategy(),
@@ -33,18 +40,27 @@ class SpotEngine(EngineBase):
             StrategyType.OTOCO: OTOCOStrategy(),
         }
 
-        self._ctx = ExecutionContext(
+        self._ctx = ctx or ExecutionContext(
             engine=self,
             orderbook=OrderBook(),
             order_store=OrderStore(),
             symbol=symbol,
+            engine_logger=logger,
         )
 
-        self._balance_manager = BalanceManager(self._ctx.logger)
+        self._balance_manager = BalanceManager(self._ctx.engine_logger)
 
     @property
     def symbol(self) -> str:
         return self._ctx.symbol
+
+    @property
+    def ctx(self) -> ExecutionContext:
+        return self._ctx
+
+    @property
+    def balance_manager(self) -> BalanceManager:
+        return self._balance_manager
 
     def handle_command(self, cmd: dict) -> None:
         """Main entry point for processing all incoming commands."""
@@ -55,7 +71,13 @@ class SpotEngine(EngineBase):
         }
         handler = handlers.get(cmd["type"])
         if handler is not None:
+            self._ctx.prev_command_id = self._ctx.cur_command_id
+            self._ctx.cur_command_id = cmd["id"]
+            self._ctx.engine_logger.log_command_event(
+                event_type=CommandEventType.COMMAND_RECEIVED,
+            )
             handler(cmd)
+            self._ctx.prev_commited_command_id = self._ctx.cur_command_id
 
     def _handle_new_order(self, cmd: dict) -> None:
         """
@@ -70,9 +92,7 @@ class SpotEngine(EngineBase):
         if strategy is None:
             return
 
-        with self._ctx.lock:
-            self._ctx.command_id = cmd["id"]
-            strategy.handle_new(cmd, self._ctx)
+        strategy.handle_new(cmd, self._ctx)
 
     def _handle_cancel_order(self, cmd: dict) -> None:
         """
@@ -91,9 +111,7 @@ class SpotEngine(EngineBase):
         if strategy is None:
             return
 
-        with self._ctx.lock:
-            self._ctx.command_id = cmd["id"]
-            strategy.handle_cancel(order, self._ctx)
+        strategy.handle_cancel(order, self._ctx)
 
     def _handle_modify_order(self, cmd: dict) -> None:
         """
@@ -112,9 +130,7 @@ class SpotEngine(EngineBase):
         if strategy is None:
             return
 
-        with self._ctx.lock:
-            self._ctx.command_id = cmd["id"]
-            strategy.modify(cmd, order, self._ctx)
+        strategy.modify(cmd, order, self._ctx)
 
     def match(self, taker_order: Order, ctx: ExecutionContext) -> MatchResult:
         """
@@ -224,10 +240,10 @@ class SpotEngine(EngineBase):
         Handles the logic for a single trade event: updating quantities,
         notifying strategies, and removing filled orders.
         """
-        command_id = ctx.command_id
-        taker_trade_event_id = self._ctx.logger.generate_id()
-        maker_trade_event_id = self._ctx.logger.generate_id()
-        self._ctx.logger.log_trade_event(
+        command_id = ctx.cur_command_id
+        taker_trade_event_id = self._ctx.engine_logger.generate_id()
+        maker_trade_event_id = self._ctx.engine_logger.generate_id()
+        self._ctx.engine_logger.log_trade_event(
             taker_order.user_id,
             id=taker_trade_event_id,
             type=TradeEventType.NEW_TRADE,
@@ -238,7 +254,7 @@ class SpotEngine(EngineBase):
             role=LiquidityRole.TAKER,
             command_id=command_id,
         )
-        self._ctx.logger.log_trade_event(
+        self._ctx.engine_logger.log_trade_event(
             maker_order.user_id,
             id=maker_trade_event_id,
             type=TradeEventType.NEW_TRADE,
@@ -250,15 +266,31 @@ class SpotEngine(EngineBase):
             command_id=command_id,
         )
 
+        # Handle fill event
         prev_taker_exec_quantity = taker_order.executed_quantity
         prev_maker_exec_quantity = maker_order.executed_quantity
 
-        taker_order.executed_quantity += quantity
-        maker_order.executed_quantity += quantity
+        taker_exec_quantity = prev_taker_exec_quantity + quantity
+        maker_exec_quantity = prev_maker_exec_quantity + quantity
 
-        self._log_fill_event(taker_order, price, ctx.symbol)
-        self._log_fill_event(maker_order, price, ctx.symbol)
+        self._log_fill_event(taker_order, price, taker_exec_quantity, ctx.symbol)
+        self._log_fill_event(
+            maker_order, price, maker_exec_quantity + quantity, ctx.symbol
+        )
 
+        taker_order.executed_quantity = taker_exec_quantity
+        maker_order.executed_quantity = maker_exec_quantity
+
+        taker_strategy = self._strategy_handlers[taker_order.strategy_type]
+        maker_strategy = self._strategy_handlers[maker_order.strategy_type]
+        taker_strategy.handle_filled(quantity, price, taker_order, ctx)
+        maker_strategy.handle_filled(quantity, price, maker_order, ctx)
+
+        if maker_order.executed_quantity == maker_order.quantity:
+            ctx.orderbook.remove(maker_order, price)
+            ctx.order_store.remove(maker_order)
+
+        # Handle balance event
         if prev_maker_exec_quantity == 0:
             if maker_order.side == Side.BID:
                 self._balance_manager.increase_cash_escrow(
@@ -318,30 +350,24 @@ class SpotEngine(EngineBase):
                 trade_event_id=maker_trade_event_id,
             )
 
-        taker_strategy = self._strategy_handlers[taker_order.strategy_type]
-        maker_strategy = self._strategy_handlers[maker_order.strategy_type]
-        taker_strategy.handle_filled(quantity, price, taker_order, ctx)
-        maker_strategy.handle_filled(quantity, price, maker_order, ctx)
-
-        if maker_order.executed_quantity == maker_order.quantity:
-            ctx.orderbook.remove(maker_order, price)
-            ctx.order_store.remove(maker_order)
-
-    def _log_fill_event(self, order: Order, price: float, symbol: str) -> None:
+    def _log_fill_event(
+        self, order: Order, price: float, executed_quantity, symbol: str
+    ) -> None:
         etype = (
             OrderEventType.ORDER_FILLED
             if order.executed_quantity == order.quantity
             else OrderEventType.ORDER_PARTIALLY_FILLED
         )
-        self._ctx.logger.log_order_event(
+        self._ctx.engine_logger.log_order_event(
             order.user_id,
+            {"key": symbol},
             type=etype,
             order_id=order.id,
             symbol=symbol,
-            executed_quantity=order.executed_quantity,
+            executed_quantity=executed_quantity,
             quantity=order.quantity,
             price=price,
-            command_id=self._ctx.command_id,
+            command_id=self._ctx.cur_command_id,
         )
 
     def _release_escrow(self, order: Order) -> None:
@@ -352,7 +378,7 @@ class SpotEngine(EngineBase):
         Args:
             order (Order): The order to release escrow for.
         """
-        command_id = self._ctx.command_id
+        command_id = self._ctx.cur_command_id
 
         if order.side == Side.BID:
             unfilled_qty = order.quantity - order.executed_quantity

@@ -19,7 +19,7 @@ from engine.events.balance import (
     BidSettledEvent,
 )
 from engine.infra.redis import REDIS_CLIENT_SYNC, BACKUP_REDIS_CLIENT_SYNC
-from engine.loggers import WALogger
+from engine.loggers import EngineLogger
 from engine.restoration.restoration_manager import RestorationManager
 from engine.services.balance_manager import BalanceManager
 from infra.db import get_db_sess_sync
@@ -32,7 +32,7 @@ class BalanceManagerRestorer:
 
     def __init__(self) -> None:
         self._name = self.__class__.__name__
-        self._bm = BalanceManager(WALogger(self._name), BACKUP_REDIS_CLIENT_SYNC)
+        self._bm = BalanceManager(EngineLogger(self._name), BACKUP_REDIS_CLIENT_SYNC)
         self._logger = logging.getLogger(self._name)
 
     def _get_all_redis_keys(self) -> list[str]:
@@ -91,24 +91,36 @@ class BalanceManagerRestorer:
             if event_type == BalanceEventType.CASH_BALANCE_INCREASED:
                 event = CashBalanceIncreasedEvent(**data)
                 self._bm.increase_cash_balance(
-                    user_id=event.user_id, amount=event.amount, command_id=event.command_id, event=event
+                    user_id=event.user_id,
+                    amount=event.amount,
+                    command_id=event.command_id,
+                    event=event,
                 )
             elif event_type == BalanceEventType.CASH_BALANCE_DECREASED:
                 event = CashBalanceDecreasedEvent(**data)
                 self._bm.decrease_cash_balance(
-                    user_id=event.user_id, amount=event.amount, command_id=event.command_id,event=event
+                    user_id=event.user_id,
+                    amount=event.amount,
+                    command_id=event.command_id,
+                    event=event,
                 )
 
             # Cash Escrow Events
             elif event_type == BalanceEventType.CASH_ESCROW_INCREASED:
                 event = CashEscrowIncreasedEvent(**data)
                 self._bm.increase_cash_escrow(
-                    user_id=event.user_id, amount=event.amount, command_id=event.command_id,event=event
+                    user_id=event.user_id,
+                    amount=event.amount,
+                    command_id=event.command_id,
+                    event=event,
                 )
             elif event_type == BalanceEventType.CASH_ESCROW_DECREASED:
                 event = CashEscrowDecreasedEvent(**data)
                 self._bm.decrease_cash_escrow(
-                    user_id=event.user_id, amount=event.amount, command_id=event.command_id,event=event
+                    user_id=event.user_id,
+                    amount=event.amount,
+                    command_id=event.command_id,
+                    event=event,
                 )
 
             # Asset Balance Events
@@ -185,13 +197,14 @@ class BalanceManagerRestorer:
             bool: True if restoration was successful, False otherwise
         """
         try:
-            RestorationManager.set_predicate(self._name, lambda: True)
+            RestorationManager.add(self._name, lambda: True)
 
             try:
                 last_save: datetime = REDIS_CLIENT_SYNC.lastsave()
             except Exception as e:
                 self._logger.warning(
-                    "Could not get lastsave from Main Redis. Defaulting to 1 day ago.", exc_info=e
+                    "Could not get lastsave from Main Redis. Defaulting to 1 day ago.",
+                    exc_info=e,
                 )
                 last_save = datetime.now() - timedelta(days=1)
 

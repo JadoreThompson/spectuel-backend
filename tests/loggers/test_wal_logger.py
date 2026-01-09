@@ -6,25 +6,26 @@ import pytest
 from src.engine.enums import Side
 from src.engine.events import LogEvent
 from src.engine.events.enums import LogEventType, OrderEventType
-# Importing WALogger through execution context to prevent
+
+# Importing EngineLogger through execution context to prevent
 # incorrect referencing
-from src.engine.execution_context import WALogger
+from src.engine.execution_context import EngineLogger
 from src.engine.restoration.engine_restorer_v2 import EngineRestorerV2
 from tests.utils import create_new_order_command
 
 
 @pytest.fixture
-def clean_walogger_singleton():
-    """Helper to clear WALogger instances to ensure fresh file handles."""
-    WALogger._instances.clear()
-    WALogger._log_file = None
+def clean_engine_logger_singleton():
+    """Helper to clear EngineLogger instances to ensure fresh file handles."""
+    EngineLogger._instances.clear()
+    EngineLogger._log_file = None
     yield
-    WALogger._instances.clear()
-    WALogger._log_file = None
+    EngineLogger._instances.clear()
+    EngineLogger._log_file = None
 
 
 def test_wal_resumes_logging_mid_execution_after_crash(
-    clean_walogger_singleton, user_id_a, symbol, tmp_dir, mocker
+    clean_engine_logger_singleton, user_id_a, symbol, tmp_dir, mocker
 ):
     """
     Scenario:
@@ -38,7 +39,7 @@ def test_wal_resumes_logging_mid_execution_after_crash(
     2. Restorer executes the command.
     3. The execution triggers 'log_order_event'.
     4. The predicate in Restorer detects we have exhausted the log file.
-    5. WALogger is allowed to write the missing 'order_placed' event to the file.
+    5. EngineLogger is allowed to write the missing 'order_placed' event to the file.
     """
 
     # 1. Setup paths
@@ -68,10 +69,10 @@ def test_wal_resumes_logging_mid_execution_after_crash(
         assert len(lines) == 1
 
     # 4. Prepare Restoration
-    # We must open the file in append mode and set it to WALogger
+    # We must open the file in append mode and set it to EngineLogger
     # so the engine can write to it when it "wakes up"
     wal_file_handle = open(wal_path, "a")
-    WALogger.set_file(wal_file_handle)
+    EngineLogger.set_file(wal_file_handle)
 
     restorer = EngineRestorerV2(wal_fpath=wal_path)
     restorer.get_restored_engine()

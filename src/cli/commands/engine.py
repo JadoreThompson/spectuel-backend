@@ -4,8 +4,9 @@ import time
 from multiprocessing import Process, Queue
 from multiprocessing.dummy import Value
 
-from engine.runners import EventHandlerRunner, ListenerRunner
+from engine.runners import OrderEventHandlerRunner, EngineRouterRunner
 from runners import run_runner
+
 
 @click.group()
 def engine():
@@ -13,15 +14,15 @@ def engine():
     pass
 
 
-@engine.command(name='run')
+@engine.command(name="run")
 def engine_run():
     logger = logging.getLogger("main")
     queue = Queue()
     watchdog_ts = Value("i", int(time.time()))
 
     configs = (
-        (EventHandlerRunner, (), {}),
-        (ListenerRunner, (queue, watchdog_ts), {}),
+        (OrderEventHandlerRunner, (), {}),
+        (EngineRouterRunner, (queue, watchdog_ts), {}),
         # (HeartbeatRunner, (queue, watchdog_ts), {}),
     )
 

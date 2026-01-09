@@ -1,4 +1,4 @@
-from .service import OrderService
+from .order_service import OrderService
 from .exc import OrderServiceError
 
 

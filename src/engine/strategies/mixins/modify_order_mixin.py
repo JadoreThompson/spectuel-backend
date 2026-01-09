@@ -20,24 +20,26 @@ class ModifyOrderMixin:
     def _validate_modify(self, cmd: dict, order: Order, ctx: ExecutionContext) -> bool:
         if cmd["limit_price"] is not None and order.order_type == OrderType.LIMIT:
             if limit_crossable(cmd["limit_price"], order.side, ctx.orderbook):
-                ctx.logger.log_order_event(
+                ctx.engine_logger.log_order_event(
                     order.user_id,
+                    {"key": ctx.symbol},
                     type=OrderEventType.ORDER_MODIFY_REJECTED,
                     order_id=order.id,
                     symbol=ctx.symbol,
-                    command_id=ctx.command_id,
+                    command_id=ctx.cur_command_id,
                     reason="Modification would cross the spread.",
                 )
                 return False
 
         if cmd["stop_price"] is not None and order.order_type == OrderType.STOP:
             if stop_crossable(cmd["stop_price"], order.side, ctx.orderbook):
-                ctx.logger.log_order_event(
+                ctx.engine_logger.log_order_event(
                     order.user_id,
+                    {"key": ctx.symbol},
                     type=OrderEventType.ORDER_MODIFY_REJECTED,
                     order_id=order.id,
                     symbol=ctx.symbol,
-                    command_id=ctx.command_id,
+                    command_id=ctx.cur_command_id,
                     reason="Modification would cross the spread.",
                 )
                 return False
@@ -50,12 +52,13 @@ class ModifyOrderMixin:
             return
 
         new_price = self._get_modified_price(cmd, order)
-        ctx.logger.log_order_event(
+        ctx.engine_logger.log_order_event(
             order.user_id,
+            {"key": ctx.symbol},
             type=OrderEventType.ORDER_MODIFIED,
             order_id=order.id,
             symbol=ctx.symbol,
-            command_id=ctx.command_id,
+            command_id=ctx.cur_command_id,
             **{get_price_key(order.order_type): new_price}
         )
         ctx.orderbook.remove(order, order.price)

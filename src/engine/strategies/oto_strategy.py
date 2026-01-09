@@ -58,15 +58,16 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
             parent.executed_quantity = result.quantity
 
             if result.outcome == MatchOutcome.INSUFFICIENT_BALANCE:
-                ctx.logger.log_order_event(
+                ctx.engine_logger.log_order_event(
                     parent.user_id,
+                    {"key": ctx.symbol},
                     type=OrderEventType.ORDER_CANCELLED,
                     order_id=parent.id,
                     symbol=ctx.symbol,
                     details={
                         "reason": f"Insufficient balance to place OTO parent order {parent.id}."
                     },
-                    command_id=ctx.command_id,
+                    command_id=ctx.cur_command_id,
                 )
                 ctx.engine._release_escrow(parent)
                 return
@@ -77,8 +78,9 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
                 return
 
         # Parent is not immediately matched
-        ctx.logger.log_order_event(
+        ctx.engine_logger.log_order_event(
             parent.user_id,
+            {"key": ctx.symbol},
             type=OrderEventType.ORDER_PLACED,
             order_id=parent.id,
             symbol=ctx.symbol,
@@ -86,7 +88,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
             quantity=parent.quantity,
             price=parent.price,
             side=parent.side,
-            command_id=ctx.command_id,
+            command_id=ctx.cur_command_id,
         )
 
         ctx.orderbook.append(parent, parent.price)
@@ -103,8 +105,9 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
             child = parent.child
             child.active = True
 
-            ctx.logger.log_order_event(
+            ctx.engine_logger.log_order_event(
                 child.user_id,
+                {"key": ctx.symbol},
                 type=OrderEventType.ORDER_PLACED,
                 order_id=child.id,
                 symbol=ctx.symbol,
@@ -112,7 +115,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
                 quantity=child.quantity,
                 price=child.price,
                 side=child.side,
-                command_id=ctx.command_id,
+                command_id=ctx.cur_command_id,
             )
 
             ctx.orderbook.append(child, child.price)
@@ -120,13 +123,14 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
 
     def handle_cancel(self, order: OTOOrder, ctx: ExecutionContext):
         if order.child is not None:
-            ctx.logger.log_order_event(
+            ctx.engine_logger.log_order_event(
                 order.user_id,
+                {"key": ctx.symbol},
                 type=OrderEventType.ORDER_CANCELLED,
                 order_id=order.id,
                 symbol=ctx.symbol,
                 details={"reason": "Parent order cancelled."},
-                command_id=ctx.command_id,
+                command_id=ctx.cur_command_id,
             )
             ctx.orderbook.remove(order, order.price)
             ctx.order_store.remove(order)
@@ -134,28 +138,28 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
             ctx.engine._release_escrow(order)
         else:
             if order.active:
-                ctx.logger.log_order_event(
+                ctx.engine_logger.log_order_event(
                     order.user_id,
+                    {"key": ctx.symbol},
                     type=OrderEventType.ORDER_CANCELLED,
                     order_id=order.id,
                     symbol=ctx.symbol,
                     details={"reason": "User cancelled active child order."},
-                    command_id=ctx.command_id,
+                    command_id=ctx.cur_command_id,
                 )
                 ctx.orderbook.remove(order, order.price)
                 ctx.order_store.remove(order)
                 ctx.engine._release_escrow(order)
             else:
                 parent = order.parent
-                ctx.logger.log_order_event(
+                ctx.engine_logger.log_order_event(
                     order.user_id,
+                    {"key": ctx.symbol},
                     type=OrderEventType.ORDER_CANCELLED,
                     order_id=parent.id,
                     symbol=ctx.symbol,
-                    details={
-                        "reason": "User cancelled inactive child order."
-                    },
-                    command_id=ctx.command_id,
+                    details={"reason": "User cancelled inactive child order."},
+                    command_id=ctx.cur_command_id,
                 )
                 ctx.orderbook.remove(parent, parent.price)
                 ctx.order_store.remove(parent)
@@ -168,12 +172,13 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
                 self._modify_order(cmd, order, ctx)
 
             elif self._validate_modify(cmd, order, ctx):
-                ctx.logger.log_order_event(
+                ctx.engine_logger.log_order_event(
                     order.user_id,
+                    {"key": ctx.symbol},
                     type=OrderEventType.ORDER_MODIFIED,
                     order_id=order.id,
                     symbol=ctx.symbol,
-                    command_id=ctx.command_id,
+                    command_id=ctx.cur_command_id,
                     details={"price": order.price},
                 )
                 order.price = self._get_modified_price(cmd, order)

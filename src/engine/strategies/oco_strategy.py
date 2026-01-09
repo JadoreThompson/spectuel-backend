@@ -34,8 +34,9 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
         order_a.counterparty = order_b
         order_b.counterparty = order_a
 
-        ctx.logger.log_order_event(
+        ctx.engine_logger.log_order_event(
             order_a.user_id,
+            {"key": ctx.symbol},
             type=OrderEventType.ORDER_PLACED,
             order_id=order_a.id,
             symbol=ctx.symbol,
@@ -43,10 +44,11 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
             quantity=order_a.quantity,
             price=order_a.price,
             side=order_a.side,
-            command_id=ctx.command_id,
+            command_id=ctx.cur_command_id,
         )
-        ctx.logger.log_order_event(
+        ctx.engine_logger.log_order_event(
             order_b.user_id,
+            {"key": ctx.symbol},
             type=OrderEventType.ORDER_PLACED,
             order_id=order_b.id,
             symbol=ctx.symbol,
@@ -54,7 +56,7 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
             quantity=order_b.quantity,
             price=order_b.price,
             side=order_b.side,
-            command_id=ctx.command_id,
+            command_id=ctx.cur_command_id,
         )
 
         # Add to orderbook/store
@@ -67,36 +69,38 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
         self, quantity: int, price: float, order: OCOOrder, ctx: ExecutionContext
     ) -> None:
         counterparty = order.counterparty
-        ctx.logger.log_order_event(
+        ctx.engine_logger.log_order_event(
             order.user_id,
+            {"key": ctx.symbol},
             type=OrderEventType.ORDER_CANCELLED,
             order_id=order.counterparty.id,
             symbol=ctx.symbol,
-            command_id=ctx.command_id,
+            command_id=ctx.cur_command_id,
             details={"reason": f"OCO peer {order.id} was filled."},
         )
         ctx.orderbook.remove(counterparty, counterparty.price)
         ctx.order_store.remove(counterparty)
         ctx.engine._release_escrow(order)
 
-
     def handle_cancel(self, order: OCOOrder, ctx: ExecutionContext) -> None:
         # WAL log both legs
         counterparty = order.counterparty
-        ctx.logger.log_order_event(
+        ctx.engine_logger.log_order_event(
             order.user_id,
+            {"key": ctx.symbol},
             type=OrderEventType.ORDER_CANCELLED,
             order_id=order.id,
             symbol=ctx.symbol,
-            command_id=ctx.command_id,
+            command_id=ctx.cur_command_id,
             details={"reason": "Client requested cancel."},
         )
-        ctx.logger.log_order_event(
+        ctx.engine_logger.log_order_event(
             order.user_id,
+            {"key": ctx.symbol},
             type=OrderEventType.ORDER_CANCELLED,
             order_id=counterparty.id,
             symbol=ctx.symbol,
-            command_id=ctx.command_id,
+            command_id=ctx.cur_command_id,
             details={"reason": "Client requested cancel."},
         )
 
@@ -104,7 +108,7 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
         ctx.orderbook.remove(counterparty, counterparty.price)
         ctx.order_store.remove(order)
         ctx.order_store.remove(counterparty)
-        
+
         ctx.engine._release_escrow(order)
 
     def _cancel(self, order: OCOOrder, ctx: ExecutionContext) -> None:
@@ -112,7 +116,7 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
         ctx.orderbook.remove(order.counterparty, order.counterparty.price)
         ctx.order_store.remove(order)
         ctx.order_store.remove(order.counterparty)
-        
+
         ctx.engine._release_escrow(order)
         ctx.engine._release_escrow(order.counterparty)
 

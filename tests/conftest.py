@@ -7,7 +7,7 @@ import pytest
 
 from src.engine.matching_engines import SpotEngine
 from src.engine.execution_context import ExecutionContext
-from src.engine.loggers import WALogger
+from src.engine.loggers import EngineLogger
 
 
 @pytest.fixture(scope="session")
@@ -19,7 +19,7 @@ def redis_client():
 def setup_teardown(mocker, redis_client):
     redis_client.flushall()
     mocker.patch("src.engine.infra.redis.client.REDIS_CLIENT_SYNC", redis_client)
-    mocker.patch("src.engine.loggers.wal_logger.WALogger._write_event")
+    mocker.patch("src.engine.loggers.engine_logger.EngineLogger._write_event")
     yield
 
 
@@ -52,7 +52,7 @@ def symbol() -> str:
 @pytest.fixture
 def spot_engine(symbol, tmp_dir):
     with open(os.path.join(tmp_dir, "0.log"), "a") as f:
-        WALogger.set_file(f)
+        EngineLogger.set_file(f)
         yield SpotEngine(symbol)
 
 

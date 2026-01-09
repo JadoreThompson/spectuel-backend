@@ -3,11 +3,12 @@ import tempfile
 
 import pytest
 
-from src.engine.engine_orchestrator_v2 import EngineOrchestratorV2
+from engine.engine_orchestrator.engine_orchestrator import EngineOrchestrator
 from src.engine.enums import Side
-# Importing WALogger through execution context to prevent
+
+# Importing EngineLogger through execution context to prevent
 # incorrect referencing
-from src.engine.execution_context import WALogger
+from src.engine.execution_context import EngineLogger
 from src.engine.restoration.engine_restorer import EngineRestorer
 from src.engine.restoration.engine_snapshotter import EngineSnapshotter
 from tests.utils import create_new_order_command
@@ -18,7 +19,7 @@ def engine_orchestrator(spot_engine, tmp_dir):
     fpath = os.path.join(tmp_dir, "snapshots", spot_engine._ctx.symbol)
     os.makedirs(fpath, exist_ok=False)
 
-    orch = EngineOrchestratorV2(symbols=[spot_engine._ctx.symbol])
+    orch = EngineOrchestrator(symbols=[spot_engine._ctx.symbol])
     orch.initialise()
 
     yield orch, tmp_dir
@@ -26,7 +27,9 @@ def engine_orchestrator(spot_engine, tmp_dir):
     del orch
 
 
-def test_engine_restoration_with_snapshot(engine_orchestrator, user_id_a, user_id_b, command_id):
+def test_engine_restoration_with_snapshot(
+    engine_orchestrator, user_id_a, user_id_b, command_id
+):
     engine_orchestrator, tmp_dir = engine_orchestrator
     orch_payloads = engine_orchestrator._payloads
     spot_engine = orch_payloads[[*orch_payloads.keys()][0]][0]
@@ -34,7 +37,7 @@ def test_engine_restoration_with_snapshot(engine_orchestrator, user_id_a, user_i
     symbol = spot_engine._ctx.symbol
 
     with open(os.path.join(tmp_dir, "0.log"), "a", encoding="utf8") as walf:
-        WALogger.set_file(walf)
+        EngineLogger.set_file(walf)
 
         # Simulate some operations
         balance_manager.increase_asset_balance(user_id_a, symbol, 20, command_id)
@@ -90,7 +93,9 @@ def test_engine_restoration_with_snapshot(engine_orchestrator, user_id_a, user_i
         assert len(ob.asks) == 2
 
 
-def test_engine_restoration_no_snapshot(engine_orchestrator, user_id_a, user_id_b, command_id):
+def test_engine_restoration_no_snapshot(
+    engine_orchestrator, user_id_a, user_id_b, command_id
+):
     engine_orchestrator, tmpdir = engine_orchestrator
     orch_payloads = engine_orchestrator._payloads
     spot_engine = orch_payloads[[*orch_payloads.keys()][0]][0]
@@ -99,7 +104,7 @@ def test_engine_restoration_no_snapshot(engine_orchestrator, user_id_a, user_id_
 
     with tempfile.TemporaryDirectory() as tmpdir:
         with open(os.path.join(tmpdir, "0.log"), "a") as walf:
-            WALogger.set_file(walf)
+            EngineLogger.set_file(walf)
 
             # Simulate some operations
             balance_manager.increase_asset_balance(user_id_a, symbol, 20, command_id)

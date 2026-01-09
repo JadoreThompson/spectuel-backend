@@ -1,7 +1,6 @@
 import json
 import logging
 from datetime import datetime
-from decimal import Decimal
 from uuid import UUID
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
@@ -106,7 +105,7 @@ class EventHandler:
 
                 await self.process_event(json.loads(event_data))
         except Exception as e:
-            self._logger.error(f"Critical consumer error: {e}")
+            self._logger.error("Critical consumer error", exc_info=e)
         finally:
             await self._consumer.stop()
             await self._producer.stop()
@@ -115,17 +114,19 @@ class EventHandler:
         """
         Process a single event within an isolated DB db_sess.
         """
-        data = self._handlers.get(event_data.get("type"))
-        if not data:
+        handler_data = self._handlers.get(event_data.get("type"))
+        if not handler_data:
             return
 
-        event_cls, handler = data
+        event_cls, handler = handler_data
 
         try:
             event = event_cls(**event_data)
         except ValidationError as e:
-            self._logger.error(f"Failed to parse event: {e}")
+            self._logger.error("Failed to parse event", exc_info=e)
             return
+
+        self._logger.info(f"Handling {event.type} event")
 
         try:
             async with get_db_sess() as db_sess:
@@ -166,7 +167,7 @@ class EventHandler:
 
         except Exception as e:
             self._logger.error(
-                f"Error processing event id='{event.id}', type='{event.type}': {e}",
+                f"Error processing event id='{event.id}', type='{event.type}'",
                 exc_info=True,
             )
 
@@ -281,20 +282,18 @@ class EventHandler:
         )
 
         if new_price_val is not None and order.side == Side.BID.value:
-            old_lock_price = Decimal(str(self._get_lock_price(order)))
-            new_lock_price = Decimal(str(new_price_val))
+            old_lock_price = self._get_lock_price(order)
+            new_lock_price = new_price_val
 
-            remaining_qty = Decimal(str(order.quantity)) - Decimal(
-                str(order.executed_quantity)
-            )
+            remaining_qty = order.quantity - order.executed_quantity
 
             # If price increases, we need to lock more (Cash -> Escrow)
             # If price decreases, we refund (Escrow -> Cash)
             diff_per_unit = new_lock_price - old_lock_price
             total_diff = diff_per_unit * remaining_qty
 
-            user.escrow_balance = float(Decimal(str(user.escrow_balance)) + total_diff)
-            user.cash_balance = float(Decimal(str(user.cash_balance)) - total_diff)
+            user.escrow_balance = user.escrow_balance + total_diff
+            user.cash_balance = user.cash_balance - total_diff
             db_sess.add(user)
 
         # Update Order Record
@@ -353,7 +352,7 @@ class EventHandler:
         if order.side == Side.BID.value:
             # surplus = trade_value - ()  # In case order crossed the spread
             lock_price = self._get_lock_price(order)
-            surplus = trade_value - (lock_price * trade_quantity)
+            surplus = round(trade_value - (lock_price * trade_quantity), 2)
 
             # user.escrow_balance = float(
             #     Decimal(str(user.escrow_balance)) - escrow_release_amount
@@ -369,7 +368,7 @@ class EventHandler:
             # asset_balance.balance = float(
             #     Decimal(str(asset_balance.balance)) + trade_quantity
             # )
-            asset_balance += trade_quantity
+            asset_balance.balance += trade_quantity
             db_sess.add(asset_balance)
 
             new_transaction = Transactions(
@@ -379,6 +378,10 @@ class EventHandler:
                 related_id=str(new_trade.trade_id),
                 balance=user.cash_balance,
             )
+
+            # import pprint
+
+            # pprint.pprint(locals())
 
         else:  # ASK order
             asset_balance = await self._ensure_asset_balance(

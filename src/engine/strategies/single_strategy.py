@@ -39,13 +39,14 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
             order.executed_quantity = result.quantity
 
             if result.outcome == MatchOutcome.INSUFFICIENT_BALANCE:
-                ctx.logger.log_order_event(
+                ctx.engine_logger.log_order_event(
                     order.user_id,
+                    {"key": ctx.symbol},
                     type=OrderEventType.ORDER_CANCELLED,
                     order_id=order.id,
                     symbol=ctx.symbol,
                     details={"reason": "Insufficient funds"},
-                    command_id=ctx.command_id,
+                    command_id=ctx.cur_command_id,
                 )
                 ctx.engine._release_escrow(order)
                 return
@@ -54,8 +55,9 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
                 return
 
         # Add to orderbook/store if not fully matched
-        ctx.logger.log_order_event(
+        ctx.engine_logger.log_order_event(
             order.user_id,
+            {"key": ctx.symbol},
             type=OrderEventType.ORDER_PLACED,
             order_id=order.id,
             symbol=ctx.symbol,
@@ -63,7 +65,7 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
             quantity=order.quantity,
             price=order.price,
             side=order.side,
-            command_id=ctx.command_id,
+            command_id=ctx.cur_command_id,
         )
 
         ctx.order_store.add(order)
@@ -78,13 +80,14 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
         """
 
     def handle_cancel(self, order: Order, ctx: ExecutionContext) -> None:
-        ctx.logger.log_order_event(
+        ctx.engine_logger.log_order_event(
             order.user_id,
+            {"key": ctx.symbol},
             type=OrderEventType.ORDER_CANCELLED,
             order_id=order.id,
             symbol=ctx.symbol,
             details={"reason": "User cancelled order."},
-            command_id=ctx.command_id,
+            command_id=ctx.cur_command_id,
         )
         ctx.orderbook.remove(order, order.price)
         ctx.order_store.remove(order)

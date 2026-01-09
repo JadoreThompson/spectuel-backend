@@ -1,4 +1,3 @@
-from typing import Literal
 import uuid
 from datetime import datetime
 
@@ -23,7 +22,6 @@ from engine.enums import (
     Side,
     LiquidityRole,
 )
-from engine.events.enums import BalanceEventType
 from enums import OrderGroupType
 from utils import get_default_cash_balance
 
@@ -79,6 +77,8 @@ class Users(Base):
     asset_balances = relationship(
         "AssetBalances", back_populates="user", cascade="all, delete-orphan"
     )
+    # Can't delete balance events due to replay requirements
+    # balance_events = relationship("BalanceEvents", back_populates="user")
 
 
 class Instruments(Base):
@@ -90,7 +90,7 @@ class Instruments(Base):
     )
     starting_price: Mapped[float] = mapped_column(Float, nullable=False)
     status: Mapped[str] = mapped_column(
-        String, nullable=False, default=InstrumentStatus.DOWN
+        String, nullable=False, default=InstrumentStatus.DEAD
     )
 
 
@@ -135,6 +135,8 @@ class Orders(Base):
     trades = relationship(
         "Trades", back_populates="order", cascade="all, delete-orphan"
     )
+    # Can't delete order events due to replay requirements
+    # order_events = relationship("OrderEvents", back_populates="order")
 
 
 class Trades(Base):
@@ -210,3 +212,9 @@ class EngineContextSnapshots(Base):
     snapshot_id: Mapped[uuid.UUID] = uuid_pk()
     symbol: Mapped[str] = mapped_column(String, nullable=False)
     snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    topic: Mapped[str] = mapped_column(String, nullable=False)
+    partition: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    offset: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("NOW()")
+    )

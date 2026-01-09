@@ -1,4 +1,5 @@
 import time
+from enum import Enum
 from typing import Any, Literal, Union, TypeAlias
 from uuid import UUID, uuid4
 
@@ -11,6 +12,7 @@ from .enums import CommandType, OrderType, Side, StrategyType
 class CommandBase(CustomBaseModel):
     id: UUID = Field(default_factory=uuid4)
     version: int = 1
+    type: Enum
     details: dict[str, Any] | None = None
     timestamp: int = Field(default_factory=lambda: int(time.time()))
 

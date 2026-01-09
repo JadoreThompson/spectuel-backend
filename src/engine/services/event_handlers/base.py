@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db_models import EventLogs
 from engine.events import EngineEventBase
 from infra.db import get_db_sess
-from infra.kafka.client import AsyncKafkaConsumer
 
 
 class BaseEventHandler:

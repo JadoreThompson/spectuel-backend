@@ -1,4 +1,5 @@
 from .engine_logger import EngineLogger
-from .wal_logger import WALogger
+from .shadow_logger import ShadowEngineLogger
 
-__all__ = ["EngineLogger", "WALogger"]
+
+__all__ = ["EngineLogger", "ShadowEngineLogger"]

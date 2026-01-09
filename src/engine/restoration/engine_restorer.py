@@ -91,12 +91,12 @@ class EngineRestorer:
                     symbol = command["symbol"]
                     if symbol == self._ctx.symbol:
 
-                        if self._ctx.command_id == command["id"]:
+                        if self._ctx.cur_command_id == command["id"]:
                             self._reached_command = True
                             self._idx += 1
                             continue
 
-                        if self._reached_command or self._ctx.command_id is None:
+                        if self._reached_command or self._ctx.cur_command_id is None:
                             self._engine.handle_command(command)
 
                 self._idx += 1
@@ -107,9 +107,7 @@ class EngineRestorer:
                 self._restore_patches()
 
     def _apply_patches(self) -> None:
-        RestorationManager.set_predicate(
-            self._engine.symbol, lambda: self._check_is_restoring()
-        )
+        RestorationManager.add(self._engine.symbol, lambda: self._check_is_restoring())
         self._bm_pm.patch()
         self._engine_pm.patch()
 

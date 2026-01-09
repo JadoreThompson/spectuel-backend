@@ -1,7 +1,6 @@
 from enum import Enum
 
 
-
 class Side(str, Enum):
     BID = "bid"
     ASK = "ask"
@@ -46,8 +45,9 @@ class InstrumentEventType(str, Enum):
 
 
 class InstrumentStatus(str, Enum):
-    DOWN = "down"
-    UP = "up"
+    DEAD = "dead"
+    RESTORING = 'restoring'
+    ALIVE = "alive"
 
 
 class TimeFrame(str, Enum):

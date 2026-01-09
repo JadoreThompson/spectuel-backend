@@ -11,6 +11,7 @@ from api.routes.orders.models import (
     OTOCOOrderCreate,
     OrderBase,
 )
+from config import KAFKA_ENGINE_EVENTS_TOPIC
 from db_models import AssetBalances, Orders, Users
 from engine.commands import (
     NewSingleOrderCommand,
@@ -21,11 +22,27 @@ from engine.commands import (
 )
 from engine.enums import OrderStatus, StrategyType
 from engine.services.command_bus import CommandBus
+from infra.kafka import AsyncKafkaProducer
 from .exc import OrderServiceError
 
 
 class OrderService:
-    _command_bus: CommandBus | None = None
+    # _command_bus: CommandBus | None = None
+    _producer: AsyncKafkaProducer | None = None
+    _closed = True
+
+    @classmethod
+    async def start(cls):
+        cls._producer = AsyncKafkaProducer()
+        await cls._producer.start()
+
+    @classmethod
+    async def stop(cls):
+        if cls._closed:
+            return
+
+        cls._closed = True
+        await cls._producer.stop()
 
     @classmethod
     async def create(
@@ -40,9 +57,9 @@ class OrderService:
         Main entry point for order creation. Dispatches to specific handlers based on strategy type.
         """
         user_id = uuid.UUID(str(user_id))
-        if cls._command_bus is None:
-            cls._command_bus = CommandBus()
-            await cls._command_bus.initialise_async()
+        # if cls._command_bus is None:
+        #     cls._command_bus = CommandBus()
+        #     await cls._command_bus.initialise_async()
 
         if details.strategy_type == StrategyType.SINGLE:
             return await cls._create_single(user_id, details, db_sess)
@@ -61,15 +78,6 @@ class OrderService:
     async def _create_single(
         cls, user_id: uuid.UUID, details: SingleOrderCreate, db_sess: AsyncSession
     ) -> dict:
-        # NOTE: Escrow logic to be carried out by the matching
-        # engine and corresponding event handler services.
-        # price = details.limit_price or details.stop_price
-
-        # if details.side == Side.BID:
-        #     await cls._escrow_bid(details.quantity * price, user_id, db_sess)
-        # else:
-        #     await cls._escrow_ask(details.quantity, user_id, details.symbol, db_sess)
-
         order_id = uuid.uuid4()
         db_order = Orders(
             order_id=order_id,
@@ -101,7 +109,12 @@ class OrderService:
             **meta.model_dump(),
         )
 
-        await cls._command_bus.put_async(command)
+        # await cls._command_bus.put_async(command)
+        await cls._producer.send(
+            KAFKA_ENGINE_EVENTS_TOPIC,
+            command.model_dump_json(),
+            key=command.symbol.encode(),
+        )
 
         return {"order_id": str(order_id), "status": "accepted"}
 
@@ -111,11 +124,11 @@ class OrderService:
     ) -> dict:
         group_id = uuid.uuid4()
         legs_meta = []
-        response_ids = []
+        leg_ids = []
 
         for leg_details in details.legs:
             leg_id = uuid.uuid4()
-            response_ids.append(str(leg_id))
+            leg_ids.append(str(leg_id))
 
             db_leg = Orders(
                 order_id=leg_id,
@@ -151,9 +164,14 @@ class OrderService:
             strategy_type=StrategyType.OCO,
             legs=legs_meta,
         )
-        await cls._command_bus.put_async(command)
+        # await cls._command_bus.put_async(command)
+        await cls._producer.send(
+            KAFKA_ENGINE_EVENTS_TOPIC,
+            command.model_dump_json(),
+            key=command.symbol.encode(),
+        )
 
-        return {"group_id": str(group_id), "order_ids": response_ids}
+        return {"group_id": str(group_id), "legs": leg_ids}
 
     @classmethod
     async def _create_oto(
@@ -186,7 +204,12 @@ class OrderService:
             parent=OrderService._to_meta(parent_id, user_id, details.parent),
             child=OrderService._to_meta(child_id, user_id, details.child),
         )
-        await cls._command_bus.put_async(command)
+        # await cls._command_bus.put_async(command)
+        await cls._producer.send(
+            KAFKA_ENGINE_EVENTS_TOPIC,
+            command.model_dump_json(),
+            key=command.symbol.encode(),
+        )
 
         return {
             "group_id": str(group_id),
@@ -230,7 +253,12 @@ class OrderService:
             parent=OrderService._to_meta(parent_id, user_id, details.parent),
             oco_legs=legs_meta,
         )
-        await cls._command_bus.put_async(command)
+        # await cls._command_bus.put_async(command)
+        await cls._producer.send(
+            KAFKA_ENGINE_EVENTS_TOPIC,
+            command.model_dump_json(),
+            key=command.symbol.encode(),
+        )
 
         return {
             "group_id": str(group_id),

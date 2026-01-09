@@ -36,9 +36,15 @@ class BalanceEventType(str, Enum):
     ASK_SETTLED = "ask_settled"
     BID_SETTLED = "bid_settled"
 
+
 class LogEventType(str, Enum):
     INSTRUMENT_EVENT = "instrument_event"
     ORDER_EVENT = "order_event"
     TRADE_EVENT = "trade_event"
     COMMAND = "command"
     BALANCE_EVENT = "balance_event"
+
+
+class CommandEventType(str, Enum):
+    COMMAND_PROCESSED = "command_processed"
+    COMMAND_RECEIVED = "command_received"

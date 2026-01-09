@@ -87,12 +87,12 @@ class EngineHeartbeatRunner(BaseRunner):
 
             # If status is dead, we mark it immediately
             if status == "dead":
-                await self._update_instrument_status(inst_id, InstrumentStatus.DOWN)
+                await self._update_instrument_status(inst_id, InstrumentStatus.DEAD)
             else:
                 # Ideally we only update DB if it was previously DOWN, to save writes.
                 # For now, we assume "alive" means healthy.
                 # Optimization: Cache current status in memory and only write on change.
-                await self._update_instrument_status(inst_id, InstrumentStatus.UP)
+                await self._update_instrument_status(inst_id, InstrumentStatus.ALIVE)
 
         except (json.JSONDecodeError, ValueError) as e:
             self._logger.error(f"Invalid heartbeat message: {e}")
@@ -119,7 +119,7 @@ class EngineHeartbeatRunner(BaseRunner):
                 stmt = (
                     update(Instruments)
                     .where(Instruments.instrument_id.in_(instruments))
-                    .values(status=InstrumentStatus.DOWN.value)
+                    .values(status=InstrumentStatus.DEAD.value)
                 )
                 db_sess.execute(stmt)
                 db_sess.commit()
