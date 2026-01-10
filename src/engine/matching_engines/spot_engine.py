@@ -8,7 +8,7 @@ from engine.enums import (
     StrategyType,
     CommandType,
 )
-from engine.events import OrderEventType, TradeEventType
+from engine.events import OrderEventType
 from engine.events.enums import CommandEventType
 from engine.execution_context import ExecutionContext
 from engine.loggers import EngineLogger
@@ -279,7 +279,7 @@ class SpotEngine(EngineBase):
 
         self._log_fill_event(taker_order, price, taker_exec_quantity, ctx.symbol)
         self._log_fill_event(
-            maker_order, price, maker_exec_quantity + quantity, ctx.symbol
+            maker_order, price, maker_exec_quantity, ctx.symbol
         )
 
         taker_order.executed_quantity = taker_exec_quantity
