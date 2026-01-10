@@ -9,7 +9,7 @@ from .enums import OrderEventType
 class OrderEventBase(EngineEventBase):
     version: int = 1
     order_id: UUID
-    command_id: str
+    command_id: UUID
 
 
 class OrderPlacedEvent(OrderEventBase):

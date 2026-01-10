@@ -73,7 +73,7 @@ class CancelOrderCommand(CommandBase):
 
 class ModifyOrderCommand(CommandBase):
     type: Literal[CommandType.MODIFY_ORDER] = CommandType.MODIFY_ORDER
-    order_id: str
+    order_id: UUID
     symbol: str
     limit_price: float | None = Field(None, gt=0.0)
     stop_price: float | None = Field(None, gt=0.0)
