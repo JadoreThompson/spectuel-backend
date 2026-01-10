@@ -87,7 +87,7 @@ class HeartbeatServer:
         if hb_conn is None:
             return
 
-        await self._update_instrument_status(hb_conn.symbol, InstrumentStatus.ALIVE)
+        await self._set_instrument_status(hb_conn.symbol, InstrumentStatus.ALIVE)
 
         try:
             while True:
@@ -116,7 +116,7 @@ class HeartbeatServer:
         finally:
             self._symbols.pop(hb_conn.symbol)
             await self._close_writer(writer)
-            await self._update_instrument_status(hb_conn.symbol, InstrumentStatus.DEAD)
+            await self._set_instrument_status(hb_conn.symbol, InstrumentStatus.DEAD)
 
     async def _handle_register(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -168,7 +168,7 @@ class HeartbeatServer:
         writer.close()
         await writer.wait_closed()
 
-    async def _update_instrument_status(self, symbol: str, status: InstrumentStatus):
+    async def _set_instrument_status(self, symbol: str, status: InstrumentStatus):
         """
         Update the database status of the given symbol.
 

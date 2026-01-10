@@ -1,26 +1,29 @@
 import json
 import logging
 import multiprocessing as mp
+from typing import Any
 
 from aiokafka import TopicPartition, ConsumerRecord
-from sqlalchemy import update
 
 from config import KAFKA_ENGINE_EVENTS_TOPIC
-from db_models import Instruments
-from engine.engine_orchestrator.engine_shadow_manager import EngineShadowManager
+from engine.engine_orchestrator.engine_shadow import EngineShadow
 from engine.enums import InstrumentStatus
 from engine.loggers import EngineLogger, ShadowEngineLogger
 from engine.matching_engines import SpotEngine
 from engine.restoration.engine_loader import EngineLoader
 from engine.execution_context import ExecutionContext
-from infra.db import get_db_sess_sync
 from infra.kafka import KafkaConsumer
 
 
 class EngineOrchestrator:
     """ """
 
-    def __init__(self, symbol: str, shadow: bool = True) -> None:
+    def __init__(
+        self,
+        symbol: str,
+        shadow: bool = True,
+        shadow_kwargs: dict[str, Any] | None = None,
+    ) -> None:
         """
         Args:
             symbol (str): Which symbol's commands to process
@@ -30,6 +33,7 @@ class EngineOrchestrator:
         """
         self._symbol = symbol
         self._shadow = shadow
+        self._shadow_kwargs = shadow_kwargs
         self._engine: SpotEngine | None = None
 
         self._shadow_ps: mp.Process | None = None
@@ -68,7 +72,6 @@ class EngineOrchestrator:
 
         try:
             self._logger.info(f"Updating status to {InstrumentStatus.ALIVE}")
-            self._set_instrument_status(InstrumentStatus.ALIVE)
 
             for msg in self._kafka_consumer:
                 cmd = self._parse_message(msg)
@@ -88,18 +91,19 @@ class EngineOrchestrator:
                 f"Error handling command for {self._symbol} - {cmd}", exc_info=True
             )
             self._logger.info(f"Updating status to {InstrumentStatus.DEAD}")
-            self._set_instrument_status(InstrumentStatus.DEAD)
             raise
 
     def _create_shadow(self) -> None:
         """
-        Creates the shadow engineand launches it within a seperate
+        Creates the shadow engine and launches it within a seperate
         process.
         """
-        shadow_ctx = ExecutionContext.from_dict(self._engine._ctx.to_dict())
-        shadow_ctx.engine_logger = ShadowEngineLogger(f"ShadowEngine-{self._symbol}")
-        shadow_engine = SpotEngine(self._symbol, ctx=shadow_ctx)
-        shadow_ctx.engine = shadow_engine
+        shadow_engine_ctx = ExecutionContext.from_dict(self._engine._ctx.to_dict())
+        shadow_engine_ctx.engine_logger = ShadowEngineLogger(
+            f"ShadowEngine-{self._symbol}"
+        )
+        shadow_engine = SpotEngine(self._symbol, ctx=shadow_engine_ctx)
+        shadow_engine_ctx.engine = shadow_engine
         self._logger.info(f"Created shadow engine for {self._symbol}")
 
         event_queue = mp.Queue()
@@ -110,16 +114,20 @@ class EngineOrchestrator:
             "Added push to queue hook for log command event and log event"
         )
 
-        manager = EngineShadowManager(
-            shadow_engine, event_queue, sentinel=-1, snapshot_interval=10_000
+        shadodw = EngineShadow(
+            shadow_engine,
+            event_queue,
+            sentinel=-1,
+            snapshot_interval=10_000,
+            **self._shadow_kwargs,
         )
         self._logger.info("Created snapshot manager for shadow engine.")
 
         self._logger.info("Launching shadow process...")
         self._shadow_ps = mp.Process(
-            target=manager.run,
+            target=shadodw.run,
             daemon=True,
-            name=f"{type(manager).__name__}-{self._symbol}",
+            name=f"{type(shadodw).__name__}-{self._symbol}",
         )
         self._shadow_ps.start()
         self._logger.info("Shadow process launched successfully.")
@@ -148,11 +156,11 @@ class EngineOrchestrator:
 
         return cmd
 
-    def _set_instrument_status(self, status: InstrumentStatus) -> None:
-        with get_db_sess_sync() as db_sess:
-            db_sess.execute(
-                update(Instruments)
-                .values(status=status.value)
-                .where(Instruments.symbol == self._symbol)
-            )
-            db_sess.commit()
+    # def _set_instrument_status(self, status: InstrumentStatus) -> None:
+    #     with get_db_sess_sync() as db_sess:
+    #         db_sess.execute(
+    #             update(Instruments)
+    #             .values(status=status.value)
+    #             .where(Instruments.symbol == self._symbol)
+    #         )
+    #         db_sess.commit()

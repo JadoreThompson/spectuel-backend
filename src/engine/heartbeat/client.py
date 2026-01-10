@@ -2,6 +2,7 @@ import json
 import socket
 import threading
 import time
+from typing import Any, Callable
 
 from engine.types import HeartbeatMessage, RegisterMessage
 
@@ -19,6 +20,7 @@ class HeartbeatClient:
         symbol: str,
         timeout: float = 5.0,
         heartbeat_interval: float = 5.0,
+        on_close: Callable[[], Any] | None = None,
     ) -> None:
         """
         Initialize the client and start the heartbeat thread.
@@ -29,17 +31,20 @@ class HeartbeatClient:
             symbol: Symbol to register.
             timeout: Socket connection timeout.
             heartbeat_interval: Interval in seconds between heartbeats.
+            on_close: An optional callback called when the connection is closed.
         """
         self._host: str = host
         self._port: int = port
         self._symbol: str = symbol
         self._heartbeat_interval = heartbeat_interval
+        self.on_close = on_close
 
         self._sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.settimeout(timeout)
         self._sock.connect((self._host, self._port))
 
         self._th: threading.Thread | None = None
+        # Only set if client calls close or the server closes
         self._hb_stop_event: threading.Event = threading.Event()
         self._closed = False
         self._register()
@@ -74,6 +79,9 @@ class HeartbeatClient:
             time.sleep(self._heartbeat_interval)
             self.heartbeat()
 
+        if self.on_close is not None:
+            self.on_close()
+
     def _send(self, msg: dict[str, str]) -> None:
         """
         Serialize and send a JSON message to the server.
@@ -98,7 +106,9 @@ class HeartbeatClient:
         if self._hb_stop_event is not None:
             self._hb_stop_event.set()
         if self._th is not None:
-            self._th.join(timeout=self._heartbeat_interval + 1)  # wait for thread to finish
+            self._th.join(
+                timeout=self._heartbeat_interval + 1
+            )  # wait for thread to finish
         if self._sock is not None:
             try:
                 self._sock.close()
