@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+import uuid
 
 
 def get_datetime():
@@ -7,3 +8,6 @@ def get_datetime():
 
 def get_default_cash_balance():
     return 10_000
+
+def gen_api_key():
+    return str(uuid.uuid4())

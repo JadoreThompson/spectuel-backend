@@ -6,7 +6,7 @@ from models import CustomBaseModel
 
 class RequestType(str, Enum):
     """Client request types"""
-
+    AUTHENTICATE = 'auth'
     SUBSCRIBE = "subscribe"
     UNSUBSCRIBE = "unsubscribe"
 
@@ -27,6 +27,11 @@ class BarsItem(CustomBaseModel):
 
     symbol: str
     timeframes: list[TimeFrame]
+
+
+class AuthenticateRequest(CustomBaseModel):
+    type: RequestType
+    token: str
 
 
 class SubscribeRequest(CustomBaseModel):

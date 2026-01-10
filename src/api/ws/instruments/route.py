@@ -3,6 +3,8 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.websockets import WebSocketState
 
+from api.ws.exc import AuthenticationError
+
 from .connection_manager import ConnectionManager
 from .controller import (
     cleanup_subscriptions,
@@ -10,7 +12,7 @@ from .controller import (
     handle_unsubscribe,
     send_error,
 )
-from .models import RequestType, ResponseType
+from .models import RequestType
 
 logger = logging.getLogger(__name__)
 
@@ -20,29 +22,6 @@ conn_manager = ConnectionManager()
 
 @router.websocket("/")
 async def instruments_websocket(ws: WebSocket):
-    """
-    WebSocket endpoint for real-time instrument data.
-
-    Client can send:
-    {
-        "type": "subscribe" | "unsubscribe",
-        "trades": ["AAPL", "MSFT"],
-        "orderbook": ["AAPL"],
-        "bars": [
-            {"symbol": "AAPL", "timeframes": ["5m", "15m"]},
-            {"symbol": "MSFT", "timeframes": ["1h"]}
-        ]
-    }
-
-    Server sends:
-    - ack: Confirms subscription/unsubscription
-    - error: Validation or processing errors
-    - trade: New trade event
-    - ohlc_snapshot: Historical OHLC data on subscription
-    - ohlc_update: Real-time OHLC update
-    - orderbook_snapshot: Orderbook snapshot
-    """
-
     code = 1000
     reason = None
     user_id = None
@@ -78,7 +57,7 @@ async def instruments_websocket(ws: WebSocket):
                 )
                 await send_error(
                     ws,
-                    f"Invalid request type. Must be: {', '.join([t.value for t in RequestType])}",
+                    f"Invalid request type. Must be: {', '.join(t.value for t in RequestType)}",
                 )
                 continue
 
@@ -90,17 +69,18 @@ async def instruments_websocket(ws: WebSocket):
                 await handle_unsubscribe(
                     ws, conn_manager, msg, user_id, active_subscriptions
                 )
-
+    except AuthenticationError as e:
+        code = 1008
+        reason = str(e)
+        await send_error(ws, str(e))
     except WebSocketDisconnect as e:
         code = e.code
         reason = e.reason
         logger.info(f"User {user_id} disconnected: code={code}, reason={reason}")
-
     except Exception as e:
         logger.error(f"WebSocket error for {user_id}: {e}")
         code = 1011
         reason = "Server error"
-
     finally:
         if user_id is not None:
             await cleanup_subscriptions(ws, conn_manager, active_subscriptions)

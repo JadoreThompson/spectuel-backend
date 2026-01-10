@@ -23,7 +23,7 @@ from engine.enums import (
     LiquidityRole,
 )
 from enums import OrderGroupType
-from utils import get_default_cash_balance
+from utils import gen_api_key, get_default_cash_balance
 
 
 def uuid_pk():
@@ -48,11 +48,7 @@ class Users(Base):
     email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     password: Mapped[str] = mapped_column(String, nullable=False)
 
-    # Use balance_field for consistency
-    # cash_balance: Mapped[float] = balance_field(default=get_default_cash_balance)
-    # escrow_balance: Mapped[float] = balance_field(default=0.00)
-
-    api_key: Mapped[str] = mapped_column(String, nullable=True)
+    api_key: Mapped[str] = mapped_column(String, nullable=True, default=gen_api_key)
     jwt: Mapped[str] = mapped_column(String, nullable=True)
 
     authenticated_at: Mapped[datetime] = mapped_column(
@@ -77,8 +73,6 @@ class Users(Base):
     asset_balances = relationship(
         "AssetBalances", back_populates="user", cascade="all, delete-orphan"
     )
-    # Can't delete balance events due to replay requirements
-    # balance_events = relationship("BalanceEvents", back_populates="user")
 
 
 class Instruments(Base):
@@ -135,8 +129,6 @@ class Orders(Base):
     trades = relationship(
         "Trades", back_populates="order", cascade="all, delete-orphan"
     )
-    # Can't delete order events due to replay requirements
-    # order_events = relationship("OrderEvents", back_populates="order")
 
 
 class Trades(Base):

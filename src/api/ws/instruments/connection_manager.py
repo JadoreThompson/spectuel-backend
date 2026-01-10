@@ -6,12 +6,23 @@ from datetime import datetime
 
 from fastapi import WebSocket
 from fastapi.websockets import WebSocketState
+from sqlalchemy import select
 
+from api.ws.exc import AuthenticationError
 from config import KAFKA_INSTRUMENT_EVENTS_TOPIC, REDIS_CANDLE_CACHE_PREFIX
+from db_models import Users
 from engine.enums import InstrumentEventType, TimeFrame
+from engine.heartbeat.exc import ValidationError
+from infra.db.utils import get_db_sess
 from infra.kafka import AsyncKafkaConsumer, AsyncKafkaProducer
 from infra.redis import REDIS_CLIENT
-from .models import ResponseType, OHLCMessage, OHLCData, TradeMessage
+from .models import (
+    AuthenticateRequest,
+    ResponseType,
+    OHLCMessage,
+    OHLCData,
+    TradeMessage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -101,10 +112,26 @@ class ConnectionManager:
         except RuntimeError:
             logger.warning("No running event loop to launch cleanup worker")
 
-    async def connect(self, ws: WebSocket) -> str:
+    async def connect(self, ws: WebSocket) -> None:
         """Accept and register a new WebSocket connection"""
         await ws.accept()
-        return str(id(ws))
+
+        try:
+            msg = await asyncio.wait_for(ws.receive_text(), timeout=5.0)
+            data = json.loads(msg)
+            req = AuthenticateRequest(**data)
+
+            async with get_db_sess() as db_sess:
+                exists = await db_sess.scalar(
+                    select(Users).where(Users.api_key == req.token)
+                )
+                if not exists:
+                    raise AuthenticationError("Invalid token")
+
+        except (ValidationError, json.JSONDecodeError):
+            raise AuthenticationError("Invalid authentication request")
+        except asyncio.TimeoutError:
+            raise AuthenticationError("Authentication timeout")
 
     def disconnect(self, ws: WebSocket) -> None:
         """Mark connection for cleanup"""

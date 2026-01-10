@@ -1,125 +1,221 @@
 import asyncio
 import json
-from typing import Literal
+import logging
+from typing import Optional
 from uuid import UUID
 
 from aiokafka import AIOKafkaConsumer
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
+from fastapi.websockets import WebSocketState
+from pydantic import ValidationError
+from sqlalchemy import select
 
-from api.exc import JWTError
-from api.types import JWTPayload
+from api.ws.exc import AuthenticationError
 from config import (
     KAFKA_BALANCE_EVENTS_TOPIC,
     KAFKA_BOOTSTRAP_SERVERS,
+    KAFKA_INSTRUMENT_EVENTS_TOPIC,
     KAFKA_ORDER_EVENTS_TOPIC,
 )
-from services import JWTService
-from infra.redis import REDIS_CLIENT
+from db_models import Users
+from engine.events.enums import OrderEventType, BalanceEventType
+from infra.db.utils import get_db_sess
+from infra.kafka import AsyncKafkaConsumer
+from .models import AuthenticateRequest, ResponseType
 
-SubscriptionTopic = Literal["balance", "order", "trade"]
+logger = logging.getLogger(__name__)
 
 
 class ConnectionMeta:
-    def __init__(self, ws: WebSocket, jwt: JWTPayload, topics: set[SubscriptionTopic]):
+    """Metadata for a user's WebSocket connection"""
+
+    def __init__(self, ws: WebSocket, user_id: str):
         self.ws = ws
-        self.jwt = jwt
-        self.topics = topics
+        self.user_id = user_id
         self.lock = asyncio.Lock()
+        self.order_events: set[OrderEventType] = set()
+        self.balance_events: set[BalanceEventType] = set()
 
 
 class ConnectionManager:
+    """
+    Manages WebSocket connections and broadcasts order/balance events to users.
+    Only sends events to users who are subscribed to them.
+    """
+
     def __init__(self):
-        self._conns: dict[UUID, ConnectionMeta] = {}
+        self._conns: dict[str, ConnectionMeta] = {}
         self._task: asyncio.Task | None = None
-        self._is_running = False
+        self._closed_connections: asyncio.Queue[str] = asyncio.Queue()
+        self._launch()
 
-    @property
-    def is_running(self):
-        return self._is_running
-
-    def launch_listener(self) -> None:
-        """Start background Kafka listener task (only once)."""
-        if self._task:
+    def _launch(self) -> None:
+        if self._task is not None:
             return
 
-        loop = asyncio.get_running_loop()
-        self._task = loop.create_task(self._listen())
+        try:
+            loop = asyncio.get_running_loop()
+            self._task = loop.create_task(self._listen())
+            loop.create_task(self._cleanup_closed_connections())
+        except RuntimeError:
+            logger.warning("No running event loop to launch listener")
 
-    async def _listen(self):
-        """Background task: consume Kafka events and broadcast to active users."""
+    async def connect(self, ws: WebSocket) -> str:
+        """Accept and register a new WebSocket connection"""
+        await ws.accept()
+
+        try:
+            msg = await asyncio.wait_for(ws.receive_text(), timeout=5.0)
+            data = json.loads(msg)
+            req = AuthenticateRequest(**data)
+
+            async with get_db_sess() as db_sess:
+                user = await db_sess.scalar(
+                    select(Users).where(Users.api_key == req.token)
+                )
+                if not user:
+                    raise AuthenticationError("Invalid token")
+
+                user_id = str(user.user_id)
+
+            if user_id in self._conns:
+                old_conn = self._conns[user_id]
+                try:
+                    await old_conn.ws.close(code=1000, reason="Reconnected")
+                except Exception:
+                    pass
+
+            self._conns[user_id] = ConnectionMeta(ws=ws, user_id=user_id)
+            logger.info(f"User {user_id} authenticated and connected")
+            return user_id
+
+        except (ValidationError, json.JSONDecodeError):
+            raise AuthenticationError("Invalid authentication request")
+        except asyncio.TimeoutError:
+            raise AuthenticationError("Authentication timeout")
+        except Exception as e:
+            logger.error(f"Connection error: {e}")
+            raise AuthenticationError(str(e))
+
+    def disconnect(self, user_id: str) -> None:
+        """Mark connection for cleanup"""
+        self._closed_connections.put_nowait(user_id)
+
+    def subscribe_order_events(
+        self, user_id: str, event_types: list[OrderEventType]
+    ) -> None:
+        """Subscribe user to specific order event types"""
+        if user_id not in self._conns:
+            raise ValueError(f"Connection for user '{user_id}' not found")
+
+        conn = self._conns[user_id]
+        for event_type in event_types:
+            conn.order_events.add(event_type)
+
+    def subscribe_balance_events(self, user_id: str, event_types: list[str]) -> None:
+        """Subscribe user to specific balance event types"""
+        if user_id not in self._conns:
+            raise ValueError(f"Connection for user '{user_id}' not found")
+
+        conn = self._conns[user_id]
+        for event_type in event_types:
+            conn.balance_events.add(event_type)
+
+    def unsubscribe_order_events(self, user_id: str, event_types: list[str]) -> None:
+        """Unsubscribe user from specific order event types"""
+        if user_id not in self._conns:
+            raise ValueError(f"Connection for user '{user_id}' not found")
+
+        conn = self._conns[user_id]
+        for event_type in event_types:
+            conn.order_events.discard(event_type)
+
+    def unsubscribe_balance_events(self, user_id: str, event_types: list[str]) -> None:
+        """Unsubscribe user from specific balance event types"""
+        if user_id not in self._conns:
+            raise ValueError(f"Connection for user '{user_id}' not found")
+
+        conn = self._conns[user_id]
+        for event_type in event_types:
+            conn.balance_events.discard(event_type)
+
+    async def _listen(self) -> None:
+        """Background task: consume Kafka events and broadcast to subscribed users."""
         consumer = AIOKafkaConsumer(
             KAFKA_ORDER_EVENTS_TOPIC,
             KAFKA_BALANCE_EVENTS_TOPIC,
-            # KAFKA_TRADE_EVENTS_TOPIC,
             KAFKA_INSTRUMENT_EVENTS_TOPIC,
             bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
             enable_auto_commit=True,
+            group_id="ws_orders_consumer",
         )
 
         await consumer.start()
         self._is_running = True
+        logger.info("Order events listener started")
 
         try:
             async for msg in consumer:
-                headers = dict(msg.headers)
-                if "user_id" not in headers:
-                    continue
+                try:
+                    decoded_msg = msg.value.decode().strip()
+                    event = json.loads(decoded_msg)
 
-                user_id = headers["user_id"].decode()
-                if user_id not in self._conns:
-                    continue
+                    # Extract user_id and event type from event
+                    event_type = event.get("type")
+                    user_id = None
+                    for k, v in msg.headers:
+                        if k == "user_id":
+                            user_id = v
+                            break
 
-                conn = self._conns[user_id]
-                decoded_msg = msg.value.decode()
-                event: dict = json.loads(decoded_msg)
-                event.pop("user_id", None)
-                await conn.ws.send_text(decoded_msg)
+                    if not user_id or not event_type:
+                        continue
+
+                    # Check if user is connected
+                    if user_id not in self._conns:
+                        continue
+
+                    conn = self._conns[user_id]
+
+                    if (
+                        event_type in conn.order_events
+                        or event_type in conn.balance_events
+                    ):
+                        await self._send_to_client(conn, decoded_msg)
+
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON decode error: {e}")
+                except Exception as e:
+                    logger.error(f"Event processing error: {e}")
+
+        except Exception as e:
+            logger.error(f"Kafka listener error: {e}")
         finally:
             await consumer.stop()
             self._is_running = False
 
-    async def connect(self, ws: WebSocket) -> UUID:
-        """Accept WS, read token, validate JWT, store connection, return user_id."""
-        await ws.accept()
-
+    async def _send_to_client(self, conn: ConnectionMeta, msg: str) -> None:
+        """Send message to client with connection check"""
         try:
-            token = ws.query_params.get("token")
+            if conn.ws.client_state != WebSocketState.CONNECTED:
+                await self._closed_connections.put(conn.user_id)
+                return
 
-            if not token:
-                raise WebSocketDisconnect(code=1008, reason="Token missing")
-
-            exists = await REDIS_CLIENT.get(token)
-            if not exists:
-                raise WebSocketDisconnect(code=1008, reason="Invalid token")
-
-            await REDIS_CLIENT.delete(token)
-            # jwt = await JWTService.validate_jwt(token, False)
-            jwt = JWTService.decode_jwt(token)
-
-            if jwt.sub in self._conns:
-                old_conn = self._conns.pop(jwt.sub)
-                await old_conn.ws.close()
-
-            self._conns[jwt.sub] = ConnectionMeta(ws=ws, jwt=jwt, topics=set())
-            return jwt.sub
+            await asyncio.wait_for(conn.ws.send_text(msg), timeout=5.0)
 
         except asyncio.TimeoutError:
-            raise WebSocketDisconnect(code=1008, reason="Authentication timeout")
-        except JWTError as e:
-            raise WebSocketDisconnect(code=1008, reason=str(e))
-        except Exception:
-            raise WebSocketDisconnect(code=1008, reason="Invalid auth payload")
+            logger.warning(f"Send timeout for user {conn.user_id}")
+            await self._closed_connections.put(conn.user_id)
+        except Exception as e:
+            logger.error(f"Send error for user {conn.user_id}: {e}")
+            await self._closed_connections.put(conn.user_id)
 
-    def disconnect(self, user_id: UUID):
-        """Remove connection from active set."""
-        self._conns.pop(user_id, None)
-
-    def subscribe(self, user_id: UUID, topic: SubscriptionTopic):
-        if user_id not in self._conns:
-            raise ValueError(f"Connection for '{user_id}' not found.")
-        self._conns[user_id].topics.add(topic)
-
-    def unsubscribe(self, user_id: UUID, topic: SubscriptionTopic):
-        if user_id not in self._conns:
-            raise ValueError(f"Connection for '{user_id}' not found.")
-        self._conns[user_id].topics.discard(topic)
+    async def _cleanup_closed_connections(self) -> None:
+        """Background worker that removes closed connections from the active set"""
+        while True:
+            try:
+                user_id = await self._closed_connections.get()
+                self._conns.pop(user_id, None)
+                logger.info(f"Cleaned up connection for user {user_id}")
+            except Exception as e:
+                logger.error(f"Cleanup error: {e}")
