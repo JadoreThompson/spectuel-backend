@@ -1,8 +1,9 @@
-from engine.orders import Order
+from engine.orders import Order, OCOOrder, OTOOrder, OTOCOOrder
 from .base import StoreBase
 
 
 class OrderStore(StoreBase[Order]):
+
     def __init__(self):
         self._orders: dict[str, Order] = {}
 
@@ -21,8 +22,11 @@ class OrderStore(StoreBase[Order]):
     @classmethod
     def from_dict(cls, data: dict) -> "OrderStore":
         store = cls()
+        order_cls_map = {
+            order_cls.__name__: order_cls for order_cls in (Order, OCOOrder, OTOOrder, OTOCOOrder)
+        }
         for _, order_data in data.items():
-            cls: Order = eval(order_data["type"])
+            cls = order_cls_map[order_data['type']]
             order = cls.from_dict(order_data)
             store.add(order)
         return store
