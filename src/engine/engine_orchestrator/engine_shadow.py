@@ -20,7 +20,7 @@ class EngineShadow:
     def __init__(
         self,
         engine: SpotEngine,
-        queue: Queue,
+        event_queue: Queue,
         sentinel: Hashable,
         snapshot_interval: int = 1000,
         heartbeat_host: str | None = None,
@@ -32,14 +32,14 @@ class EngineShadow:
 
         self._engine = engine
         self._ctx: ExecutionContext[ShadowEngineLogger] = engine.ctx
-        self._queue = queue
+        self._event_queue = event_queue
         self._sentinel = sentinel
         self.snapshot_interval = snapshot_interval
         self._op_count = 0
-        self._order_id_2_strategy_type = {}
         self._batch = []
         self._idx = 0
-
+        
+        self._hb_client = None
         if (
             heartbeat_host is not None
             and heartbeat_port is not None
@@ -50,6 +50,7 @@ class EngineShadow:
                 port=heartbeat_port,
                 on_close=lambda: self._set_instrument_status(InstrumentStatus.DEAD),
             )
+        
         self._logger = logging.getLogger(f"EngineSlot-{engine._ctx.symbol}")
 
     def run(self):
@@ -61,13 +62,14 @@ class EngineShadow:
             self._set_instrument_status(InstrumentStatus.ALIVE)
             
             while True:
-                event_bytes = self._queue.get()
+                event_bytes = self._event_queue.get()
                 if event_bytes == self._sentinel:
                     self._logger.info("Received sentinel, exiting loop")
                     break
 
                 event = json.loads(event_bytes)
                 event_type = event["type"]
+
                 if event_type == CommandEventType.COMMAND_RECEIVED:
                     cmd = event["command"]
                 elif cmd is not None:
@@ -80,6 +82,7 @@ class EngineShadow:
 
                     self._engine.handle_command(cmd)
                     self._batch.clear()
+                    self._idx = 0
 
                     if command_count >= self.snapshot_interval:
                         self._snapshot(cmd)
@@ -87,7 +90,8 @@ class EngineShadow:
 
                     cmd = None
         finally:
-            self._hb_client.close()
+            if self._hb_client is not None:
+                self._hb_client.close()
 
     def _apply_patches(self):
         # Balance manager patches

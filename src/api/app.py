@@ -7,11 +7,11 @@ from sqlalchemy.exc import IntegrityError
 from api.exc import JWTError
 from api.middlewares import RateLimitMiddleware
 from api.routes.auth.route import router as auth_route
-from api.routes.instruments.route import route as instruments_route
 from api.routes.orders.route import route as orders_route
 from api.routes.public.route import router as public_route
 from api.routes.users.route import route as user_route
-from api.ws.orders.route import router as order_ws_route
+from api.ws.orders.route import router as ws_order_route
+from api.ws.instruments.route import route as ws_instruments_route
 from db_models import Instruments
 from infra.db import get_db_sess
 from services import OrderService
@@ -43,11 +43,11 @@ app = FastAPI(lifespan=lifespan)
 
 
 app.include_router(auth_route)
-app.include_router(instruments_route)
 app.include_router(orders_route)
 app.include_router(public_route)
 app.include_router(user_route)
-app.include_router(order_ws_route)
+app.include_router(ws_instruments_route)
+app.include_router(ws_order_route)
 
 
 app.add_middleware(

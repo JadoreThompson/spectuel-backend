@@ -16,11 +16,11 @@ from .models import RequestType
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/ws/instruments")
+route = APIRouter(prefix="/ws/instruments")
 conn_manager = ConnectionManager()
 
 
-@router.websocket("/")
+@route.websocket("/")
 async def instruments_websocket(ws: WebSocket):
     code = 1000
     reason = None

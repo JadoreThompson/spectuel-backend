@@ -90,8 +90,6 @@ class EngineOrchestrator:
             self._logger.error(
                 f"Error handling command for {self._symbol} - {cmd}", exc_info=True
             )
-            self._logger.info(f"Updating status to {InstrumentStatus.DEAD}")
-            raise
 
     def _create_shadow(self) -> None:
         """
@@ -156,11 +154,3 @@ class EngineOrchestrator:
 
         return cmd
 
-    # def _set_instrument_status(self, status: InstrumentStatus) -> None:
-    #     with get_db_sess_sync() as db_sess:
-    #         db_sess.execute(
-    #             update(Instruments)
-    #             .values(status=status.value)
-    #             .where(Instruments.symbol == self._symbol)
-    #         )
-    #         db_sess.commit()

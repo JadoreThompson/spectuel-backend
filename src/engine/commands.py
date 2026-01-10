@@ -32,7 +32,7 @@ class SingleOrderMeta(CustomBaseModel):
     limit_price: float | None = Field(None, gt=0.0)
     stop_price: float | None = Field(None, gt=0.0)
 
-    @field_validator("quantity", mode='after')
+    @field_validator("quantity", mode="after")
     def validate_quantity(cls, v):
         v = round(v, 2)
         if v:
@@ -76,12 +76,6 @@ class ModifyOrderCommand(CommandBase):
     order_id: str
     limit_price: float | None = Field(None, gt=0.0)
     stop_price: float | None = Field(None, gt=0.0)
-
-
-class NewInstrumentCommand(CommandBase):
-    type: Literal[CommandType.NEW_INSTRUMENT] = CommandType.NEW_INSTRUMENT
-    symbol: str
-    price: float
 
 
 CommandT: TypeAlias = Union[

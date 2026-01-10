@@ -4,8 +4,15 @@ import time
 from multiprocessing import Process, Queue
 from multiprocessing.dummy import Value
 
-from engine.runners import OrderEventHandlerRunner, EngineRouterRunner
-from runners import run_runner
+from sqlalchemy import select
+
+from config import HEARTBEAT_SERVER_HOST, HEARTBEAT_SERVER_PORT
+from db_models import Instruments
+from engine.engine_orchestrator import EngineOrchestrator
+from engine.enums import InstrumentStatus
+from engine.runners import ServicesRunner
+from infra.db import get_db_sess_sync
+from runners import run_runner, RunnerConfig
 
 
 @click.group()
@@ -14,26 +21,50 @@ def engine():
     pass
 
 
+def get_symbols(limit: int = 1):
+    if limit < 1:
+        raise ValueError("limit must be >= 1")
+    with get_db_sess_sync() as db_sess:
+        symbols = db_sess.scalars(
+            select(Instruments.symbol).where(
+                Instruments.status == InstrumentStatus.DEAD
+            ).limit(limit)
+        ).all()
+    return symbols
+
+
 @engine.command(name="run")
 def engine_run():
     logger = logging.getLogger("main")
-    queue = Queue()
-    watchdog_ts = Value("i", int(time.time()))
 
-    configs = (
-        (OrderEventHandlerRunner, (), {}),
-        (EngineRouterRunner, (queue, watchdog_ts), {}),
-        # (HeartbeatRunner, (queue, watchdog_ts), {}),
+    symbols = get_symbols(limit=1)
+    if not symbols:
+        logger.info("No symbols to launch engines for")
+        return
+
+    logger.info(f"Launching engines for symbols: {", ".join(symbols)}")
+
+    configs = tuple(
+        RunnerConfig(
+            cls=EngineOrchestrator,
+            args=(),
+            kwargs={
+                "symbol": symbol,
+                "shadow_kwargs": {
+                    "heartbeat_host": HEARTBEAT_SERVER_HOST,
+                    "heartbeat_port": HEARTBEAT_SERVER_PORT,
+                },
+            },
+            name=f"EngineOrchestrator-{symbol}",
+        )
+        for symbol in symbols
     )
 
+    configs = tuple(configs)
+
     ps = [
-        Process(
-            target=run_runner,
-            args=(runner_cls, *args),
-            kwargs=kwargs,
-            name=runner_cls.__name__,
-        )
-        for runner_cls, args, kwargs in configs
+        Process(target=run_runner, args=conf.args, kwargs=conf.kwargs, name=conf.name)
+        for conf in configs
     ]
 
     for p in ps:
@@ -41,7 +72,7 @@ def engine_run():
 
     try:
         while True:
-            for i, p in enumerate(ps):
+            for p in ps:
                 if not p.is_alive():
                     raise RuntimeError(f"Process '{p.name}' has died unexpectedly!")
             time.sleep(0.5)

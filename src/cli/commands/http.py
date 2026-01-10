@@ -4,7 +4,8 @@ import time
 
 import click
 
-from runners import run_runner, ServerRunner, OrderBookSnapshotRunner, EngineHeartbeatRunner
+from engine.runners import ServicesRunner
+from runners import run_runner, ServerRunner, RunnerConfig
 
 
 @click.group()
@@ -18,19 +19,20 @@ def http_run():
     logger = logging.getLogger("main")
 
     configs = (
-        (ServerRunner, (), {"host": "0.0.0.0", "port": 8000}),
-        # (OrderBookSnapshotRunner, (), {}),
-        # (EngineHeartbeatRunner, (), {}),
+        RunnerConfig(cls=ServicesRunner, args=(), kwargs={}, name="ServicesRunner"),
+        RunnerConfig(
+            cls=ServerRunner,
+            args=(),
+            kwargs={"host": "0.0.0.0", "port": 8000},
+            name="ServerRunner",
+        ),
     )
 
     ps = [
         multiprocessing.Process(
-            target=run_runner,
-            args=(runner_cls, *args),
-            kwargs=kwargs,
-            name=runner_cls.__name__,
+            target=run_runner, args=conf.args, kwargs=conf.kwargs, name=conf.name
         )
-        for runner_cls, args, kwargs in configs
+        for conf in configs
     ]
 
     for p in ps:
@@ -39,18 +41,9 @@ def http_run():
 
     try:
         while True:
-            for ind, p in enumerate(ps):
+            for p in ps:
                 if not p.is_alive():
                     logger.info(f"Process '{p.name}' has died")
-                    # p.kill()
-                    # p.join()
-                    # runner_cls, args, kwargs = configs[ind]
-                    # ps[ind] = multiprocessing.Process(
-                    #     target=run_runner, args=(runner_cls, *args), kwargs=kwargs, name=runner_cls.__name__
-                    # )
-                    # ps[ind].start()
-
-                    # logger.info("[INFO]: Restarted process for", p.name)
                     raise Exception
 
             time.sleep(0.5)

@@ -3,6 +3,7 @@ import json
 from redis.asyncio import Redis
 from config import (
     KAFKA_BALANCE_EVENTS_TOPIC,
+    KAFKA_ENGINE_EVENTS_TOPIC,
     KAFKA_INSTRUMENT_EVENTS_TOPIC,
     KAFKA_ORDER_EVENTS_TOPIC,
 )
@@ -13,14 +14,9 @@ from infra.kafka import AsyncKafkaProducer, AsyncKafkaConsumer
 
 
 class KafkaFanout:
-    def __init__(
-        self,
-        kafka_producer: AsyncKafkaProducer,
-        kafka_consumer: AsyncKafkaConsumer,
-        redis_client: Redis,
-    ):
-        self._kafka_producer = kafka_producer
-        self._kafka_consumer = kafka_consumer
+    def __init__(self, redis_client: Redis):
+        self._kafka_producer = AsyncKafkaProducer()
+        self._kafka_consumer = AsyncKafkaConsumer(KAFKA_ENGINE_EVENTS_TOPIC)
         self._redis_client = redis_client
         self._category_2_topic: dict[str, str] = {}
         self._task: asyncio.Task | None = None
