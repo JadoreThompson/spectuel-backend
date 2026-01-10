@@ -27,7 +27,7 @@ from .exc import OrderServiceError
 
 class OrderService:
     _producer: AsyncKafkaProducer | None = None
-    _closed = True
+    _closed = False
 
     @classmethod
     async def start(cls):
@@ -167,14 +167,14 @@ class OrderService:
 
         parent_id = uuid.uuid4()
         db_parent = OrderService._build_db_order(
-            user_id, details.symbol, details.parent, parent_id
+            details.symbol, user_id, details.parent, parent_id
         )
         db_parent.order_group_id = group_id
         db_sess.add(db_parent)
 
         child_id = uuid.uuid4()
         db_child = OrderService._build_db_order(
-            user_id, details.symbol, details.child, child_id
+            details.symbol, user_id, details.child, child_id
         )
         db_child.order_group_id = group_id
         db_child.parent_order_id = parent_id
@@ -205,7 +205,7 @@ class OrderService:
         symbol = details.parent.symbol
 
         parent_id = uuid.uuid4()
-        db_parent = OrderService._build_db_order(user_id, details.parent, parent_id)
+        db_parent = OrderService._build_db_order(symbol, user_id, details.parent, parent_id)
         db_parent.order_group_id = group_id
         db_sess.add(db_parent)
 
@@ -216,7 +216,7 @@ class OrderService:
             leg_id = uuid.uuid4()
             child_ids.append(str(leg_id))
 
-            db_leg = OrderService._build_db_order(user_id, symbol, leg_spec, leg_id)
+            db_leg = OrderService._build_db_order(symbol, user_id, leg_spec, leg_id)
             db_leg.order_group_id = group_id
             db_leg.parent_order_id = parent_id
             db_sess.add(db_leg)
