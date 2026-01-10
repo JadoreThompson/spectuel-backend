@@ -1,5 +1,7 @@
 from typing import Literal
+from uuid import UUID
 
+from engine.enums import LiquidityRole
 from engine.events import EngineEventBase
 from .enums import InstrumentEventType
 
@@ -9,20 +11,12 @@ class InstrumentEventBase(EngineEventBase):
     symbol: str
 
 
-class NewInstrumentEvent(InstrumentEventBase):
-    type: Literal[InstrumentEventType.NEW_INSTRUMENT] = (
-        InstrumentEventType.NEW_INSTRUMENT
+class InstrumentEngineCreatedEvent(InstrumentEventBase):
+    """Emitted when an engine for an instrument has been created"""
+
+    type: Literal[InstrumentEventType.ENGINE_CREATED] = (
+        InstrumentEventType.ENGINE_CREATED
     )
-
-
-class InstrumentPriceEvent(InstrumentEventBase):
-    type: Literal[InstrumentEventType.PRICE] = InstrumentEventType.PRICE
-    price: float
-
-
-class InstrumentHeartbeatEvent(InstrumentEventBase):
-    type: Literal[InstrumentEventType.HEARTBEAT] = InstrumentEventType.HEARTBEAT
-    status: Literal["alive", "dead"]
 
 
 class OrderbookSnapshotEvent(InstrumentEventBase):
@@ -32,3 +26,12 @@ class OrderbookSnapshotEvent(InstrumentEventBase):
     # Format [[price, quantity], [price, quantity]]
     bids: list[tuple[float, float]]
     asks: list[tuple[float, float]]
+
+
+class NewTradeEvent(InstrumentEventBase):
+    type: Literal[InstrumentEventType.NEW_TRADE] = InstrumentEventType.NEW_TRADE
+    command_id: str
+    order_id: UUID
+    role: LiquidityRole
+    quantity: float
+    price: float

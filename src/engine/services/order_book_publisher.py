@@ -8,24 +8,19 @@ from typing import NamedTuple
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from sqlalchemy import select
 
-from config import (
-    KAFKA_BOOTSTRAP_SERVERS,
-    KAFKA_TRADE_EVENTS_TOPIC,
-    KAFKA_ORDER_EVENTS_TOPIC,
-    KAFKA_INSTRUMENT_EVENTS_TOPIC,
-)
+from config import KAFKA_ORDER_EVENTS_TOPIC, KAFKA_INSTRUMENT_EVENTS_TOPIC
 from db_models import Orders
-from engine.enums import Side, LiquidityRole, OrderStatus
+from engine.enums import InstrumentEventType, Side, LiquidityRole, OrderStatus
 from engine.events import (
     NewTradeEvent,
     OrderPlacedEvent,
     OrderCancelledEvent,
     OrderbookSnapshotEvent,
 )
-from engine.events.enums import TradeEventType, OrderEventType
+from engine.events.enums import OrderEventType
 from engine.enums import OrderType
 from infra.db import get_db_sess
-from .base import BaseRunner
+from infra.kafka import AsyncKafkaConsumer, AsyncKafkaProducer
 
 
 class OrderInfo(NamedTuple):
@@ -47,9 +42,9 @@ class BookState:
         self.last_snapshot_ts: float = 0.0
 
 
-class OrderBookSnapshotRunner(BaseRunner):
+class OrderBookPublisher:
     def __init__(self, snapshot_interval: float = 0.5):
-        self._logger = logging.getLogger(self.__class__.__name__)
+        self._logger = logging.getLogger(type(self).__name__)
         self._snapshot_interval = snapshot_interval
 
         # State
@@ -59,23 +54,16 @@ class OrderBookSnapshotRunner(BaseRunner):
         self._producer: AIOKafkaProducer | None = None
         self._consumer: AIOKafkaConsumer | None = None
 
-    def run(self) -> None:
-        """Entry point called by multiprocessing.Process."""
-        asyncio.run(self._async_run())
-
-    async def _async_run(self) -> None:
-        self._logger.info("OrderBook Snapshot Runner starting (Async)...")
-
+    async def run(self) -> None:
         await self._rehydrate_state()
 
-        self._consumer = AIOKafkaConsumer(
-            KAFKA_TRADE_EVENTS_TOPIC,
+        self._consumer = AsyncKafkaConsumer(
+            KAFKA_INSTRUMENT_EVENTS_TOPIC,
             KAFKA_ORDER_EVENTS_TOPIC,
-            bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-            group_id="orderbook_snapshotter_v2_async",
+            group_id="orderbook_publisher_group",
             auto_offset_reset="latest",
         )
-        self._producer = AIOKafkaProducer(bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS)
+        self._producer = AsyncKafkaProducer()
 
         await self._consumer.start()
         await self._producer.start()
@@ -84,10 +72,8 @@ class OrderBookSnapshotRunner(BaseRunner):
 
         try:
             await asyncio.gather(self._consume_loop(), self._snapshot_loop())
-        except asyncio.CancelledError:
-            self._logger.info("Runner cancelled.")
-        except Exception as e:
-            self._logger.exception(f"Fatal error in runner: {e}")
+        except Exception:
+            self._logger.error("An error occurred", exc_info=True)
         finally:
             await self._consumer.stop()
             await self._producer.stop()
@@ -103,35 +89,34 @@ class OrderBookSnapshotRunner(BaseRunner):
         async with get_db_sess() as session:
             stmt = select(Orders).where(
                 Orders.status.in_(
-                    (OrderStatus.PENDING.value, OrderStatus.PARTIALLY_FILLED.value)
+                    (OrderStatus.PLACED.value, OrderStatus.PARTIALLY_FILLED.value)
                 ),
                 Orders.order_type != OrderType.MARKET,
             )
             result = await session.scalars(stmt)
 
             for order in result:
-                remaining = order.quantity - order.executed_quantity
+                remaining_qty = order.quantity - order.executed_quantity
 
-                if remaining > 0:
-                    inst_id = str(order.instrument_id)
+                if remaining_qty > 0:
+                    symbol = order.symbol
                     order_id = str(order.order_id)
 
                     # Ensure book exists
-                    if inst_id not in self._books:
-                        self._books[inst_id] = BookState()
+                    if symbol not in self._books:
+                        self._books[symbol] = BookState()
 
-                    book = self._books[inst_id]
+                    book = self._books[symbol]
                     price = order.limit_price or order.stop_price
                     if order.side == Side.BID:
-                        book.bids[price] += remaining
+                        book.bids[price] += remaining_qty
                     else:
-                        book.asks[price] += remaining
+                        book.asks[price] += remaining_qty
 
                     self._active_orders[order_id] = OrderInfo(
-                        price=price,
-                        side=Side(order.side),
-                        remaining_qty=remaining,
+                        price=price, side=Side(order.side), remaining_qty=remaining_qty
                     )
+
                     count += 1
 
         self._logger.info(f"Rehydration complete. Loaded {count} active orders.")
@@ -146,7 +131,7 @@ class OrderBookSnapshotRunner(BaseRunner):
                     await self._handle_order_placed(data)
                 elif event_type == OrderEventType.ORDER_CANCELLED:
                     await self._handle_order_cancelled(data)
-                elif event_type == TradeEventType.NEW_TRADE:
+                elif event_type == InstrumentEventType.NEW_TRADE:
                     await self._handle_trade(data)
 
             except (json.JSONDecodeError, ValueError):

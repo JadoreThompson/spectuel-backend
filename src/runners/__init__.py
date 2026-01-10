@@ -2,7 +2,7 @@ from typing import Type
 
 from .base import BaseRunner
 from .engine_heartbeat_runner import EngineHeartbeatRunner
-from .orderbook_snapshot_runner import OrderBookSnapshotRunner
+from .orderbook_publisher_runner import OrderbookPublisherRunner
 from .server_runner import ServerRunner
 
 

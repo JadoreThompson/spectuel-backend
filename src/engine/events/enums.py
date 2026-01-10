@@ -2,10 +2,17 @@ from enum import Enum
 
 
 class InstrumentEventType(str, Enum):
-    NEW_INSTRUMENT = "new"  # Instrument appended to the engine
-    PRICE = "price"
-    HEARTBEAT = "heartbeat"
+    ENGINE_CREATED = "engine_created"
     ORDERBOOK_SNAPSHOT = "orderbook_snapshot"
+    NEW_TRADE = "new_trade"
+
+
+class OrderbookEventType(str, Enum):
+    SNAPSHOT = "snapshot"
+
+
+class TradeEventType(str, Enum):
+    NEW_TRADE = "new_trade"
 
 
 class OrderEventType(str, Enum):
@@ -15,10 +22,6 @@ class OrderEventType(str, Enum):
     ORDER_MODIFIED = "modified"
     ORDER_MODIFY_REJECTED = "modify_rejected"
     ORDER_CANCELLED = "order_cancelled"
-
-
-class TradeEventType(str, Enum):
-    NEW_TRADE = "new"
 
 
 class BalanceEventType(str, Enum):

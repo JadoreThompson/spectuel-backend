@@ -40,13 +40,12 @@ class OrderStatus(str, Enum):
 
 class InstrumentEventType(str, Enum):
     PRICE = "price"
-    TRADES = "trades"
-    ORDERBOOK = "orderbook"
+    NEW_TRADE = "trades"
+    ORDERBOOK_SNAPSHOT = "orderbook"
 
 
 class InstrumentStatus(str, Enum):
     DEAD = "dead"
-    RESTORING = 'restoring'
     ALIVE = "alive"
 
 

@@ -1,5 +1,6 @@
 from engine.config import SYSTEM_USER_ID
 from engine.enums import (
+    InstrumentEventType,
     MatchOutcome,
     LiquidityRole,
     OrderType,
@@ -249,7 +250,7 @@ class SpotEngine(EngineBase):
         self._ctx.engine_logger.log_trade_event(
             taker_order.user_id,
             id=taker_trade_event_id,
-            type=TradeEventType.NEW_TRADE,
+            type=InstrumentEventType.NEW_TRADE,
             order_id=taker_order.id,
             symbol=ctx.symbol,
             quantity=quantity,
@@ -260,7 +261,7 @@ class SpotEngine(EngineBase):
         self._ctx.engine_logger.log_trade_event(
             maker_order.user_id,
             id=maker_trade_event_id,
-            type=TradeEventType.NEW_TRADE,
+            type=InstrumentEventType.NEW_TRADE,
             order_id=maker_order.id,
             symbol=ctx.symbol,
             quantity=quantity,

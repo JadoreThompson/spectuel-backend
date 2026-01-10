@@ -7,11 +7,11 @@ from typing import Any, Callable, Union
 from config import (
     KAFKA_BALANCE_EVENTS_TOPIC,
     KAFKA_ENGINE_EVENTS_TOPIC,
+    KAFKA_INSTRUMENT_EVENTS_TOPIC,
     KAFKA_ORDER_EVENTS_TOPIC,
-    KAFKA_TRADE_EVENTS_TOPIC,
 )
-from engine.config import WAL_FPATH
 from engine.decorators import ignore_system_user
+from engine.enums import InstrumentEventType
 from engine.events import (
     EngineEventBase,
     AssetBalanceDecreasedEvent,
@@ -111,25 +111,6 @@ class EngineLogger:
     @property
     def name(self) -> str:
         return self._name
-
-    @classmethod
-    def _ensure_file(cls) -> TextIOWrapper:
-        if cls._log_file is None:
-            cls._log_file = open(WAL_FPATH, "a")
-        return cls._log_file
-
-    @classmethod
-    def set_file(cls, file: TextIOWrapper) -> None:
-        """
-        Set the WAL file handle once. The file must be opened in append mode.
-        """
-        if not isinstance(file, TextIOWrapper):
-            raise TypeError(f"set_file expects a TextIOWrapper, received {type(file)}")
-
-        if "a" not in file.mode:
-            raise ValueError("WAL file must be opened in append mode ('a' or 'a+')")
-
-        cls._log_file = file
 
     def log_event(
         self, event: dict | EngineEventBase, kafka_kwargs: dict | None = None
@@ -269,6 +250,6 @@ class EngineLogger:
             return KAFKA_ORDER_EVENTS_TOPIC
         if isinstance(event_type, BalanceEventType):
             return KAFKA_BALANCE_EVENTS_TOPIC
-        if isinstance(event_type, TradeEventType):
-            return KAFKA_TRADE_EVENTS_TOPIC
+        if isinstance(event_type, InstrumentEventType):
+            return KAFKA_INSTRUMENT_EVENTS_TOPIC
         raise ValueError(f"Topic for '{event_type}' not found")

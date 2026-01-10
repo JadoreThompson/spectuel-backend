@@ -3,10 +3,11 @@ import json
 from redis.asyncio import Redis
 from config import (
     KAFKA_BALANCE_EVENTS_TOPIC,
+    KAFKA_INSTRUMENT_EVENTS_TOPIC,
     KAFKA_ORDER_EVENTS_TOPIC,
-    KAFKA_TRADE_EVENTS_TOPIC,
 )
-from engine.events import BalanceEventType, OrderEventType, TradeEventType
+from engine.enums import InstrumentEventType
+from engine.events import BalanceEventType, OrderEventType
 from engine.types import EngineEventCategory
 from infra.kafka import AsyncKafkaProducer, AsyncKafkaConsumer
 
@@ -28,7 +29,7 @@ class KafkaFanout:
         for enum_type, topic in (
             (BalanceEventType, KAFKA_BALANCE_EVENTS_TOPIC),
             (OrderEventType, KAFKA_ORDER_EVENTS_TOPIC),
-            (TradeEventType, KAFKA_TRADE_EVENTS_TOPIC),
+            (InstrumentEventType, KAFKA_INSTRUMENT_EVENTS_TOPIC),
         ):
             vals = enum_type.__members__.values()
             self._category_2_topic.update({val: topic for val in vals})

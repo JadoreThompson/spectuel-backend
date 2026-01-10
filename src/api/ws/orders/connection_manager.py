@@ -12,7 +12,6 @@ from config import (
     KAFKA_BALANCE_EVENTS_TOPIC,
     KAFKA_BOOTSTRAP_SERVERS,
     KAFKA_ORDER_EVENTS_TOPIC,
-    KAFKA_TRADE_EVENTS_TOPIC,
 )
 from services import JWTService
 from infra.redis import REDIS_CLIENT
@@ -20,7 +19,7 @@ from infra.redis import REDIS_CLIENT
 SubscriptionTopic = Literal["balance", "order", "trade"]
 
 
-class ConnectionPayload:
+class ConnectionMeta:
     def __init__(self, ws: WebSocket, jwt: JWTPayload, topics: set[SubscriptionTopic]):
         self.ws = ws
         self.jwt = jwt
@@ -30,7 +29,7 @@ class ConnectionPayload:
 
 class ConnectionManager:
     def __init__(self):
-        self._conns: dict[UUID, ConnectionPayload] = {}
+        self._conns: dict[UUID, ConnectionMeta] = {}
         self._task: asyncio.Task | None = None
         self._is_running = False
 
@@ -51,7 +50,8 @@ class ConnectionManager:
         consumer = AIOKafkaConsumer(
             KAFKA_ORDER_EVENTS_TOPIC,
             KAFKA_BALANCE_EVENTS_TOPIC,
-            KAFKA_TRADE_EVENTS_TOPIC,
+            # KAFKA_TRADE_EVENTS_TOPIC,
+            KAFKA_INSTRUMENT_EVENTS_TOPIC,
             bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
             enable_auto_commit=True,
         )
@@ -100,7 +100,7 @@ class ConnectionManager:
                 old_conn = self._conns.pop(jwt.sub)
                 await old_conn.ws.close()
 
-            self._conns[jwt.sub] = ConnectionPayload(ws=ws, jwt=jwt, topics=set())
+            self._conns[jwt.sub] = ConnectionMeta(ws=ws, jwt=jwt, topics=set())
             return jwt.sub
 
         except asyncio.TimeoutError:
