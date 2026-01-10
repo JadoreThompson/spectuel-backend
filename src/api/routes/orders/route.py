@@ -5,11 +5,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import depends_jwt, depends_db_sess
+from api.routes.orders.controller import put_command
 from api.shared.models import PaginatedResponse
 from api.types import JWTPayload
 from config import PAGE_SIZE
 from db_models import Orders
-from engine.enums import OrderStatus, Side
+from engine.commands import CancelOrderCommand, ModifyOrderCommand
+from engine.enums import CommandType, OrderStatus, Side
 from services import OrderService
 from .models import (
     OCOOrderCreate,
@@ -87,7 +89,7 @@ async def create_otoco_order(
 @route.get("/", response_model=PaginatedResponse[OrderRead])
 async def get_orders(
     page: int = Query(1, ge=1),
-    instrument: list[str] = Query(default_factory=list),
+    symbols: list[str] = Query(default_factory=list),
     status: list[OrderStatus] = Query(default_factory=list),
     side: list[Side] = Query(default_factory=list),
     jwt: JWTPayload = Depends(depends_jwt()),
@@ -99,8 +101,8 @@ async def get_orders(
     """
     query = select(Orders).where(Orders.user_id == jwt.sub)
 
-    if instrument:
-        query = query.where(Orders.instrument_id.in_(instrument))
+    if symbols:
+        query = query.where(Orders.symbol.in_(symbols))
     if status:
         query = query.where(Orders.status.in_([s.value for s in status]))
     if side:
@@ -139,6 +141,45 @@ async def get_order(
     return OrderRead(**dumped)
 
 
+@route.get(
+    "/groups/{group_id}",
+    response_model=list[OrderRead],
+    summary="Get all orders in an order group",
+)
+async def get_orders_by_group(
+    group_id: UUID,
+    jwt: JWTPayload = Depends(depends_jwt()),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    """
+    Retrieves all orders belonging to a specific order group
+    for the authenticated user.
+    """
+    result = await db_sess.execute(
+        select(Orders)
+        .where(
+            Orders.order_group_id == group_id,
+            Orders.user_id == jwt.sub,
+        )
+        .order_by(Orders.created_at.asc())
+    )
+
+    orders = result.scalars().all()
+
+    if not orders:
+        raise HTTPException(status_code=404, detail="Order group not found")
+
+    res = []
+    for o in orders:
+        dumped = vars(o)
+        key = '_sa_instance_state'
+        if key in dumped:
+            dumped.pop(key)
+        res.append(OrderRead(**dumped))
+    
+    return res
+
+
 @route.patch("/{order_id}", status_code=202, summary="Modify an active order")
 async def modify_order(
     order_id: UUID,
@@ -163,7 +204,7 @@ async def modify_order(
         limit_price=details.limit_price,
         stop_price=details.stop_price,
     )
-    await command_bus.put_async(command)
+    await put_command(command)
 
 
 @route.delete("/{order_id}", status_code=202, summary="Cancel a specific order")
@@ -184,19 +225,7 @@ async def cancel_order(
         version=1,
         type=CommandType.CANCEL_ORDER,
         order_id=str(order_id),
-        instrument_id=order.instrument_id,
+        instrument_id=order.symbol,
     )
 
-    await command_bus.put_async(cmd_data)
-
-
-@route.delete(
-    "/symbol", status_code=202, summary="Cancel all active orders for the user"
-)
-async def cancel_all_orders(
-    symbol: str | None,
-    jwt: JWTPayload = Depends(depends_jwt()),
-    db_sess: AsyncSession = Depends(depends_db_sess),
-):
-    """Sends requests to cancel all PENDING or PARTIALLY_FILLED orders."""
-    await cancel_all_orders_controller(jwt.sub, db_sess)
+    await put_command(cmd_data)

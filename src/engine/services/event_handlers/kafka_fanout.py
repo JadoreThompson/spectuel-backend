@@ -47,16 +47,18 @@ class KafkaFanout:
                         event_category: EngineEventCategory = v.decode()
                         topic = self._category_2_topic.get(event_category)
 
-                        if topic is not None:
-                            await self._kafka_producer.send_and_wait(
-                                topic,
-                                msg.value,
-                                headers=msg.headers,
-                            )
+                        if topic is None:
+                            continue
 
-                            if event_category == "trade":
-                                event = json.loads(msg.value.decode())
-                                await self._set_price(event["symbol"], event["price"])
+                        await self._kafka_producer.send_and_wait(
+                            topic,
+                            msg.value,
+                            headers=msg.headers,
+                        )
+
+                        if event_category == "trade":
+                            event = json.loads(msg.value.decode())
+                            await self._set_price(event["symbol"], event["price"])
         finally:
             await self._kafka_producer.stop()
             await self._kafka_consumer.stop()
