@@ -1,16 +1,15 @@
 import asyncio
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import distinct, func, select
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import distinct, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import depends_jwt, depends_db_sess
 from api.types import JWTPayload
 from engine.services.balance_manager import BalanceManager
-from db_models import AssetBalances, Orders, Trades, Users
+from db_models import Orders
 from engine.utils import get_asset_balance_key
 from infra.redis.client import REDIS_CLIENT
-from .controller import get_portfolio_history
-from .models import HistoryInterval, PortfolioHistory, UserOverviewResponse
+from .models import UserOverviewResponse
 
 
 route = APIRouter(prefix="/user", tags=["user"])

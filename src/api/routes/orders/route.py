@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import depends_jwt, depends_db_sess
-from api.routes.orders.controller import put_command
+from api.utils import put_command
 from api.shared.models import PaginatedResponse
 from api.types import JWTPayload
 from config import PAGE_SIZE
