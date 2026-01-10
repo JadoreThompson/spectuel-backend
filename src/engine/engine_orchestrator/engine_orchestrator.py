@@ -86,10 +86,11 @@ class EngineOrchestrator:
 
                 self._engine.handle_command(cmd)
 
-        except Exception:
+        except:
             self._logger.error(
                 f"Error handling command for {self._symbol} - {cmd}", exc_info=True
             )
+            raise
 
     def _create_shadow(self) -> None:
         """
