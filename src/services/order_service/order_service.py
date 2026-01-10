@@ -1,7 +1,6 @@
 import uuid
 from typing import Union
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.routes.orders.models import (
@@ -12,8 +11,9 @@ from api.routes.orders.models import (
     OrderBase,
 )
 from config import KAFKA_ENGINE_EVENTS_TOPIC
-from db_models import AssetBalances, Orders, Users
+from db_models import Orders
 from engine.commands import (
+    NewOrderCommandBase,
     NewSingleOrderCommand,
     NewOCOOrderCommand,
     NewOTOOrderCommand,
@@ -21,13 +21,11 @@ from engine.commands import (
     SingleOrderMeta,
 )
 from engine.enums import OrderStatus, StrategyType
-from engine.services.command_bus import CommandBus
 from infra.kafka import AsyncKafkaProducer
 from .exc import OrderServiceError
 
 
 class OrderService:
-    # _command_bus: CommandBus | None = None
     _producer: AsyncKafkaProducer | None = None
     _closed = True
 
@@ -57,9 +55,6 @@ class OrderService:
         Main entry point for order creation. Dispatches to specific handlers based on strategy type.
         """
         user_id = uuid.UUID(str(user_id))
-        # if cls._command_bus is None:
-        #     cls._command_bus = CommandBus()
-        #     await cls._command_bus.initialise_async()
 
         if details.strategy_type == StrategyType.SINGLE:
             return await cls._create_single(user_id, details, db_sess)
@@ -109,12 +104,7 @@ class OrderService:
             **meta.model_dump(),
         )
 
-        # await cls._command_bus.put_async(command)
-        await cls._producer.send(
-            KAFKA_ENGINE_EVENTS_TOPIC,
-            command.model_dump_json(),
-            key=command.symbol.encode(),
-        )
+        await cls._send_command(command)
 
         return {"order_id": str(order_id), "status": "accepted"}
 
@@ -164,12 +154,8 @@ class OrderService:
             strategy_type=StrategyType.OCO,
             legs=legs_meta,
         )
-        # await cls._command_bus.put_async(command)
-        await cls._producer.send(
-            KAFKA_ENGINE_EVENTS_TOPIC,
-            command.model_dump_json(),
-            key=command.symbol.encode(),
-        )
+
+        await cls._send_command(command)
 
         return {"group_id": str(group_id), "legs": leg_ids}
 
@@ -184,7 +170,6 @@ class OrderService:
             user_id, details.symbol, details.parent, parent_id
         )
         db_parent.order_group_id = group_id
-        db_parent.group_type = StrategyType.OTO
         db_sess.add(db_parent)
 
         child_id = uuid.uuid4()
@@ -193,7 +178,6 @@ class OrderService:
         )
         db_child.order_group_id = group_id
         db_child.parent_order_id = parent_id
-        db_child.group_type = StrategyType.OTO
         db_sess.add(db_child)
 
         await db_sess.commit()
@@ -204,12 +188,8 @@ class OrderService:
             parent=OrderService._to_meta(parent_id, user_id, details.parent),
             child=OrderService._to_meta(child_id, user_id, details.child),
         )
-        # await cls._command_bus.put_async(command)
-        await cls._producer.send(
-            KAFKA_ENGINE_EVENTS_TOPIC,
-            command.model_dump_json(),
-            key=command.symbol.encode(),
-        )
+
+        await cls._send_command(command)
 
         return {
             "group_id": str(group_id),
@@ -227,7 +207,6 @@ class OrderService:
         parent_id = uuid.uuid4()
         db_parent = OrderService._build_db_order(user_id, details.parent, parent_id)
         db_parent.order_group_id = group_id
-        db_parent.group_type = StrategyType.OTOCO
         db_sess.add(db_parent)
 
         child_ids = []
@@ -240,7 +219,6 @@ class OrderService:
             db_leg = OrderService._build_db_order(user_id, symbol, leg_spec, leg_id)
             db_leg.order_group_id = group_id
             db_leg.parent_order_id = parent_id
-            db_leg.group_type = StrategyType.OTOCO
             db_sess.add(db_leg)
 
             legs_meta.append(OrderService._to_meta(leg_id, user_id, leg_spec))
@@ -253,55 +231,13 @@ class OrderService:
             parent=OrderService._to_meta(parent_id, user_id, details.parent),
             oco_legs=legs_meta,
         )
-        # await cls._command_bus.put_async(command)
-        await cls._producer.send(
-            KAFKA_ENGINE_EVENTS_TOPIC,
-            command.model_dump_json(),
-            key=command.symbol.encode(),
-        )
+        await cls._send_command(command)
 
         return {
             "group_id": str(group_id),
             "parent_id": str(parent_id),
             "legs": child_ids,
         }
-
-    @classmethod
-    async def _escrow_bid(cls, value: float, user_id: uuid.UUID, db_sess: AsyncSession):
-        user = await db_sess.get(Users, user_id)
-        available_balance = user.cash_balance - user.escrow_balance
-        if available_balance < value:
-            raise OrderServiceError("Insufficient balance")
-
-        user.escrow_balance += value
-        db_sess.add(user)
-
-    @classmethod
-    async def _escrow_ask(
-        cls, quantity: float, user_id: uuid.UUID, symbol: str, db_sess: AsyncSession
-    ):
-        asset_balance = await db_sess.scalar(
-            select(AssetBalances).where(
-                AssetBalances.user_id == user_id,
-                AssetBalances.symbol == symbol,
-            )
-        )
-        if asset_balance is None:
-            asset_balance = AssetBalances(
-                symbol=symbol,
-                user_id=user_id,
-                balance=0.0,
-                escrow_balance=0.0,
-            )
-            db_sess.add(asset_balance)
-
-        available_balance = asset_balance.balance - asset_balance.escrow_balance
-        if available_balance < quantity:
-            raise OrderServiceError("Insufficient balance")
-
-        asset_balance.escrow_balance += quantity
-
-        return
 
     @classmethod
     def _build_db_order(
@@ -333,4 +269,12 @@ class OrderService:
             quantity=details.quantity,
             limit_price=details.limit_price,
             stop_price=details.stop_price,
+        )
+
+    @classmethod
+    async def _send_command(cls, command: NewOrderCommandBase) -> None:
+        await cls._producer.send(
+            KAFKA_ENGINE_EVENTS_TOPIC,
+            command.model_dump_json(),
+            key=command.symbol.encode(),
         )

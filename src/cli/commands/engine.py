@@ -10,7 +10,6 @@ from config import HEARTBEAT_SERVER_HOST, HEARTBEAT_SERVER_PORT
 from db_models import Instruments
 from engine.engine_orchestrator import EngineOrchestrator
 from engine.enums import InstrumentStatus
-from engine.runners import ServicesRunner
 from infra.db import get_db_sess_sync
 from runners import run_runner, RunnerConfig
 

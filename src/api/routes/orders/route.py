@@ -172,11 +172,11 @@ async def get_orders_by_group(
     res = []
     for o in orders:
         dumped = vars(o)
-        key = '_sa_instance_state'
+        key = "_sa_instance_state"
         if key in dumped:
             dumped.pop(key)
         res.append(OrderRead(**dumped))
-    
+
     return res
 
 
@@ -225,7 +225,7 @@ async def cancel_order(
         version=1,
         type=CommandType.CANCEL_ORDER,
         order_id=str(order_id),
-        instrument_id=order.symbol,
+        symbol=order.symbol,
     )
 
     await put_command(cmd_data)

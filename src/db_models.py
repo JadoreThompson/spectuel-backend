@@ -19,11 +19,9 @@ from engine.enums import (
     OrderType,
     InstrumentStatus,
     OrderStatus,
-    Side,
-    LiquidityRole,
+    Side
 )
-from enums import OrderGroupType
-from utils import gen_api_key, get_default_cash_balance
+from utils import gen_api_key
 
 
 def uuid_pk():
@@ -66,13 +64,6 @@ class Users(Base):
     )
 
     orders = relationship("Orders", back_populates="user", cascade="all, delete-orphan")
-    trades = relationship("Trades", back_populates="user", cascade="all, delete-orphan")
-    transactions = relationship(
-        "Transactions", back_populates="user", cascade="all, delete-orphan"
-    )
-    asset_balances = relationship(
-        "AssetBalances", back_populates="user", cascade="all, delete-orphan"
-    )
 
 
 class Instruments(Base):
@@ -113,8 +104,6 @@ class Orders(Base):
         String, nullable=False, default=OrderStatus.PENDING.value
     )
 
-    group_type: Mapped[OrderGroupType | None] = mapped_column(String, nullable=True)
-
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("NOW()")
     )
@@ -126,67 +115,6 @@ class Orders(Base):
     )
 
     user = relationship("Users", back_populates="orders")
-    trades = relationship(
-        "Trades", back_populates="order", cascade="all, delete-orphan"
-    )
-
-
-class Trades(Base):
-    __tablename__ = "trades"
-
-    trade_id: Mapped[uuid.UUID] = uuid_pk()
-    order_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("orders.order_id"), nullable=False
-    )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
-    )
-    symbol: Mapped[str] = mapped_column(String, nullable=False)
-    price: Mapped[float] = mapped_column(Float, nullable=False)
-    quantity: Mapped[float] = mapped_column(Float, nullable=False)
-    role: Mapped[LiquidityRole] = mapped_column(String, nullable=False)
-
-    executed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=text("NOW()")
-    )
-
-    order = relationship("Orders", back_populates="trades")
-    user = relationship("Users", back_populates="trades")
-
-
-class AssetBalances(Base):
-    __tablename__ = "asset_balances"
-
-    asset_balance_id: Mapped[uuid.UUID] = uuid_pk()
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.user_id")
-    )
-    symbol: Mapped[str] = mapped_column(String, nullable=False)
-
-    # Use balance_field for both balance and escrow_balance
-    balance: Mapped[float] = balance_field(default=0.00)
-    escrow_balance: Mapped[float] = balance_field(default=0.00)
-
-    user = relationship("Users", back_populates="asset_balances")
-
-
-class Transactions(Base):
-    __tablename__ = "transactions"
-
-    transaction_id: Mapped[uuid.UUID] = uuid_pk()
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
-    )
-    amount: Mapped[float] = mapped_column(Float, nullable=False)
-    transaction_type: Mapped[str] = mapped_column(String, nullable=False)
-    related_id: Mapped[str] = mapped_column(String(50), nullable=True)
-    balance: Mapped[float] = mapped_column(Float, nullable=False)
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=text("NOW()")
-    )
-
-    user = relationship("Users", back_populates="transactions")
 
 
 class EventLogs(Base):

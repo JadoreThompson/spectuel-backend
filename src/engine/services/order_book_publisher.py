@@ -145,24 +145,24 @@ class OrderBookPublisher:
         """
         while True:
             start_time = time.time()
-            instruments = list(self._books.keys())
+            symbols = list(self._books.keys())
 
-            for inst_id in instruments:
-                book_state = self._books[inst_id]
+            for symbol in symbols:
+                book_state = self._books[symbol]
 
                 async with book_state.lock:
                     if (
                         time.time() - book_state.last_snapshot_ts
                         >= self._snapshot_interval
                     ):
-                        await self._publish_snapshot(inst_id, book_state)
+                        await self._publish_snapshot(symbol, book_state)
                         book_state.last_snapshot_ts = time.time()
 
             elapsed = time.time() - start_time
             sleep_time = max(0.1, self._snapshot_interval - elapsed)
             await asyncio.sleep(sleep_time)
 
-    async def _publish_snapshot(self, inst_id: str, state: BookState) -> None:
+    async def _publish_snapshot(self, symbol: str, state: BookState) -> None:
         top_bids = sorted(
             [(price, qty) for price, qty in state.bids.items() if qty > 0],
             key=lambda x: x[0],
@@ -175,7 +175,7 @@ class OrderBookPublisher:
         )[:20]
 
         snapshot = OrderbookSnapshotEvent(
-            version=1, instrument_id=inst_id, bids=top_bids, asks=top_asks
+            version=1, symbol=symbol, bids=top_bids, asks=top_asks
         )
 
         try:
@@ -184,18 +184,18 @@ class OrderBookPublisher:
                 snapshot.model_dump_json().encode("utf-8"),
             )
         except Exception as e:
-            self._logger.error(f"Failed to emit snapshot for {inst_id}: {e}")
+            self._logger.error(f"Failed to emit snapshot for {symbol}: {e}")
 
     async def _handle_order_placed(self, data: dict) -> None:
         event = OrderPlacedEvent(**data)
-        inst_id = str(event.instrument_id)
+        symbol = event.symbol
         order_id = str(event.order_id)
 
         resting_qty = event.quantity - event.executed_quantity
         if resting_qty <= 0:
             return
 
-        book = self._books[inst_id]
+        book = self._books[symbol]
 
         async with book.lock:
             if event.side == Side.BID:
@@ -215,8 +215,7 @@ class OrderBookPublisher:
         if not info:
             return
 
-        inst_id = str(event.instrument_id)
-        book = self._books[inst_id]
+        book = self._books[event.symbol]
 
         async with book.lock:
             if info.side == Side.BID:
@@ -233,8 +232,7 @@ class OrderBookPublisher:
 
             if info:
                 new_qty = info.remaining_qty - event.quantity
-                inst_id = str(event.instrument_id)
-                book = self._books[inst_id]
+                book = self._books[event.symbol]
 
                 async with book.lock:
                     if info.side == Side.BID:
