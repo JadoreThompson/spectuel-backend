@@ -38,12 +38,6 @@ class OrderStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class InstrumentEventType(str, Enum):
-    PRICE = "price"
-    NEW_TRADE = "trades"
-    ORDERBOOK_SNAPSHOT = "orderbook"
-
-
 class InstrumentStatus(str, Enum):
     DEAD = "dead"
     ALIVE = "alive"

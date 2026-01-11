@@ -10,14 +10,14 @@ from sqlalchemy import select
 
 from config import KAFKA_ORDER_EVENTS_TOPIC, KAFKA_INSTRUMENT_EVENTS_TOPIC
 from db_models import Orders
-from engine.enums import InstrumentEventType, Side, LiquidityRole, OrderStatus
+from engine.enums import Side, LiquidityRole, OrderStatus
 from engine.events import (
     NewTradeEvent,
     OrderPlacedEvent,
     OrderCancelledEvent,
     OrderbookSnapshotEvent,
 )
-from engine.events.enums import OrderEventType
+from engine.events.enums import OrderEventType, InstrumentEventType
 from engine.enums import OrderType
 from infra.db import get_db_sess
 from infra.kafka import AsyncKafkaConsumer, AsyncKafkaProducer

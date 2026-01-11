@@ -9,8 +9,9 @@ from config import (
     KAFKA_INSTRUMENT_EVENTS_TOPIC,
     KAFKA_ORDER_EVENTS_TOPIC,
 )
-from engine.enums import InstrumentEventType, EngineEventCategory
+from engine.enums import EngineEventCategory
 from engine.events import BalanceEventType, OrderEventType
+from engine.events.enums import InstrumentEventType
 from infra.kafka import AsyncKafkaProducer, AsyncKafkaConsumer
 
 

@@ -51,9 +51,7 @@ def symbol() -> str:
 
 @pytest.fixture
 def spot_engine(symbol, tmp_dir):
-    with open(os.path.join(tmp_dir, "0.log"), "a") as f:
-        EngineLogger.set_file(f)
-        yield SpotEngine(symbol)
+    yield SpotEngine(symbol)
 
 
 @pytest.fixture

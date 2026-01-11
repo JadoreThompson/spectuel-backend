@@ -36,10 +36,12 @@ def test_oto_passive_parent_placement(spot_engine, test_ctx, user_id_a, command_
     assert child_order.active is False
 
 
-def test_oto_delayed_activation(spot_engine, test_ctx, user_id_a, user_id_b, command_id):
+def test_oto_delayed_activation(
+    spot_engine, test_ctx, user_id_a, user_id_b, command_id
+):
     """Verify Child activates when Passive Parent is filled later."""
     symbol = test_ctx.symbol
-    
+
     # Setup Passive Parent
     spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000, command_id)
     parent = generate_single_order_meta(user_id_a, Side.BID, 10, 90)
@@ -51,7 +53,7 @@ def test_oto_delayed_activation(spot_engine, test_ctx, user_id_a, user_id_b, com
     assert child_order.active is False
 
     # Action: User B Sells into Parent (Market Sell 10)
-    spot_engine._balance_manager.increase_asset_balance(user_id_b, symbol, 10, command_id)
+    spot_engine._balance_manager.increase_asset_balance(user_id_b, 10, command_id)
     fill_cmd = create_new_order_command(
         user_id_b, symbol, Side.ASK, 10, 90, order_type=OrderType.LIMIT
     )
@@ -73,7 +75,7 @@ def test_oto_immediate_match_activates_child(
 ):
     """Verify immediate parent match activates child immediately."""
     # Setup: User B provides liquidity (Sell Limit @ 100)
-    spot_engine._balance_manager.increase_asset_balance(user_id_b, symbol, 10, command_id)
+    spot_engine._balance_manager.increase_asset_balance(user_id_b, 10, command_id)
     maker_cmd = create_new_order_command(user_id_b, symbol, Side.ASK, 10, 100)
     spot_engine.handle_command(maker_cmd)
 
@@ -97,7 +99,9 @@ def test_oto_immediate_match_activates_child(
     assert child_order.active is True
 
 
-def test_oto_cancel_child_cancels_parent(spot_engine, test_ctx, user_id_a, symbol, command_id):
+def test_oto_cancel_child_cancels_parent(
+    spot_engine, test_ctx, user_id_a, symbol, command_id
+):
     """
     Verify upwards cascading cancellation:
     Cancelling the inactive child should cancel the pending parent.
@@ -108,7 +112,7 @@ def test_oto_cancel_child_cancels_parent(spot_engine, test_ctx, user_id_a, symbo
     spot_engine.handle_command(create_oto_command(user_id_a, symbol, parent, child))
 
     # Action: Cancel Child
-    cancel_cmd = create_cancel_command(child["order_id"], symbol)
+    cancel_cmd = create_cancel_command(child["order_id"])
     spot_engine.handle_command(cancel_cmd)
 
     # Assertions

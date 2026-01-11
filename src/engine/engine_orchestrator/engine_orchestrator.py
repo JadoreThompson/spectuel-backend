@@ -135,18 +135,18 @@ class EngineOrchestrator:
     def _parse_message(self, msg: ConsumerRecord) -> dict | None:
         headers = msg.headers
         is_command = False
+        symbol = None
+
         for k, v in headers:
             if k == "event_category":
                 is_command = v.decode() == EngineEventCategory.COMMAND
-                break
+            elif k == "symbol":
+                symbol = v
 
-        if not is_command:
+        if not is_command or symbol != self._symbol:
             return
 
         cmd = json.loads(msg.value.decode())
-        if cmd["symbol"] != self._symbol:
-            return
-
         if not cmd.get("details"):
             cmd["details"] = {}
 
@@ -155,4 +155,3 @@ class EngineOrchestrator:
         cmd["details"]["kafka_offset"] = msg.offset
 
         return cmd
-

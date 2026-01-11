@@ -11,7 +11,7 @@ from config import (
     KAFKA_ORDER_EVENTS_TOPIC,
 )
 from engine.decorators import ignore_system_user
-from engine.enums import EngineEventCategory, InstrumentEventType
+from engine.enums import EngineEventCategory
 from engine.events import (
     EngineEventBase,
     AssetBalanceDecreasedEvent,
@@ -33,12 +33,7 @@ from engine.events import (
     NewTradeEvent,
     LogEvent,
 )
-from engine.events.enums import (
-    OrderEventType,
-    BalanceEventType,
-    LogEventType,
-    TradeEventType,
-)
+from engine.events.enums import OrderEventType, BalanceEventType, LogEventType,InstrumentEventType
 from infra.kafka import KafkaProducer
 
 

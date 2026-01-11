@@ -204,7 +204,7 @@ async def modify_order(
         limit_price=details.limit_price,
         stop_price=details.stop_price,
     )
-    await put_command(command)
+    await put_command(command, symbol=order.symbol)
 
 
 @route.delete("/{order_id}", status_code=202, summary="Cancel a specific order")
@@ -222,10 +222,7 @@ async def cancel_order(
         raise HTTPException(status_code=404, detail="Order not found")
 
     cmd_data = CancelOrderCommand(
-        version=1,
-        type=CommandType.CANCEL_ORDER,
-        order_id=str(order_id),
-        symbol=order.symbol,
+        version=1, type=CommandType.CANCEL_ORDER, order_id=order_id
     )
 
-    await put_command(cmd_data)
+    await put_command(cmd_data, symbol=order.symbol)

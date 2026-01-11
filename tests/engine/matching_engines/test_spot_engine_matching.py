@@ -7,7 +7,7 @@ def test_full_match(spot_engine, test_ctx, user_id_a, user_id_b, command_id):
     symbol = test_ctx.symbol
     # User A has 10 units of the asset.
     balance_manager = spot_engine._balance_manager
-    balance_manager.increase_asset_balance(user_id_a, symbol, 10, command_id)
+    balance_manager.increase_asset_balance(user_id_a, 10, command_id)
     ask_cmd = create_new_order_command(user_id_a, symbol, Side.ASK, 10, 100)
     spot_engine.handle_command(ask_cmd)
 
@@ -27,18 +27,18 @@ def test_full_match(spot_engine, test_ctx, user_id_a, user_id_b, command_id):
 
     # User A (seller): starts with 10 asset, 0 cash. Ends with 0 asset, 1000 cash.
     assert balance_manager.get_available_cash_balance(user_id_a) == 1000
-    assert balance_manager.get_available_asset_balance(user_id_a, symbol) == 0
+    assert balance_manager.get_available_asset_balance(user_id_a) == 0
 
     # User B (buyer): starts with 1000 cash, 0 asset. Ends with 0 cash, 10 asset.
     assert balance_manager.get_available_cash_balance(user_id_b) == 0
-    assert balance_manager.get_available_asset_balance(user_id_b, symbol) == 10
+    assert balance_manager.get_available_asset_balance(user_id_b) == 10
 
 
 def test_partial_match(spot_engine, test_ctx, user_id_a, user_id_b, command_id):
     symbol = test_ctx.symbol    
     balance_manager = spot_engine._balance_manager
 
-    balance_manager.increase_asset_balance(user_id_a, symbol, 5, command_id)
+    balance_manager.increase_asset_balance(user_id_a,5, command_id)
     ask_cmd = create_new_order_command(user_id_a, symbol, Side.ASK, 5, 100)
     spot_engine.handle_command(ask_cmd)
 
@@ -57,12 +57,12 @@ def test_partial_match(spot_engine, test_ctx, user_id_a, user_id_b, command_id):
     assert remaining_order.executed_quantity == 5
 
     assert balance_manager.get_available_cash_balance(user_id_a) == 500
-    assert balance_manager.get_available_asset_balance(user_id_a, symbol) == 0
+    assert balance_manager.get_available_asset_balance(user_id_a) == 0
 
     assert balance_manager.get_cash_escrow(user_id_b) == 500
     assert balance_manager.get_cash_balance(user_id_b) == 500
     assert balance_manager.get_available_cash_balance(user_id_b) == 0
-    assert balance_manager.get_available_asset_balance(user_id_b, symbol) == 5
+    assert balance_manager.get_available_asset_balance(user_id_b) == 5
 
 
 def test_insufficient_balance_cancels_order(
@@ -72,7 +72,7 @@ def test_insufficient_balance_cancels_order(
     balance_manager = spot_engine._balance_manager
 
     # Set User A's cash balance to be exactly 500.
-    balance_manager.increase_asset_balance(user_id_b, symbol, 10, command_id)
+    balance_manager.increase_asset_balance(user_id_b, 10, command_id)
     ask_cmd = create_new_order_command(user_id_b, symbol, Side.ASK, 10, 100)
     spot_engine.handle_command(ask_cmd)
 

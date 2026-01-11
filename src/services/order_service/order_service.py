@@ -10,10 +10,9 @@ from api.routes.orders.models import (
     OTOCOOrderCreate,
     OrderBase,
 )
-from config import KAFKA_ENGINE_EVENTS_TOPIC
+from api.utils import put_command
 from db_models import Orders
 from engine.commands import (
-    NewOrderCommandBase,
     NewSingleOrderCommand,
     NewOCOOrderCommand,
     NewOTOOrderCommand,
@@ -104,7 +103,7 @@ class OrderService:
             **meta.model_dump(),
         )
 
-        await cls._send_command(command)
+        await put_command(command, details.symbol)
 
         return {"order_id": str(order_id), "status": "accepted"}
 
@@ -155,7 +154,7 @@ class OrderService:
             legs=legs_meta,
         )
 
-        await cls._send_command(command)
+        await put_command(command, details.symbol)
 
         return {"group_id": str(group_id), "legs": leg_ids}
 
@@ -189,7 +188,7 @@ class OrderService:
             child=OrderService._to_meta(child_id, user_id, details.child),
         )
 
-        await cls._send_command(command)
+        await put_command(command, details.symbol)
 
         return {
             "group_id": str(group_id),
@@ -205,7 +204,9 @@ class OrderService:
         symbol = details.parent.symbol
 
         parent_id = uuid.uuid4()
-        db_parent = OrderService._build_db_order(symbol, user_id, details.parent, parent_id)
+        db_parent = OrderService._build_db_order(
+            symbol, user_id, details.parent, parent_id
+        )
         db_parent.order_group_id = group_id
         db_sess.add(db_parent)
 
@@ -231,7 +232,7 @@ class OrderService:
             parent=OrderService._to_meta(parent_id, user_id, details.parent),
             oco_legs=legs_meta,
         )
-        await cls._send_command(command)
+        await put_command(command, symbol)
 
         return {
             "group_id": str(group_id),
@@ -269,12 +270,4 @@ class OrderService:
             quantity=details.quantity,
             limit_price=details.limit_price,
             stop_price=details.stop_price,
-        )
-
-    @classmethod
-    async def _send_command(cls, command: NewOrderCommandBase) -> None:
-        await cls._producer.send(
-            KAFKA_ENGINE_EVENTS_TOPIC,
-            command.model_dump_json(),
-            key=command.symbol.encode(),
         )

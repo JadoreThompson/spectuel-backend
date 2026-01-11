@@ -68,13 +68,11 @@ class NewOTOCOOrderCommand(NewOrderCommandBase):
 class CancelOrderCommand(CommandBase):
     type: Literal[CommandType.CANCEL_ORDER] = CommandType.CANCEL_ORDER
     order_id: UUID
-    symbol: str
 
 
 class ModifyOrderCommand(CommandBase):
     type: Literal[CommandType.MODIFY_ORDER] = CommandType.MODIFY_ORDER
     order_id: UUID
-    symbol: str
     limit_price: float | None = Field(None, gt=0.0)
     stop_price: float | None = Field(None, gt=0.0)
 

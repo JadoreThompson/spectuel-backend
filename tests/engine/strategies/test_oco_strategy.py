@@ -9,7 +9,7 @@ def test_oco_placement_and_linkage(spot_engine, test_ctx, user_id_a, command_id)
     symbol = test_ctx.symbol
 
     # 1. Setup Balance
-    spot_engine._balance_manager.increase_asset_balance(user_id_a, symbol, 20, command_id)
+    spot_engine._balance_manager.increase_asset_balance(user_id_a, 20, command_id)
 
     # 2. Create Command (Sell 10 @ 100, Sell 10 @ 110)
     leg_a = generate_single_order_meta(user_id_a, Side.ASK, 10, 100)
@@ -39,7 +39,7 @@ def test_oco_full_fill_cancels_other(
     symbol = test_ctx.symbol
 
     # Setup
-    spot_engine._balance_manager.increase_asset_balance(user_id_a, symbol, 20, command_id)
+    spot_engine._balance_manager.increase_asset_balance(user_id_a,  20, command_id)
     leg_a = generate_single_order_meta(user_id_a, Side.ASK, 10, 100)
     leg_b = generate_single_order_meta(user_id_a, Side.ASK, 10, 110)
     spot_engine.handle_command(create_oco_command(user_id_a, symbol, leg_a, leg_b))
@@ -64,7 +64,7 @@ def test_oco_partial_fill_persistence(
     symbol = test_ctx.symbol
 
     # Setup
-    spot_engine._balance_manager.increase_asset_balance(user_id_a, symbol, 20, command_id)
+    spot_engine._balance_manager.increase_asset_balance(user_id_a, 20, command_id)
     leg_a = generate_single_order_meta(user_id_a, Side.ASK, 10, 100)
     leg_b = generate_single_order_meta(user_id_a, Side.ASK, 10, 110)
     spot_engine.handle_command(create_oco_command(user_id_a, symbol, leg_a, leg_b))
@@ -82,7 +82,7 @@ def test_oco_partial_fill_persistence(
     assert order_a is not None
     assert order_a.executed_quantity == 5
 
-    # Leg B MUST still exist
+    # Leg B MUST not exist
     assert order_b is None
     assert 110 not in test_ctx.orderbook.asks
 
@@ -91,13 +91,13 @@ def test_oco_manual_cancel(spot_engine, test_ctx, user_id_a, command_id):
     """Verify cancelling one leg manually cancels the other."""
     symbol = test_ctx.symbol
     
-    spot_engine._balance_manager.increase_asset_balance(user_id_a, symbol, 20, command_id)
+    spot_engine._balance_manager.increase_asset_balance(user_id_a, 20, command_id)
     leg_a = generate_single_order_meta(user_id_a, Side.ASK, 10, 100)
     leg_b = generate_single_order_meta(user_id_a, Side.ASK, 10, 110)
     spot_engine.handle_command(create_oco_command(user_id_a, symbol, leg_a, leg_b))
 
     # Cancel Leg A
-    cancel_cmd = create_cancel_command(leg_a["order_id"], symbol)
+    cancel_cmd = create_cancel_command(leg_a["order_id"])
     spot_engine.handle_command(cancel_cmd)
 
     assert test_ctx.order_store.get(leg_a["order_id"]) is None

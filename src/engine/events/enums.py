@@ -11,10 +11,6 @@ class OrderbookEventType(str, Enum):
     SNAPSHOT = "snapshot"
 
 
-class TradeEventType(str, Enum):
-    NEW_TRADE = "new_trade"
-
-
 class OrderEventType(str, Enum):
     ORDER_PLACED = "placed"
     ORDER_PARTIALLY_FILLED = "partially_filled"

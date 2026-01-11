@@ -40,7 +40,7 @@ def test_single_order_cancel(spot_engine, test_ctx, user_id_a, command_id):
     assert test_ctx.orderbook.best_bid == 99
 
     # Action: Cancel the order.
-    cancel_cmd = create_cancel_command(place_cmd["order_id"], symbol)
+    cancel_cmd = create_cancel_command(place_cmd["order_id"])
     spot_engine.handle_command(cancel_cmd)
 
     # Assertions

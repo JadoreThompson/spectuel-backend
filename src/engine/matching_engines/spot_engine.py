@@ -1,6 +1,5 @@
 from engine.config import SYSTEM_USER_ID
 from engine.enums import (
-    InstrumentEventType,
     MatchOutcome,
     LiquidityRole,
     OrderType,
@@ -9,7 +8,7 @@ from engine.enums import (
     CommandType,
 )
 from engine.events import OrderEventType
-from engine.events.enums import CommandEventType
+from engine.events.enums import CommandEventType, InstrumentEventType
 from engine.execution_context import ExecutionContext
 from engine.loggers import EngineLogger
 from engine.orderbook import OrderBook
@@ -80,7 +79,7 @@ class SpotEngine(EngineBase):
             handler(cmd)
             self._ctx.engine_logger.log_command_event(
                 type=CommandEventType.COMMAND_PROCESSED,
-                command_id=self._ctx.cur_command_id
+                command_id=self._ctx.cur_command_id,
             )
 
     def _handle_new_order(self, cmd: dict) -> None:
@@ -224,7 +223,7 @@ class SpotEngine(EngineBase):
 
         if order.side == Side.ASK:
             return quantity <= self._balance_manager.get_available_asset_balance(
-                order.user_id, symbol
+                order.user_id
             )
 
         trade_value = quantity * price
@@ -278,9 +277,7 @@ class SpotEngine(EngineBase):
         maker_exec_quantity = prev_maker_exec_quantity + quantity
 
         self._log_fill_event(taker_order, price, taker_exec_quantity, ctx.symbol)
-        self._log_fill_event(
-            maker_order, price, maker_exec_quantity, ctx.symbol
-        )
+        self._log_fill_event(maker_order, price, maker_exec_quantity, ctx.symbol)
 
         taker_order.executed_quantity = taker_exec_quantity
         maker_order.executed_quantity = maker_exec_quantity
@@ -304,7 +301,7 @@ class SpotEngine(EngineBase):
                 )
             else:
                 self._balance_manager.increase_asset_escrow(
-                    maker_order.user_id, ctx.symbol, maker_order.quantity, command_id
+                    maker_order.user_id, maker_order.quantity, command_id
                 )
 
         if prev_taker_exec_quantity == 0:
@@ -316,13 +313,12 @@ class SpotEngine(EngineBase):
                 )
             else:
                 self._balance_manager.increase_asset_escrow(
-                    taker_order.user_id, ctx.symbol, taker_order.quantity, command_id
+                    taker_order.user_id, taker_order.quantity, command_id
                 )
 
         if taker_order.side == Side.BID:
             self._balance_manager.settle_bid(
                 taker_order.user_id,
-                ctx.symbol,
                 quantity,
                 price,
                 command_id,
@@ -330,7 +326,6 @@ class SpotEngine(EngineBase):
             )
             self._balance_manager.settle_ask(
                 maker_order.user_id,
-                ctx.symbol,
                 quantity,
                 price,
                 command_id,
@@ -339,7 +334,6 @@ class SpotEngine(EngineBase):
         else:
             self._balance_manager.settle_ask(
                 taker_order.user_id,
-                ctx.symbol,
                 quantity,
                 price,
                 command_id,
@@ -347,7 +341,6 @@ class SpotEngine(EngineBase):
             )
             self._balance_manager.settle_bid(
                 maker_order.user_id,
-                ctx.symbol,
                 quantity,
                 price,
                 command_id,
@@ -394,5 +387,5 @@ class SpotEngine(EngineBase):
             unfilled_qty = order.quantity - order.executed_quantity
             if unfilled_qty > 0:
                 self._balance_manager.decrease_asset_escrow(
-                    order.user_id, self._ctx.symbol, unfilled_qty, command_id
+                    order.user_id, unfilled_qty, command_id
                 )

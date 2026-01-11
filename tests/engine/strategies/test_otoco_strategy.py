@@ -34,7 +34,7 @@ def test_otoco_flow(spot_engine, test_ctx, user_id_a, user_id_b, command_id):
     assert 80 not in test_ctx.orderbook.asks  # Inactive
 
     # 3. Fill Parent (User B sells into User A's bid)
-    spot_engine._balance_manager.increase_asset_balance(user_id_b, symbol, 10, command_id)
+    spot_engine._balance_manager.increase_asset_balance(user_id_b, 10, command_id)
     fill_parent_cmd = create_new_order_command(
         user_id_b, symbol, Side.ASK, 10, 90  # Limit match
     )

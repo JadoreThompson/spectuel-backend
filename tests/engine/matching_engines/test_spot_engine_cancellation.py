@@ -1,5 +1,6 @@
 import pytest
-from src.engine.enums import Side
+
+from engine.enums import Side
 from tests.utils import create_new_order_command, create_cancel_command
 
 
@@ -19,7 +20,7 @@ def test_cancel_single_order(spot_engine, test_ctx, user_id_a, command_id):
     assert len(test_ctx.order_store._orders) == 1
 
     # 2. Cancel
-    cancel_cmd = create_cancel_command(place_cmd["order_id"], symbol)
+    cancel_cmd = create_cancel_command(place_cmd["order_id"])
     spot_engine.handle_command(cancel_cmd)
 
     # 3. Assert
@@ -28,7 +29,9 @@ def test_cancel_single_order(spot_engine, test_ctx, user_id_a, command_id):
     assert test_ctx.order_store.get(place_cmd["order_id"]) is None
 
 
-def test_cancel_partial_fill_order(spot_engine, test_ctx, user_id_a, user_id_b, command_id):
+def test_cancel_partial_fill_order(
+    spot_engine, test_ctx, user_id_a, user_id_b, command_id
+):
     """
     Scenario: Order A (10) partially filled by Order B (5). Cancel remainder of A.
     Result: A removed.
@@ -37,7 +40,7 @@ def test_cancel_partial_fill_order(spot_engine, test_ctx, user_id_a, user_id_b, 
 
     # 1. Place A (10 @ 100)
     spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000, command_id)
-    spot_engine._balance_manager.increase_asset_balance(user_id_b, symbol, 10, command_id)
+    spot_engine._balance_manager.increase_asset_balance(user_id_b, 10, command_id)
 
     cmd_a = create_new_order_command(user_id_a, symbol, Side.BID, 10, 100)
     spot_engine.handle_command(cmd_a)
@@ -52,7 +55,7 @@ def test_cancel_partial_fill_order(spot_engine, test_ctx, user_id_a, user_id_b, 
     assert test_ctx.orderbook.best_bid == 100
 
     # 3. Cancel A
-    cancel_cmd = create_cancel_command(cmd_a["order_id"], symbol)
+    cancel_cmd = create_cancel_command(cmd_a["order_id"])
     spot_engine.handle_command(cancel_cmd)
 
     # 4. Assert
@@ -71,7 +74,7 @@ def test_cancel_non_existent_order(spot_engine, test_ctx):
 
     random_id = str(uuid.uuid4())
 
-    cancel_cmd = create_cancel_command(random_id, symbol)
+    cancel_cmd = create_cancel_command(random_id)
 
     # Should simply return safely
     spot_engine.handle_command(cancel_cmd)

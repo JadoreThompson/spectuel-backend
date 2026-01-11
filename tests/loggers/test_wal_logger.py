@@ -10,7 +10,6 @@ from src.engine.events.enums import LogEventType, OrderEventType
 # Importing EngineLogger through execution context to prevent
 # incorrect referencing
 from src.engine.execution_context import EngineLogger
-from src.engine.restoration.engine_restorer_v2 import EngineRestorerV2
 from tests.utils import create_new_order_command
 
 

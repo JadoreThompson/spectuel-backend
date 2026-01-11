@@ -11,7 +11,7 @@ from sqlalchemy import select
 from api.ws.exc import AuthenticationError
 from config import KAFKA_INSTRUMENT_EVENTS_TOPIC, REDIS_CANDLE_CACHE_PREFIX
 from db_models import Users
-from engine.enums import InstrumentEventType, TimeFrame
+from engine.events.enums import InstrumentEventType, TimeFrame
 from engine.heartbeat.exc import ValidationError
 from infra.db.utils import get_db_sess
 from infra.kafka import AsyncKafkaConsumer, AsyncKafkaProducer

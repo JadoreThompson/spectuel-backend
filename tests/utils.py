@@ -31,10 +31,8 @@ def create_new_order_command(
     ).model_dump(mode="json")
 
 
-def create_cancel_command(order_id: str, symbol: str) -> dict:
+def create_cancel_command(order_id: str) -> dict:
     """Helper to create a cancel order command dictionary."""
     return CancelOrderCommand(
-        type=CommandType.CANCEL_ORDER,
-        order_id=order_id,
-        symbol=symbol,
+        type=CommandType.CANCEL_ORDER, order_id=order_id
     ).model_dump(mode="json")

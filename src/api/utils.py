@@ -6,9 +6,13 @@ from infra.kafka import AsyncKafkaProducer
 KAFKA_PRODUCER = AsyncKafkaProducer()
 
 
-async def put_command(command: CommandBase):
+async def put_command(command: CommandBase, symbol: str):
     await KAFKA_PRODUCER.send(
         KAFKA_ENGINE_EVENTS_TOPIC,
         command.model_dump_json(),
-        headers=[("event_category", EngineEventCategory.COMMAND.encode())],
+        headers=[
+            ("event_category", EngineEventCategory.COMMAND.encode()),
+            ("symbol", symbol.encode())
+        ],
+        key=symbol,
     )

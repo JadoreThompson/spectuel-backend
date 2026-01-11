@@ -58,7 +58,7 @@ def test_modify_order_reject_crossing_spread(
 
     # Setup
     spot_engine._balance_manager.increase_cash_balance(user_id_a, 1000, command_id)
-    spot_engine._balance_manager.increase_asset_balance(user_id_b, symbol, 10, command_id)
+    spot_engine._balance_manager.increase_asset_balance(user_id_b, 10, command_id)
 
     cmd_a = create_new_order_command(user_id_a, symbol, Side.BID, 10, 100)
     cmd_b = create_new_order_command(user_id_b, symbol, Side.ASK, 10, 105)
