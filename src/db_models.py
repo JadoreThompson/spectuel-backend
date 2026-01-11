@@ -16,11 +16,13 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from engine.enums import (
+    EngineEventCategory,
     OrderType,
     InstrumentStatus,
     OrderStatus,
-    Side
+    Side,
 )
+from engine.events.enums import OrderEventType
 from utils import gen_api_key
 
 
@@ -63,7 +65,7 @@ class Users(Base):
         server_onupdate=text("NOW()"),
     )
 
-    orders = relationship("Orders", back_populates="user", cascade="all, delete-orphan")
+    orders = relationship("Orders", back_populates="user")
 
 
 class Instruments(Base):
@@ -117,13 +119,36 @@ class Orders(Base):
     user = relationship("Users", back_populates="orders")
 
 
+class OrderEvents(Base):
+    __tablename__ = "order_events"
+
+    event_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    order_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("orders.order_id"),
+        nullable=False,
+        index=True,
+    )
+    command_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
+    )
+    type: Mapped[OrderEventType] = mapped_column(String, nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    timestamp: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+
+    order = relationship("Orders", back_populates="events")
+
+
 class EventLogs(Base):
     __tablename__ = "event_logs"
 
-    event_id: Mapped[uuid.UUID] = uuid_pk()
-    event_type: Mapped[str] = mapped_column(String, nullable=False)
-    data: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    timestamp: Mapped[int] = mapped_column(Integer, nullable=False)
+    log_id: Mapped[uuid.UUID] = uuid_pk()
+    type: Mapped[EngineEventCategory] = mapped_column(String, nullable=False)
+    event_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    timestamp: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
 
 
 class EngineContextSnapshots(Base):

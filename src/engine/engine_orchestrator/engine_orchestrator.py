@@ -7,7 +7,7 @@ from aiokafka import TopicPartition, ConsumerRecord
 
 from config import KAFKA_ENGINE_EVENTS_TOPIC
 from engine.engine_orchestrator.engine_shadow import EngineShadow
-from engine.enums import InstrumentStatus
+from engine.enums import EngineEventCategory, InstrumentStatus
 from engine.loggers import EngineLogger, ShadowEngineLogger
 from engine.matching_engines import SpotEngine
 from engine.restoration.engine_loader import EngineLoader
@@ -16,8 +16,6 @@ from infra.kafka import KafkaConsumer
 
 
 class EngineOrchestrator:
-    """ """
-
     def __init__(
         self,
         symbol: str,
@@ -30,6 +28,9 @@ class EngineOrchestrator:
             shadow (bool, optional): Whether or not to create a shadow engine.
                 If false the snapshot engine will not be created and the snapshots
                 therefore will not be created either.
+            shadow_kwargs (dict[str, Any], optional): Kwargs to be passed onto the EngineShadow.
+                The engine, event queue and sentinel will be passed on by the EngineOrchestrator but
+                all other paremeter values can be defined here.
         """
         self._symbol = symbol
         self._shadow = shadow
@@ -136,7 +137,7 @@ class EngineOrchestrator:
         is_command = False
         for k, v in headers:
             if k == "event_category":
-                is_command = v.decode() == "command"
+                is_command = v.decode() == EngineEventCategory.COMMAND
                 break
 
         if not is_command:

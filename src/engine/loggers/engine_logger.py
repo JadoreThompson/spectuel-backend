@@ -11,7 +11,7 @@ from config import (
     KAFKA_ORDER_EVENTS_TOPIC,
 )
 from engine.decorators import ignore_system_user
-from engine.enums import InstrumentEventType
+from engine.enums import EngineEventCategory, InstrumentEventType
 from engine.events import (
     EngineEventBase,
     AssetBalanceDecreasedEvent,
@@ -162,7 +162,7 @@ class EngineLogger:
 
         headers = kafka_kwargs.setdefault("headers", {})
         headers["user_id"] = user_id
-        headers["event_category"] = "order"
+        headers["event_category"] = EngineEventCategory.ORDER
 
         self.log_event(kwargs, kafka_kwargs)
 
@@ -177,7 +177,7 @@ class EngineLogger:
 
         headers = kafka_kwargs.setdefault("headers", {})
         headers["user_id"] = user_id
-        headers["event_category"] = "trade"
+        headers["event_category"] = EngineEventCategory.TRADE
 
         self.log_event(kwargs, kafka_kwargs)
 
@@ -200,7 +200,7 @@ class EngineLogger:
             headers = kafka_kwargs.setdefault("headers", {})
             if user_id is not None:
                 headers["user_id"] = user_id
-            headers["event_category"] = "balance"
+            headers["event_category"] = EngineEventCategory.BALANCE
 
             self.log_event(kwargs, kafka_kwargs)
         else:
@@ -211,7 +211,7 @@ class EngineLogger:
             headers = kafka_kwargs.setdefault("headers", {})
             if user_id is not None:
                 headers["user_id"] = user_id
-            headers["event_category"] = "balance"
+            headers["event_category"] = EngineEventCategory.BALANCE
 
             self.log_event(event, kafka_kwargs)
 

@@ -1,15 +1,16 @@
 import asyncio
 import json
+
 from redis.asyncio import Redis
+
 from config import (
     KAFKA_BALANCE_EVENTS_TOPIC,
     KAFKA_ENGINE_EVENTS_TOPIC,
     KAFKA_INSTRUMENT_EVENTS_TOPIC,
     KAFKA_ORDER_EVENTS_TOPIC,
 )
-from engine.enums import InstrumentEventType
+from engine.enums import InstrumentEventType, EngineEventCategory
 from engine.events import BalanceEventType, OrderEventType
-from engine.types import EngineEventCategory
 from infra.kafka import AsyncKafkaProducer, AsyncKafkaConsumer
 
 
@@ -40,7 +41,7 @@ class KafkaFanout:
             async for msg in self._kafka_consumer:
                 for k, v in msg.headers:
                     if k == "event_category":
-                        event_category: EngineEventCategory = v.decode()
+                        event_category = v.decode()
                         topic = self._category_2_topic.get(event_category)
 
                         if topic is None:
@@ -52,7 +53,7 @@ class KafkaFanout:
                             headers=msg.headers,
                         )
 
-                        if event_category == "trade":
+                        if event_category == EngineEventCategory.TRADE:
                             event = json.loads(msg.value.decode())
                             await self._set_price(event["symbol"], event["price"])
         finally:

@@ -90,3 +90,10 @@ class MatchOutcome(Enum):
     PARTIAL = 1  # > 0 quantity matched
     SUCCESS = 2  # full quantity matched
     INSUFFICIENT_BALANCE = 3
+
+
+class EngineEventCategory(str, Enum):
+    ORDER = "order"
+    BALANCE = "balance"
+    COMMAND = "command"
+    TRADE = "trade"

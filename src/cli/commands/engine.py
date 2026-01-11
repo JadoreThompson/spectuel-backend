@@ -1,8 +1,7 @@
 import click
 import logging
 import time
-from multiprocessing import Process, Queue
-from multiprocessing.dummy import Value
+from multiprocessing import Process
 
 from sqlalchemy import select
 
@@ -23,6 +22,7 @@ def engine():
 def get_symbols(limit: int = 1):
     if limit < 1:
         raise ValueError("limit must be >= 1")
+    
     with get_db_sess_sync() as db_sess:
         symbols = db_sess.scalars(
             select(Instruments.symbol).where(

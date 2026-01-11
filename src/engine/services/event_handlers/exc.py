@@ -1,2 +1,0 @@
-class DuplicateEventLogExc(Exception):
-    pass

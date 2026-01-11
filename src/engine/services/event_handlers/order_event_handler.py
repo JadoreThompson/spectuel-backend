@@ -3,11 +3,12 @@ import logging
 from uuid import UUID
 
 from pydantic import ValidationError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import KAFKA_ORDER_EVENTS_TOPIC
-from db_models import Orders
-from engine.enums import OrderStatus
+from db_models import EventLogs, OrderEvents, Orders
+from engine.enums import EngineEventCategory, OrderStatus
 from engine.events import (
     OrderCancelledEvent,
     OrderFilledEvent,
@@ -17,9 +18,9 @@ from engine.events import (
     OrderPlacedEvent,
 )
 from engine.events.enums import OrderEventType
+from infra.db import get_db_sess
 from infra.kafka import AsyncKafkaConsumer
 from .base import BaseEventHandler
-from .exc import DuplicateEventLogExc
 
 
 class OrderEventHandler(BaseEventHandler):
@@ -75,15 +76,49 @@ class OrderEventHandler(BaseEventHandler):
         self._logger.info(f"Handling {event_type} event")
 
         try:
-            async with self._log_event(event_data, event_cls) as (db_sess, _, event):
+            event = event_cls(**event_data)
+
+            async with get_db_sess() as db_sess:
+                exists = await db_sess.scalar(
+                    select(OrderEvents).where(
+                        OrderEvents.command_id == event.command_id,
+                        OrderEvents.order_id == event.order_id,
+                        OrderEvents.type == event.type,
+                    )
+                )
+
+                if exists:
+                    self._logger.warning(f"Duplicate event detected - {event}")
+                    return
+
+                db_event = OrderEvents(
+                    event_id=event.id,
+                    type=event.type,
+                    order_id=event.order_id,
+                    command_id=event.command_id,
+                    version=event.version,
+                    payload=event_data,
+                    timestamp=event.timestamp,
+                )
+
+                db_sess.add(db_event)
+                await db_sess.refresh(db_event)
+
+                db_event_log = EventLogs(
+                    type=EngineEventCategory.ORDER,
+                    event_id=db_event.event_id,
+                    timestamp=event.timestamp,
+                )
+                db_sess.add(db_event_log)
+
                 await handler(event, db_sess)
+
+                await db_sess.commit()
 
         except ValidationError:
             self._logger.error(
                 f"Validation error for event data: {event_data}", exc_info=True
             )
-        except DuplicateEventLogExc as e:
-            self._logger.error(f"{str(e)}")
         except Exception:
             self._logger.error("Error processing order event", exc_info=True)
 
