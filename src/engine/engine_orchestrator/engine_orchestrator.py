@@ -48,11 +48,9 @@ class EngineOrchestrator:
         self._logger.info("Loading snapshot and context...")
         load_ctx = EngineLoader.load_engines([self._symbol])[0]
         self._logger.info(
-            "Context loaded - ",
-            f"symbol={load_ctx.engine._ctx.symbol}, ",
-            f"topic={load_ctx.topic}, ",
-            f"partition={load_ctx.partition}, ",
-            f"offset={load_ctx.offset}, ",
+            f"Context loaded - symbol={load_ctx.engine._ctx.symbol}, "
+            f"topic={load_ctx.topic}, partition={load_ctx.partition}, "
+            f"offset={load_ctx.offset}"
         )
         self._engine = load_ctx.engine
 
@@ -141,7 +139,7 @@ class EngineOrchestrator:
             if k == "event_category":
                 is_command = v.decode() == EngineEventCategory.COMMAND
             elif k == "symbol":
-                symbol = v
+                symbol = v.decode()
 
         if not is_command or symbol != self._symbol:
             return

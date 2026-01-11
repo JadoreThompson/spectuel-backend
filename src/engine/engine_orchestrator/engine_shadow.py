@@ -72,8 +72,6 @@ class EngineShadow:
 
                 if event_type == CommandEventType.COMMAND_RECEIVED:
                     cmd = event["command"]
-                elif cmd is not None:
-                    self._batch.append(event)
                 elif event_type == CommandEventType.COMMAND_PROCESSED:
                     if event["command_id"] != cmd["id"]:
                         raise ValueError(
@@ -83,12 +81,15 @@ class EngineShadow:
                     self._engine.handle_command(cmd)
                     self._batch.clear()
                     self._idx = 0
+                    command_count += 1
 
                     if command_count >= self.snapshot_interval:
                         self._snapshot(cmd)
                         command_count = 0
 
                     cmd = None
+                elif cmd is not None:
+                    self._batch.append(event)
         finally:
             if self._hb_client is not None:
                 self._hb_client.close()

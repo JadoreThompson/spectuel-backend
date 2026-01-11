@@ -8,7 +8,7 @@ class ShadowEngineLogger(EngineLogger):
         on_log_event=None,
         on_log_command_event=None,
         *,
-        on_log_event_request: Hook
+        on_log_event_request: Hook | None = None
     ):
         super().__init__(name, on_log_event, on_log_command_event)
         self.on_log_event_request = on_log_event_request
@@ -17,4 +17,5 @@ class ShadowEngineLogger(EngineLogger):
         # Main engine would've already published the event
         # so we can't publish again as we'd have a different
         # event id.
-        self.on_log_event_request(self._serialise_event(event))
+        if self.on_log_event_request:
+            self.on_log_event_request(self._serialise_event(event))

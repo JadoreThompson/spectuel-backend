@@ -17,10 +17,10 @@ class ExecutionContext:
     def __init__(
         self,
         *,
-        engine: "EngineBase",
         orderbook: OrderBook,
         order_store: OrderStore,
         symbol: str,
+        engine: "EngineBase" | None = None,
         cur_command_id: str | None = None,
         engine_logger: EngineLogger | None = None,
     ) -> None:
@@ -44,7 +44,7 @@ class ExecutionContext:
         cls,
         data: dict,
         *,
-        engine: "EngineBase",
+        engine: "EngineBase" | None = None,
     ) -> ExecutionContext:
         orderbook = OrderBook.from_dict(data["orderbook"])
         order_store = OrderStore.from_dict(data["order_store"])
@@ -54,5 +54,5 @@ class ExecutionContext:
             orderbook=orderbook,
             order_store=order_store,
             symbol=data["symbol"],
-            command_id=data["command_id"],
+            cur_command_id=data.get("cur_command_id"),
         )
