@@ -5,7 +5,7 @@ from multiprocessing import Process
 
 from sqlalchemy import select
 
-from config import HEARTBEAT_SERVER_HOST, HEARTBEAT_SERVER_PORT
+from config import HEARTBEAT_ITMEOUT, HEARTBEAT_SERVER_HOST, HEARTBEAT_SERVER_PORT
 from db_models import Instruments
 from engine.engine_orchestrator import EngineOrchestrator
 from engine.enums import InstrumentStatus
@@ -22,12 +22,12 @@ def engine():
 def get_symbols(limit: int = 1):
     if limit < 1:
         raise ValueError("limit must be >= 1")
-    
+
     with get_db_sess_sync() as db_sess:
         symbols = db_sess.scalars(
-            select(Instruments.symbol).where(
-                Instruments.status == InstrumentStatus.DEAD
-            ).limit(limit)
+            select(Instruments.symbol)
+            .where(Instruments.status == InstrumentStatus.DEAD)
+            .limit(limit)
         ).all()
     return symbols
 
@@ -52,6 +52,7 @@ def engine_run():
                 "shadow_kwargs": {
                     "heartbeat_host": HEARTBEAT_SERVER_HOST,
                     "heartbeat_port": HEARTBEAT_SERVER_PORT,
+                    "heartbeat_interval": HEARTBEAT_ITMEOUT * 0.5,
                 },
             },
             name=f"EngineOrchestrator-{symbol}",

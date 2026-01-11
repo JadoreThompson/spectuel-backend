@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING
 
 from engine.loggers import EngineLogger
 from engine.orderbook import OrderBook
@@ -9,10 +9,7 @@ if TYPE_CHECKING:
     from engine.matching_engines import EngineBase
 
 
-ELT = TypeVar("ELT", boudn=EngineLogger)
-
-
-class ExecutionContext(Generic[ELT]):
+class ExecutionContext:
     """
     An empty container object passed to strategy handlers
     """
@@ -25,14 +22,14 @@ class ExecutionContext(Generic[ELT]):
         order_store: OrderStore,
         symbol: str,
         cur_command_id: str | None = None,
-        engine_logger: ELT | None = None,
+        engine_logger: EngineLogger | None = None,
     ) -> None:
         self.engine = engine
         self.orderbook = orderbook
         self.order_store = order_store
         self.symbol = symbol
         self.cur_command_id = cur_command_id  # Current command being executed
-        self.engine_logger: ELT = engine_logger or EngineLogger(symbol)
+        self.engine_logger: EngineLogger = engine_logger or EngineLogger(symbol)
 
     def to_dict(self) -> dict:
         return {

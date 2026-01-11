@@ -71,8 +71,13 @@ class HeartbeatServer:
         addr = ", ".join(str(sock.getsockname()) for sock in self._server.sockets)
         self._logger.info(f"Heartbeat server listening on {addr}")
 
+        await self._server.start_serving()
+
         async with self._server:
             await self._server.serve_forever()
+
+    async def stop(self) -> None:
+        await self._server.close()
 
     async def _client_conn_cb(
         self,
