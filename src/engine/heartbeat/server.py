@@ -3,6 +3,7 @@ import json
 import logging
 import time
 
+
 from sqlalchemy import update
 
 from db_models import Instruments
@@ -44,6 +45,7 @@ class HeartbeatServer:
         self._heartbeat_timeout: float = heartbeat_timeout
         self._server: asyncio.AbstractServer | None = None
         self._symbols: dict[str, HeartbeatConnection] = {}
+        self._closed_fut: asyncio.Future | None = None
 
         self._logger: logging.Logger = logging.getLogger(
             f"{type(self).__name__}-[{self._host}:{self._port}]"
@@ -71,13 +73,18 @@ class HeartbeatServer:
         addr = ", ".join(str(sock.getsockname()) for sock in self._server.sockets)
         self._logger.info(f"Heartbeat server listening on {addr}")
 
-        await self._server.start_serving()
-
-        async with self._server:
-            await self._server.serve_forever()
+        try:
+            async with self._server:
+                await self._server.serve_forever()
+        finally:
+            if self._closed_fut:
+                self._closed_fut.set_result(True)
+        
 
     async def stop(self) -> None:
-        await self._server.close()
+        self._closed_fut = asyncio.get_running_loop().create_future()
+        self._server.close()
+        await self._closed_fut
 
     async def _client_conn_cb(
         self,
@@ -96,7 +103,14 @@ class HeartbeatServer:
 
         try:
             while True:
-                data = await reader.readline()
+                try:
+                    data = await asyncio.wait_for(
+                        reader.readline(),
+                        timeout=self._heartbeat_timeout
+                    )
+                except asyncio.TimeoutError:
+                    raise HeartbeatTimeoutError()
+
                 if not data:
                     break
 
@@ -105,23 +119,17 @@ class HeartbeatServer:
                 msg = json.loads(raw)
 
                 if msg.get("type") == "heartbeat":
-                    if hb_conn is None:
-                        break
-
-                    ts = time.time()
-                    if ts - hb_conn.last_message_ts >= self._heartbeat_timeout:
-                        raise HeartbeatTimeoutError()
-
-                    hb_conn.last_message_ts = ts
+                    hb_conn.last_message_ts = time.time()
 
         except HeartbeatTimeoutError:
             self._logger.info(f"Client {peer} heartbeat timeout")
         except asyncio.CancelledError:
             pass
         finally:
-            self._symbols.pop(hb_conn.symbol)
+            if hb_conn is not None:
+                self._symbols.pop(hb_conn.symbol, None)
+                await self._set_instrument_status(hb_conn.symbol, InstrumentStatus.DEAD)
             await self._close_writer(writer)
-            await self._set_instrument_status(hb_conn.symbol, InstrumentStatus.DEAD)
 
     async def _handle_register(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -171,7 +179,7 @@ class HeartbeatServer:
         peer = writer.get_extra_info("peername")
         self._logger.info(f"Client disconnected: {peer}")
         writer.close()
-        await writer.wait_closed()
+
 
     async def _set_instrument_status(self, symbol: str, status: InstrumentStatus):
         """
@@ -183,6 +191,6 @@ class HeartbeatServer:
         """
         async with get_db_sess() as db_sess:
             await db_sess.execute(
-                update(Instruments).values(status=status.value).where(symbol=symbol)
+                update(Instruments).values(status=status.value).where(Instruments.symbol == symbol)
             )
             await db_sess.commit()
