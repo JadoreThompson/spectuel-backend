@@ -233,9 +233,8 @@ class BalanceManager:
         user_id: str,
         amount: float,
         command_id: str,
-        event: CashBalanceIncreasedEvent | None = None,
     ) -> float:
-        event = event or CashBalanceIncreasedEvent(
+        event = CashBalanceIncreasedEvent(
             user_id=user_id, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)
@@ -255,9 +254,8 @@ class BalanceManager:
         user_id: str,
         amount: float,
         command_id: str,
-        event: CashBalanceDecreasedEvent | None = None,
     ) -> float:
-        event = event or CashBalanceDecreasedEvent(
+        event = CashBalanceDecreasedEvent(
             user_id=user_id, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)
@@ -277,9 +275,8 @@ class BalanceManager:
         user_id: str,
         amount: float,
         command_id: str,
-        event: CashEscrowIncreasedEvent | None = None,
     ) -> float:
-        event = event or CashEscrowIncreasedEvent(
+        event = CashEscrowIncreasedEvent(
             user_id=user_id, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)
@@ -301,9 +298,8 @@ class BalanceManager:
         user_id: str,
         amount: float,
         command_id: str,
-        event: CashEscrowDecreasedEvent | None = None,
     ) -> float:
-        event = event or CashEscrowDecreasedEvent(
+        event =  CashEscrowDecreasedEvent(
             user_id=user_id, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)
@@ -323,9 +319,8 @@ class BalanceManager:
         user_id: str,
         amount: float,
         command_id: str,
-        event: AssetBalanceIncreasedEvent | None = None,
     ) -> float:
-        event = event or AssetBalanceIncreasedEvent(
+        event = AssetBalanceIncreasedEvent(
             user_id=user_id, symbol=self._symbol, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)
@@ -345,9 +340,8 @@ class BalanceManager:
         user_id: str,
         amount: float,
         command_id: str,
-        event: AssetBalanceDecreasedEvent | None = None,
     ) -> float:
-        event = event or AssetBalanceDecreasedEvent(
+        event =  AssetBalanceDecreasedEvent(
             user_id=user_id, symbol=self._symbol, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)
@@ -367,9 +361,8 @@ class BalanceManager:
         user_id: str,
         amount: float,
         command_id: str,
-        event: AssetEscrowIncreasedEvent | None = None,
     ) -> float:
-        event = event or AssetEscrowIncreasedEvent(
+        event = AssetEscrowIncreasedEvent(
             user_id=user_id, symbol=self._symbol, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)
@@ -389,9 +382,8 @@ class BalanceManager:
         user_id: str,
         amount: float,
         command_id: str,
-        event: AssetEscrowDecreasedEvent | None = None,
     ) -> float:
-        event = event or AssetEscrowDecreasedEvent(
+        event = AssetEscrowDecreasedEvent(
             user_id=user_id, symbol=self._symbol, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)
@@ -413,9 +405,8 @@ class BalanceManager:
         price: float,
         command_id: str,
         trade_event_id: str,
-        event: AskSettledEvent | None = None,
     ) -> None:
-        event = event or AskSettledEvent(
+        event = AskSettledEvent(
             user_id=user_id,
             symbol=self._symbol,
             quantity=quantity,
@@ -470,11 +461,10 @@ class BalanceManager:
         price: float,
         command_id: str,
         trade_event_id: str,
-        event: BidSettledEvent | None = None,
     ) -> None:
         total = quantity * price
 
-        event = event or BidSettledEvent(
+        event = BidSettledEvent(
             user_id=user_id,
             symbol=self._symbol,
             quantity=quantity,
@@ -523,9 +513,8 @@ class BalanceManager:
         user_id: str,
         amount: float,
         command_id: str,
-        event: CashBalanceIncreasedEvent | None = None,
     ) -> float:
-        event = event or CashBalanceIncreasedEvent(
+        event = CashBalanceIncreasedEvent(
             user_id=user_id, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)

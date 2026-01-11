@@ -1,7 +1,6 @@
 import json
 import uuid
 from enum import Enum
-from io import TextIOWrapper
 from typing import Any, Callable, Union
 
 from config import (
@@ -31,9 +30,8 @@ from engine.events import (
     OrderModifyRejectedEvent,
     OrderFilledEvent,
     NewTradeEvent,
-    LogEvent,
 )
-from engine.events.enums import OrderEventType, BalanceEventType, LogEventType,InstrumentEventType
+from engine.events.enums import OrderEventType, BalanceEventType, InstrumentEventType
 from infra.kafka import KafkaProducer
 
 
@@ -58,7 +56,6 @@ class EngineLogger:
     _instances = {}
     _producer = KafkaProducer()
 
-    _log_file: TextIOWrapper | None = None
     _order_event_map = {
         OrderEventType.ORDER_PLACED: OrderPlacedEvent,
         OrderEventType.ORDER_PARTIALLY_FILLED: OrderPartiallyFilledEvent,
@@ -133,13 +130,7 @@ class EngineLogger:
             return json.dumps(event).encode()
         return event.model_dump_json().encode()
 
-    def _write_event(self, typ: LogEventType, event: dict | EngineEventBase) -> None:
 
-        f = self._ensure_file()
-        record = LogEvent(type=typ, data=event)
-        dumped = record.model_dump_json() + "\n"
-        f.write(dumped)
-        f.flush()  # Ensure durability
 
     def log_command_event(self, **kwargs) -> None:
         if self.on_log_command_event is not None:
@@ -147,10 +138,12 @@ class EngineLogger:
 
     @ignore_system_user
     def log_order_event(
-        self, user_id: str, /, kafka_kwargs: dict | None = None, **kwargs
+        self, user_id: str, /, kafka_kwargs: dict | None = None, **event_kwargs
     ) -> None:
-        event_cls = self._order_event_map[kwargs["type"]]
-        event_cls(**kwargs)  # Validate
+        event_cls = self._order_event_map[event_kwargs["type"]]
+        if "user_id" not in event_kwargs and user_id is not None:
+            event_kwargs["user_id"] = user_id
+        event_cls(**event_kwargs)  # Validate
 
         if kafka_kwargs is None:
             kafka_kwargs = {}
@@ -159,13 +152,13 @@ class EngineLogger:
         headers["user_id"] = user_id
         headers["event_category"] = EngineEventCategory.ORDER
 
-        self.log_event(kwargs, kafka_kwargs)
+        self.log_event(event_kwargs, kafka_kwargs)
 
     @ignore_system_user
     def log_trade_event(
-        self, user_id: str, /, kafka_kwargs: dict | None = None, **kwargs
+        self, user_id: str, /, kafka_kwargs: dict | None = None, **event_kwargs
     ) -> None:
-        NewTradeEvent(**kwargs)  # Validate
+        NewTradeEvent(**event_kwargs)  # Validate
 
         if kafka_kwargs is None:
             kafka_kwargs = {}
@@ -174,41 +167,35 @@ class EngineLogger:
         headers["user_id"] = user_id
         headers["event_category"] = EngineEventCategory.TRADE
 
-        self.log_event(kwargs, kafka_kwargs)
+        self.log_event(event_kwargs, kafka_kwargs)
 
     @ignore_system_user
     def log_balance_event(
         self,
-        user_id: str | None = None,
+        user_id: str,
         event: BalanceEventUnion | None = None,
         /,
         kafka_kwargs: dict | None = None,
-        **kwargs,
+        **event_kwargs,
     ) -> None:
         if event is None:
-            event_cls = self._balance_event_map[kwargs["type"]]
-            event_cls(**kwargs)  # Validate
+            event_cls = self._balance_event_map[event_kwargs["type"]]
+            if "user_id" not in event_kwargs:
+                event_kwargs["user_id"] = user_id
+            event_cls(**event_kwargs)  # Validate
 
-            if kafka_kwargs is None:
-                kafka_kwargs = {}
+        if kafka_kwargs is None:
+            kafka_kwargs = {}
 
-            headers = kafka_kwargs.setdefault("headers", {})
-            if user_id is not None:
-                headers["user_id"] = user_id
-            headers["event_category"] = EngineEventCategory.BALANCE
+        headers = kafka_kwargs.setdefault("headers", {})
+        if user_id is not None:
+            headers["user_id"] = user_id
+        headers["event_category"] = EngineEventCategory.BALANCE
 
-            self.log_event(kwargs, kafka_kwargs)
-        else:
+        self.log_event(event_kwargs, kafka_kwargs)
 
-            if kafka_kwargs is None:
-                kafka_kwargs = {}
 
-            headers = kafka_kwargs.setdefault("headers", {})
-            if user_id is not None:
-                headers["user_id"] = user_id
-            headers["event_category"] = EngineEventCategory.BALANCE
 
-            self.log_event(event, kafka_kwargs)
 
     def log_instrument_event(self, kafka_kwargs: dict | None = None, **kwargs) -> None:
         return
@@ -219,23 +206,19 @@ class EngineLogger:
 
     def _build_headers(self, data: dict) -> list[tuple[str, bytes]]:
         headers = []
-        serialisers = {
-            str: lambda v: v.encode(),
-            list: lambda v: json.dumps(v).encode(),
-            dict: lambda v: json.dumps(v).encode(),
-        }
 
         for k, v in data.items():
-            if type(k) != str:
+            if not isinstance(k, str):
                 raise ValueError(f"Type of key '{k}' must be a string.")
 
-            v_type = type(v)
-            serialiser = serialisers.get(v_type)
-
-            if serialiser:
-                headers.append((k, serialiser(v)))
+            if isinstance(v, Enum):
+                headers.append((k, str(v.value).encode()))
+            elif isinstance(v, str):
+                headers.append((k, v.encode()))
+            elif isinstance(v, (list, dict)):
+                headers.append((k, json.dumps(v).encode()))
             else:
-                raise ValueError(f"No serialiser for value {v} of type {v_type}")
+                raise ValueError(f"No serialiser for value {v} of type {type(v)}")
 
         return headers
 

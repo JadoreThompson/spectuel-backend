@@ -4,6 +4,11 @@ import uuid
 
 import fakeredis
 import pytest
+from unittest.mock import MagicMock
+import kafka
+
+# Mock KafkaProducer BEFORE EngineLogger is imported to prevent connection attempts in tests
+kafka.KafkaProducer = MagicMock
 
 from src.engine.matching_engines import SpotEngine
 from src.engine.execution_context import ExecutionContext
@@ -19,7 +24,6 @@ def redis_client():
 def setup_teardown(mocker, redis_client):
     redis_client.flushall()
     mocker.patch("src.engine.infra.redis.client.REDIS_CLIENT_SYNC", redis_client)
-    mocker.patch("src.engine.loggers.engine_logger.EngineLogger._write_event")
     yield
 
 
