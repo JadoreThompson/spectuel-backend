@@ -60,10 +60,12 @@ class OTOOrderCreate(OrderCreateBase):
     def model_post_init(self, context):
         if self.parent.quantity != self.child.quantity:
             raise ValueError("Parent and child must have the same quantity")
+        if self.parent.side == self.child.side:
+            raise ValueError("OTO legs must be placed on different sides of the book.")
         return self
 
 
-class OTOCOOrderCreate(BaseModel):
+class OTOCOOrderCreate(OrderCreateBase):
     parent: OrderBase
     oco_legs: list[OrderBase] = Field(min_length=2, max_length=2)
 
@@ -72,8 +74,13 @@ class OTOCOOrderCreate(BaseModel):
 
         if any(leg.quantity != quantity for leg in self.oco_legs):
             raise ValueError("OTOCO parent and leg orders must have the same quantity")
-        if any(leg.order_type != OrderType.MARKET for leg in self.oco_legs):
-            raise ValueError("OTOCO oco legs must cannot be market orders")
+        if any(leg.order_type == OrderType.MARKET for leg in self.oco_legs):
+            raise ValueError("OTOCO oco legs cannot be market orders")
+
+        if any(leg.side == self.parent.side for leg in self.oco_legs):
+            raise ValueError(
+                "Both OCO legs must be on the opposite side of the book of the parent/"
+            )
 
         return self
 

@@ -56,12 +56,12 @@ class NewOCOOrderCommand(NewOrderCommandBase):
 
 
 class NewOTOOrderCommand(NewOrderCommandBase):
-    parent: dict
-    child: dict
+    parent: SingleOrderMeta
+    child: SingleOrderMeta
 
 
 class NewOTOCOOrderCommand(NewOrderCommandBase):
-    parent: dict
+    parent: SingleOrderMeta
     oco_legs: list[SingleOrderMeta] = Field(min_length=2, max_length=2)
 
 

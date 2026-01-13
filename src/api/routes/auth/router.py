@@ -43,7 +43,7 @@ from .models import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 em_service = EmailService("No-Reply", "no-reply@domain.com")
 pw_hasher = PasswordHasher()
-balance_manager = BalanceManager()
+balance_manager = BalanceManager("")
 
 
 

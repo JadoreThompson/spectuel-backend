@@ -83,6 +83,7 @@ class OrderService:
             limit_price=details.limit_price,
             stop_price=details.stop_price,
             status=OrderStatus.PENDING.value,
+            strategy_type=StrategyType.SINGLE,
         )
         db_sess.add(db_order)
         await db_sess.commit()
@@ -130,7 +131,7 @@ class OrderService:
                 limit_price=leg_details.limit_price,
                 stop_price=leg_details.stop_price,
                 status=OrderStatus.PENDING.value,
-                group_type=StrategyType.OCO,
+                strategy_type=StrategyType.OCO,
             )
             db_sess.add(db_leg)
 
@@ -166,13 +167,13 @@ class OrderService:
 
         parent_id = uuid.uuid4()
         db_parent = cls._build_db_order(
-            details.symbol, user_id, details.parent, parent_id
+            details.symbol, user_id, details.parent, parent_id, StrategyType.OTO
         )
         db_parent.order_group_id = group_id
         db_sess.add(db_parent)
 
         child_id = uuid.uuid4()
-        db_child = cls._build_db_order(details.symbol, user_id, details.child, child_id)
+        db_child = cls._build_db_order(details.symbol, user_id, details.child, child_id, StrategyType.OTO)
         db_child.order_group_id = group_id
         db_child.parent_order_id = parent_id
         db_sess.add(db_child)
@@ -199,10 +200,10 @@ class OrderService:
         cls, user_id: uuid.UUID, details: OTOCOOrderCreate, db_sess: AsyncSession
     ) -> dict:
         group_id = uuid.uuid4()
-        symbol = details.parent.symbol
+        symbol = details.symbol
 
         parent_id = uuid.uuid4()
-        db_parent = cls._build_db_order(symbol, user_id, details.parent, parent_id)
+        db_parent = cls._build_db_order(symbol, user_id, details.parent, parent_id, StrategyType.OTOCO)
         db_parent.order_group_id = group_id
         db_sess.add(db_parent)
 
@@ -213,7 +214,7 @@ class OrderService:
             leg_id = uuid.uuid4()
             child_ids.append(str(leg_id))
 
-            db_leg = cls._build_db_order(symbol, user_id, leg_spec, leg_id)
+            db_leg = cls._build_db_order(symbol, user_id, leg_spec, leg_id, StrategyType.OTOCO)
             db_leg.order_group_id = group_id
             db_leg.parent_order_id = parent_id
             db_sess.add(db_leg)
@@ -238,7 +239,7 @@ class OrderService:
 
     @classmethod
     def _build_db_order(
-        cls, symbol: str, user_id: uuid.UUID, details: OrderBase, order_id: uuid.UUID
+        cls, symbol: str, user_id: uuid.UUID, details: OrderBase, order_id: uuid.UUID, strategy_type: StrategyType
     ) -> Orders:
         """Helper to map API model to DB model."""
         return Orders(
@@ -251,6 +252,7 @@ class OrderService:
             limit_price=details.limit_price,
             stop_price=details.stop_price,
             status=OrderStatus.PENDING.value,
+            strategy_type=strategy_type
         )
 
     @classmethod

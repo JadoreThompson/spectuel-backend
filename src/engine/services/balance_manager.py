@@ -134,6 +134,7 @@ class BalanceManager:
         rediss_client_async: AsyncRedis = REDIS_CLIENT,
     ) -> None:
         self._symbol = symbol
+        self._logger = logging.getLogger(f"{self.__class__.__name__}-{self._symbol}")
         self.engine_logger = engine_logger
         if engine_logger is None:
             self._logger.warning("BalanceManager initialised with no EngineLogger")
@@ -156,8 +157,6 @@ class BalanceManager:
         self._script_settle_bid_async = self._redis_async_client.register_script(
             LUA_SETTLE_BID
         )
-
-        self._logger = logging.getLogger(f"{self.__class__.__name__}-{self._symbol}")
 
     def _wal(self, user_id: str, event: BalanceEventBase) -> None:
         self.engine_logger.log_balance_event(user_id, event, {"key": self._symbol})

@@ -21,6 +21,7 @@ from engine.enums import (
     InstrumentStatus,
     OrderStatus,
     Side,
+    StrategyType,
 )
 from engine.events.enums import OrderEventType
 from utils import gen_api_key
@@ -96,6 +97,7 @@ class Orders(Base):
     )
     symbol: Mapped[str] = mapped_column(String, nullable=False)
     side: Mapped[Side] = mapped_column(String, nullable=False)
+    strategy_type: Mapped[StrategyType] = mapped_column(String, nullable=False)
     order_type: Mapped[OrderType] = mapped_column(String, nullable=False)
     quantity: Mapped[float] = mapped_column(Float, nullable=False)
     executed_quantity: Mapped[float] = mapped_column(Float, nullable=False, default=0)
@@ -117,6 +119,12 @@ class Orders(Base):
     )
 
     user = relationship("Users", back_populates="orders")
+    events = relationship("OrderEvents")
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        if self.executed_quantity is None:
+            self.executed_quantity = 0.0
 
 
 class OrderEvents(Base):

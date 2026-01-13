@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, EmailStr, field_validator
 
-from api.exc import ValueError
+
 from models import CustomBaseModel
 
 

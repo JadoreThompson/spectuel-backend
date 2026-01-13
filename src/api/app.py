@@ -76,5 +76,13 @@ async def http_exception_handler(req: Request, exc: HTTPException):
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(req: Request, exc: RequestValidationError):
-    error_msg = str(exc.errors()[0]["ctx"]["error"])
+    error: dict = exc.errors()[0]
+    
+    if msg := error.get("ctx", {}).get("error"):
+        error_msg = str(msg)
+    elif msg := error.get("msg"):
+        error_msg = msg
+    else:
+        error_msg = 'Invalid request payload'
+    
     return JSONResponse(status_code=422, content={"error": error_msg})
