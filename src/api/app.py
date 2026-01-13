@@ -6,16 +6,15 @@ from sqlalchemy.exc import IntegrityError
 
 from api.exc import JWTError
 from api.middlewares import RateLimitMiddleware
-from api.routes.auth.route import router as auth_route
-from api.routes.orders.route import route as orders_route
-from api.routes.public.route import router as public_route
-from api.routes.users.route import route as user_route
+from api.routes.auth.router import router as auth_route
+from api.routes.orders.router import route as orders_route
+from api.routes.orders.service import OrderService, OrderServiceException
+from api.routes.public.router import router as public_route
+from api.routes.users.router import route as user_route
 from api.ws.orders.route import router as ws_order_route
 from api.ws.instruments.route import route as ws_instruments_route
 from db_models import Instruments
 from infra.db import get_db_sess
-from services import OrderService
-from services.order_service import OrderServiceError
 
 
 symbols = ("BTCUSD", "EURUSD", "GBPUSD", "FAKEUSD")
@@ -65,8 +64,8 @@ async def jwt_error_hanlder(req: Request, exc: JWTError):
     return JSONResponse(status_code=401, content={"error": str(exc)})
 
 
-@app.exception_handler(OrderServiceError)
-async def jwt_error_hanlder(req: Request, exc: OrderServiceError):
+@app.exception_handler(OrderServiceException)
+async def jwt_error_hanlder(req: Request, exc: OrderServiceException):
     return JSONResponse(status_code=401, content={"error": str(exc)})
 
 

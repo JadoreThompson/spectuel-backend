@@ -12,7 +12,7 @@ from config import PAGE_SIZE
 from db_models import Orders
 from engine.commands import CancelOrderCommand, ModifyOrderCommand
 from engine.enums import CommandType, OrderStatus, Side
-from services import OrderService
+from .service import OrderService
 from .models import (
     OCOOrderCreate,
     OTOCOOrderCreate,

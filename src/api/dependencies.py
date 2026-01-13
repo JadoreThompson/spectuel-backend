@@ -5,8 +5,8 @@ from fastapi.responses import JSONResponse
 
 from config import COOKIE_ALIAS
 from infra.db import smaker
-from services import JWTService, ApiKeyService
-from .exc import ApiKeyError, JWTError
+from services import JWTService
+from .exc import JWTError
 from .types import JWTPayload
 
 
@@ -57,13 +57,6 @@ def depends_jwt_ws(is_authenticated: bool = True):
         return await JWTService.validate_jwt(token, is_authenticated=is_authenticated)
 
     return func
-
-
-async def depends_api_key_ws(ws: WebSocket) -> JWTPayload:
-    api_key = ws.headers.get("Authorization")
-    if not api_key:
-        raise ApiKeyError("Api key is missing")
-    return await ApiKeyService.validate_api_key(api_key)
 
 
 def depends_convert_csv(

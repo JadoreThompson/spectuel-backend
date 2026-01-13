@@ -1,2 +1,0 @@
-class OrderServiceError(Exception):
-    pass

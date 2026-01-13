@@ -21,7 +21,7 @@ from engine.commands import (
 )
 from engine.enums import OrderStatus, StrategyType
 from infra.kafka import AsyncKafkaProducer
-from .exc import OrderServiceError
+from .exc import OrderServiceException
 
 
 class OrderService:
@@ -64,7 +64,7 @@ class OrderService:
         elif details.strategy_type == StrategyType.OTOCO:
             return await cls._create_otoco(user_id, details, db_sess)
         else:
-            raise OrderServiceError(
+            raise OrderServiceException(
                 f"Unsupported strategy type: {details.strategy_type}"
             )
 
@@ -165,16 +165,14 @@ class OrderService:
         group_id = uuid.uuid4()
 
         parent_id = uuid.uuid4()
-        db_parent = OrderService._build_db_order(
+        db_parent = cls._build_db_order(
             details.symbol, user_id, details.parent, parent_id
         )
         db_parent.order_group_id = group_id
         db_sess.add(db_parent)
 
         child_id = uuid.uuid4()
-        db_child = OrderService._build_db_order(
-            details.symbol, user_id, details.child, child_id
-        )
+        db_child = cls._build_db_order(details.symbol, user_id, details.child, child_id)
         db_child.order_group_id = group_id
         db_child.parent_order_id = parent_id
         db_sess.add(db_child)
@@ -184,8 +182,8 @@ class OrderService:
         command = NewOTOOrderCommand(
             symbol=details.symbol,
             strategy_type=StrategyType.OTO,
-            parent=OrderService._to_meta(parent_id, user_id, details.parent),
-            child=OrderService._to_meta(child_id, user_id, details.child),
+            parent=cls._to_meta(parent_id, user_id, details.parent),
+            child=cls._to_meta(child_id, user_id, details.child),
         )
 
         await put_command(command, details.symbol)
@@ -204,9 +202,7 @@ class OrderService:
         symbol = details.parent.symbol
 
         parent_id = uuid.uuid4()
-        db_parent = OrderService._build_db_order(
-            symbol, user_id, details.parent, parent_id
-        )
+        db_parent = cls._build_db_order(symbol, user_id, details.parent, parent_id)
         db_parent.order_group_id = group_id
         db_sess.add(db_parent)
 
@@ -217,7 +213,7 @@ class OrderService:
             leg_id = uuid.uuid4()
             child_ids.append(str(leg_id))
 
-            db_leg = OrderService._build_db_order(symbol, user_id, leg_spec, leg_id)
+            db_leg = cls._build_db_order(symbol, user_id, leg_spec, leg_id)
             db_leg.order_group_id = group_id
             db_leg.parent_order_id = parent_id
             db_sess.add(db_leg)
@@ -229,7 +225,7 @@ class OrderService:
         command = NewOTOCOOrderCommand(
             symbol=symbol,
             strategy_type=StrategyType.OTOCO,
-            parent=OrderService._to_meta(parent_id, user_id, details.parent),
+            parent=cls._to_meta(parent_id, user_id, details.parent),
             oco_legs=legs_meta,
         )
         await put_command(command, symbol)
