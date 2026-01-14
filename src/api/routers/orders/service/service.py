@@ -3,7 +3,7 @@ from typing import Union
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.routes.orders.models import (
+from api.routers.orders.models import (
     SingleOrderCreate,
     OCOOrderCreate,
     OTOOrderCreate,

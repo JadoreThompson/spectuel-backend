@@ -6,11 +6,11 @@ from sqlalchemy.exc import IntegrityError
 
 from api.exc import JWTError
 from api.middlewares import RateLimitMiddleware
-from api.routes.auth.router import router as auth_route
-from api.routes.orders.router import route as orders_route
-from api.routes.orders.service import OrderService, OrderServiceException
-from api.routes.public.router import router as public_route
-from api.routes.users.router import route as user_route
+from api.routers.auth.router import router as auth_route
+from api.routers.orders.router import route as orders_route
+from api.routers.orders.service import OrderService, OrderServiceException
+from api.routers.public.router import router as public_route
+from api.routers.users.router import route as user_route
 from api.ws.orders.route import router as ws_order_route
 from api.ws.instruments.route import route as ws_instruments_route
 from db_models import Instruments

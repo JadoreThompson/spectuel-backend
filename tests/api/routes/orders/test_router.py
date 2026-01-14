@@ -56,17 +56,17 @@ async def client(mock_jwt_payload, mock_db_session):
 
         # Mock put_command to avoid Kafka interaction
         with patch(
-            "api.routes.orders.router.put_command", new_callable=AsyncMock
+            "api.routers.orders.router.put_command", new_callable=AsyncMock
         ) as mock_put:
             with patch(
-                "api.routes.orders.service.service.put_command", new_callable=AsyncMock
+                "api.routers.orders.service.service.put_command", new_callable=AsyncMock
             ) as mock_service_put:
                 # Mock OrderService start/stop to avoid aiokafka creation
                 with patch(
-                    "api.routes.orders.service.OrderService.start",
+                    "api.routers.orders.service.OrderService.start",
                     new_callable=AsyncMock,
                 ), patch(
-                    "api.routes.orders.service.OrderService.stop",
+                    "api.routers.orders.service.OrderService.stop",
                     new_callable=AsyncMock,
                 ):
                     async with AsyncClient(
