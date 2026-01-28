@@ -16,6 +16,40 @@ from engine.matching_engines import SpotEngine
 from infra.db import get_db_sess_sync
 
 
+def _run_shadow_in_subprocess(
+    engine_ctx_dict: dict,
+    symbol: str,
+    event_queue: Queue,
+    sentinel: Hashable,
+    snapshot_interval: int,
+    heartbeat_host: str | None,
+    heartbeat_port: int | None,
+    heartbeat_interval: float | None,
+):
+    """
+    Helper function to run EngineShadow in a subprocess.
+    This function reconstructs the engine and shadow inside the subprocess
+    to avoid pickling issues with thread locks and other unpicklable objects.
+    """
+    # Reconstruct the execution context and engine inside the subprocess
+    shadow_engine_ctx = ExecutionContext.from_dict(engine_ctx_dict)
+    shadow_engine_ctx.engine_logger = ShadowEngineLogger(f"ShadowEngine-{symbol}")
+    shadow_engine = SpotEngine(symbol, ctx=shadow_engine_ctx)
+    shadow_engine_ctx.engine = shadow_engine
+
+    # Create and run the EngineShadow
+    shadow = EngineShadow(
+        shadow_engine,
+        event_queue,
+        sentinel,
+        snapshot_interval=snapshot_interval,
+        heartbeat_host=heartbeat_host,
+        heartbeat_port=heartbeat_port,
+        heartbeat_interval=heartbeat_interval,
+    )
+    shadow.run()
+
+
 class EngineShadow:
     def __init__(
         self,
@@ -38,29 +72,38 @@ class EngineShadow:
         self._op_count = 0
         self._batch = []
         self._idx = 0
-        
+
+        # Store heartbeat config but don't create client yet (not picklable)
+        self._heartbeat_host = heartbeat_host
+        self._heartbeat_port = heartbeat_port
+        self._heartbeat_interval = heartbeat_interval
         self._hb_client = None
-        if (
-            heartbeat_host is not None
-            and heartbeat_port is not None
-            and heartbeat_interval is not None
-        ):
-            self._hb_client = HeartbeatClient(
-                host=heartbeat_host,
-                port=heartbeat_port,
-                on_close=lambda: self._set_instrument_status(InstrumentStatus.DEAD),
-            )
-        
+
         self._logger = logging.getLogger(f"EngineSlot-{engine._ctx.symbol}")
 
     def run(self):
         self._apply_patches()
+
+        # Create HeartbeatClient after process spawn (contains unpicklable objects)
+        if (
+            self._heartbeat_host is not None
+            and self._heartbeat_port is not None
+            and self._heartbeat_interval is not None
+        ):
+            self._hb_client = HeartbeatClient(
+                host=self._heartbeat_host,
+                port=self._heartbeat_port,
+                symbol=self._ctx.symbol,
+                heartbeat_interval=self._heartbeat_interval,
+                on_close=lambda: self._set_instrument_status(InstrumentStatus.DEAD),
+            )
+
         cmd = None
         command_count = 0
 
         try:
             self._set_instrument_status(InstrumentStatus.ALIVE)
-            
+
             while True:
                 event_bytes = self._event_queue.get()
                 if event_bytes == self._sentinel:

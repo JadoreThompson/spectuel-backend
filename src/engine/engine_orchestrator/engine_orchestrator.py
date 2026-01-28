@@ -6,12 +6,10 @@ from typing import Any
 from aiokafka import TopicPartition, ConsumerRecord
 
 from config import KAFKA_ENGINE_EVENTS_TOPIC
-from engine.engine_orchestrator.engine_shadow import EngineShadow
 from engine.enums import EngineEventCategory, InstrumentStatus
-from engine.loggers import EngineLogger, ShadowEngineLogger
+from engine.loggers import EngineLogger
 from engine.matching_engines import SpotEngine
 from engine.restoration.engine_loader import EngineLoader
-from engine.execution_context import ExecutionContext
 from infra.kafka import KafkaConsumer
 
 
@@ -56,7 +54,7 @@ class EngineOrchestrator:
 
         topic = load_ctx.topic or KAFKA_ENGINE_EVENTS_TOPIC
         self._kafka_consumer = KafkaConsumer(
-            topics=[topic], group_id=f"engine-orchestrator-{self._symbol}"
+            topic, group_id=f"engine-orchestrator-{self._symbol}"
         )
 
         if load_ctx.partition is not None and load_ctx.offset is not None:
@@ -96,13 +94,8 @@ class EngineOrchestrator:
         Creates the shadow engine and launches it within a seperate
         process.
         """
-        shadow_engine_ctx = ExecutionContext.from_dict(self._engine._ctx.to_dict())
-        shadow_engine_ctx.engine_logger = ShadowEngineLogger(
-            f"ShadowEngine-{self._symbol}"
-        )
-        shadow_engine = SpotEngine(self._symbol, ctx=shadow_engine_ctx)
-        shadow_engine_ctx.engine = shadow_engine
-        self._logger.info(f"Created shadow engine for {self._symbol}")
+        # Get the engine context as a dict (picklable)
+        engine_ctx_dict = self._engine._ctx.to_dict()
 
         event_queue = mp.Queue()
         log_event_hook = lambda event: event_queue.put_nowait(event)
@@ -112,20 +105,24 @@ class EngineOrchestrator:
             "Added push to queue hook for log command event and log event"
         )
 
-        shadodw = EngineShadow(
-            shadow_engine,
-            event_queue,
-            sentinel=-1,
-            snapshot_interval=10_000,
-            **self._shadow_kwargs,
-        )
-        self._logger.info("Created snapshot manager for shadow engine.")
+        # Import the helper function here to avoid circular imports
+        from engine.engine_orchestrator.engine_shadow import _run_shadow_in_subprocess
 
         self._logger.info("Launching shadow process...")
         self._shadow_ps = mp.Process(
-            target=shadodw.run,
+            target=_run_shadow_in_subprocess,
+            args=(
+                engine_ctx_dict,
+                self._symbol,
+                event_queue,
+                -1,  # sentinel
+                10_000,  # snapshot_interval
+                self._shadow_kwargs.get("heartbeat_host") if self._shadow_kwargs else None,
+                self._shadow_kwargs.get("heartbeat_port") if self._shadow_kwargs else None,
+                self._shadow_kwargs.get("heartbeat_interval") if self._shadow_kwargs else None,
+            ),
             daemon=True,
-            name=f"{type(shadodw).__name__}-{self._symbol}",
+            name=f"EngineShadow-{self._symbol}",
         )
         self._shadow_ps.start()
         self._logger.info("Shadow process launched successfully.")

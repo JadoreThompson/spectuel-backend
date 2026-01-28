@@ -22,7 +22,7 @@ class ModifyOrderMixin:
             if limit_crossable(cmd["limit_price"], order.side, ctx.orderbook):
                 ctx.engine_logger.log_order_event(
                     order.user_id,
-                    {"key": ctx.symbol},
+                    {"key": ctx.symbol.encode()},
                     type=OrderEventType.ORDER_MODIFY_REJECTED,
                     order_id=order.id,
                     symbol=ctx.symbol,
@@ -35,7 +35,7 @@ class ModifyOrderMixin:
             if stop_crossable(cmd["stop_price"], order.side, ctx.orderbook):
                 ctx.engine_logger.log_order_event(
                     order.user_id,
-                    {"key": ctx.symbol},
+                    {"key": ctx.symbol.encode()},
                     type=OrderEventType.ORDER_MODIFY_REJECTED,
                     order_id=order.id,
                     symbol=ctx.symbol,
@@ -54,7 +54,7 @@ class ModifyOrderMixin:
         new_price = self._get_modified_price(cmd, order)
         ctx.engine_logger.log_order_event(
             order.user_id,
-            {"key": ctx.symbol},
+            {"key": ctx.symbol.encode()},
             type=OrderEventType.ORDER_MODIFIED,
             order_id=order.id,
             symbol=ctx.symbol,

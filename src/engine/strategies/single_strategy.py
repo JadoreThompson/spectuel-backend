@@ -41,7 +41,7 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
             if result.outcome == MatchOutcome.INSUFFICIENT_BALANCE:
                 ctx.engine_logger.log_order_event(
                     order.user_id,
-                    {"key": ctx.symbol},
+                    {"key": ctx.symbol.encode()},
                     type=OrderEventType.ORDER_CANCELLED,
                     order_id=order.id,
                     symbol=ctx.symbol,
@@ -57,7 +57,7 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
         # Add to orderbook/store if not fully matched
         ctx.engine_logger.log_order_event(
             order.user_id,
-            {"key": ctx.symbol},
+            {"key": ctx.symbol.encode()},
             type=OrderEventType.ORDER_PLACED,
             order_id=order.id,
             symbol=ctx.symbol,
@@ -82,7 +82,7 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
     def handle_cancel(self, order: Order, ctx: ExecutionContext) -> None:
         ctx.engine_logger.log_order_event(
             order.user_id,
-            {"key": ctx.symbol},
+            {"key": ctx.symbol.encode()},
             type=OrderEventType.ORDER_CANCELLED,
             order_id=order.id,
             symbol=ctx.symbol,

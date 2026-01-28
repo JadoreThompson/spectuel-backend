@@ -22,7 +22,7 @@ async def get_user_overview(
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     user_id = str(jwt.sub)
-    cash_balance = await balance_manager.get_cash_balance(user_id)
+    cash_balance = balance_manager.get_cash_balance(user_id)
 
     symbols = (await db_sess.scalars(select(distinct(Orders.symbol)))).all()
 

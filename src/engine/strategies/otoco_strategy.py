@@ -74,7 +74,7 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
             if result.outcome == MatchOutcome.INSUFFICIENT_BALANCE:
                 ctx.engine_logger.log_order_event(
                     parent_order.user_id,
-                    {"key": ctx.symbol},
+                    {"key": ctx.symbol.encode()},
                     type=OrderEventType.ORDER_CANCELLED,
                     order_id=parent_order.id,
                     symbol=ctx.symbol,
@@ -89,7 +89,7 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
             if result.outcome == MatchOutcome.SUCCESS:
                 ctx.engine_logger.log_order_event(
                     child_a.user_id,
-                    {"key": ctx.symbol},
+                    {"key": ctx.symbol.encode()},
                     type=OrderEventType.ORDER_PLACED,
                     order_id=child_a.id,
                     symbol=ctx.symbol,
@@ -101,7 +101,7 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
                 )
                 ctx.engine_logger.log_order_event(
                     child_b.user_id,
-                    {"key": ctx.symbol},
+                    {"key": ctx.symbol.encode()},
                     type=OrderEventType.ORDER_PLACED,
                     order_id=child_b.id,
                     symbol=ctx.symbol,
@@ -122,7 +122,7 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
 
         ctx.engine_logger.log_order_event(
             parent_order.user_id,
-            {"key": ctx.symbol},
+            {"key": ctx.symbol.encode()},
             type=OrderEventType.ORDER_PLACED,
             order_id=parent_order.id,
             symbol=ctx.symbol,
@@ -146,7 +146,7 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
             for child in (order.child_a, order.child_b):
                 ctx.engine_logger.log_order_event(
                     child.user_id,
-                    {"key": ctx.symbol},
+                    {"key": ctx.symbol.encode()},
                     type=OrderEventType.ORDER_PLACED,
                     order_id=child.id,
                     symbol=ctx.symbol,
@@ -168,7 +168,7 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
         if order.child_a:  # parent
             ctx.engine_logger.log_order_event(
                 order.user_id,
-                {"key": ctx.symbol},
+                {"key": ctx.symbol.encode()},
                 type=OrderEventType.ORDER_CANCELLED,
                 order_id=order.id,
                 symbol=ctx.symbol,
@@ -192,7 +192,7 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
         if order.active:
             ctx.engine_logger.log_order_event(
                 order.user_id,
-                {"key": ctx.symbol},
+                {"key": ctx.symbol.encode()},
                 type=OrderEventType.ORDER_CANCELLED,
                 order_id=order.id,
                 symbol=ctx.symbol,
@@ -203,7 +203,7 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
             )
             ctx.engine_logger.log_order_event(
                 counterparty.user_id,
-                {"key": ctx.symbol},
+                {"key": ctx.symbol.encode()},
                 type=OrderEventType.ORDER_CANCELLED,
                 order_id=counterparty.id,
                 symbol=ctx.symbol,
@@ -219,7 +219,7 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
             parent = order.parent
             ctx.engine_logger.log_order_event(
                 order.user_id,
-                {"key": ctx.symbol},
+                {"key": ctx.symbol.encode()},
                 type=OrderEventType.ORDER_CANCELLED,
                 order_id=order.id,
                 symbol=ctx.symbol,
@@ -242,7 +242,7 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
             new_price = self._get_modified_price(cmd, order)
             ctx.engine_logger.log_order_event(
                 order.user_id,
-                {"key": ctx.symbol},
+                {"key": ctx.symbol.encode()},
                 type=OrderEventType.ORDER_MODIFIED,
                 order_id=order.id,
                 symbol=ctx.symbol,

@@ -35,7 +35,6 @@ class EngineLoader:
             Instruments.starting_price,
             EngineContextSnapshots.snapshot,
             EngineContextSnapshots.topic,
-            EngineContextSnapshots.group_id,
             EngineContextSnapshots.partition,
             EngineContextSnapshots.offset,
         ).join(

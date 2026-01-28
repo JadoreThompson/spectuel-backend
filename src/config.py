@@ -83,21 +83,6 @@ HEARTBEAT_REGISTER_TIMEOUT = float(os.getenv("HEARTBEAT_REGISTER_TIMEOUT"))
 
 
 # Logging
-logging.basicConfig(
-    filename="app.log",
-    filemode="a",
-    format="%(asctime)s - [%(levelname)s] - %(name)s - %(message)s",
-)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(
-    logging.Formatter("%(asctime)s - [%(levelname)s] - %(name)s - %(message)s")
-)
-logger.addHandler(handler)
-del logger
-
 aiokafka_logger = logging.getLogger("aiokafka")
 aiokafka_logger.setLevel(logging.WARNING)
 del aiokafka_logger
@@ -105,3 +90,18 @@ del aiokafka_logger
 kafka_logger = logging.getLogger("kafka")
 kafka_logger.setLevel(logging.WARNING)
 del kafka_logger
+
+logging.basicConfig(
+    filename="app.log",
+    filemode="a",
+    format="%(asctime)s - [%(levelname)s] - %(name)s - %(message)s",
+)
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setFormatter(
+    logging.Formatter("%(asctime)s - [%(levelname)s] - %(name)s - %(message)s")
+)
+root_logger.addHandler(stream_handler)
+del root_logger

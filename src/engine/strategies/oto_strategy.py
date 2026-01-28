@@ -60,7 +60,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
             if result.outcome == MatchOutcome.INSUFFICIENT_BALANCE:
                 ctx.engine_logger.log_order_event(
                     parent.user_id,
-                    {"key": ctx.symbol},
+                    {"key": ctx.symbol.encode()},
                     type=OrderEventType.ORDER_CANCELLED,
                     order_id=parent.id,
                     symbol=ctx.symbol,
@@ -80,7 +80,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
         # Parent is not immediately matched
         ctx.engine_logger.log_order_event(
             parent.user_id,
-            {"key": ctx.symbol},
+            {"key": ctx.symbol.encode()},
             type=OrderEventType.ORDER_PLACED,
             order_id=parent.id,
             symbol=ctx.symbol,
@@ -107,7 +107,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
 
             ctx.engine_logger.log_order_event(
                 child.user_id,
-                {"key": ctx.symbol},
+                {"key": ctx.symbol.encode()},
                 type=OrderEventType.ORDER_PLACED,
                 order_id=child.id,
                 symbol=ctx.symbol,
@@ -125,7 +125,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
         if order.child is not None:
             ctx.engine_logger.log_order_event(
                 order.user_id,
-                {"key": ctx.symbol},
+                {"key": ctx.symbol.encode()},
                 type=OrderEventType.ORDER_CANCELLED,
                 order_id=order.id,
                 symbol=ctx.symbol,
@@ -140,7 +140,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
             if order.active:
                 ctx.engine_logger.log_order_event(
                     order.user_id,
-                    {"key": ctx.symbol},
+                    {"key": ctx.symbol.encode()},
                     type=OrderEventType.ORDER_CANCELLED,
                     order_id=order.id,
                     symbol=ctx.symbol,
@@ -154,7 +154,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
                 parent = order.parent
                 ctx.engine_logger.log_order_event(
                     order.user_id,
-                    {"key": ctx.symbol},
+                    {"key": ctx.symbol.encode()},
                     type=OrderEventType.ORDER_CANCELLED,
                     order_id=parent.id,
                     symbol=ctx.symbol,
@@ -174,7 +174,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
             elif self._validate_modify(cmd, order, ctx):
                 ctx.engine_logger.log_order_event(
                     order.user_id,
-                    {"key": ctx.symbol},
+                    {"key": ctx.symbol.encode()},
                     type=OrderEventType.ORDER_MODIFIED,
                     order_id=order.id,
                     symbol=ctx.symbol,

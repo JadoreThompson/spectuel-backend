@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -15,21 +16,25 @@ from engine.enums import CommandType, OrderStatus, Side
 from .service import OrderService
 from .models import (
     OCOOrderCreate,
+    OCOOrderResponse,
     OTOCOOrderCreate,
+    OTOCOOrderResponse,
     OTOOrderCreate,
+    OTOOrderResponse,
     OrderModify,
     OrderRead,
     SingleOrderCreate,
+    SingleOrderResponse,
 )
 
 
 route = APIRouter(prefix="/orders", tags=["orders"])
 
 
-@route.post("/", status_code=202)
+@route.post("/", status_code=202, response_model=SingleOrderResponse)
 async def create_order(
     details: SingleOrderCreate,
-    jwt: JWTPayload = Depends(depends_jwt(False)),
+    jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
     """
@@ -41,7 +46,7 @@ async def create_order(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@route.post("/oco", status_code=202)
+@route.post("/oco", status_code=202, response_model=OCOOrderResponse)
 async def create_oco_order(
     details: OCOOrderCreate,
     jwt: JWTPayload = Depends(depends_jwt()),
@@ -56,7 +61,7 @@ async def create_oco_order(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@route.post("/oto", status_code=202)
+@route.post("/oto", status_code=202, response_model=OTOOrderResponse)
 async def create_oto_order(
     details: OTOOrderCreate,
     jwt: JWTPayload = Depends(depends_jwt()),
@@ -71,7 +76,7 @@ async def create_oto_order(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@route.post("/otoco", status_code=202)
+@route.post("/otoco", status_code=202, response_model=OTOCOOrderResponse)
 async def create_otoco_order(
     details: OTOCOOrderCreate,
     jwt: JWTPayload = Depends(depends_jwt()),
@@ -92,6 +97,7 @@ async def get_orders(
     symbols: list[str] = Query(default_factory=list),
     status: list[OrderStatus] = Query(default_factory=list),
     side: list[Side] = Query(default_factory=list),
+    order_by: Literal['asc', 'desc'] = 'desc',
     jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):

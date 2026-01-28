@@ -9,6 +9,11 @@ from api.routers.orders.models import (
     OTOOrderCreate,
     OTOCOOrderCreate,
     OrderBase,
+    SingleOrderResponse,
+    OCOOrderResponse,
+    OTOOrderResponse,
+    OTOCOOrderResponse,
+    OrderRead,
 )
 from api.utils import put_command
 from db_models import Orders
@@ -49,7 +54,7 @@ class OrderService:
             SingleOrderCreate, OCOOrderCreate, OTOOrderCreate, OTOCOOrderCreate
         ],
         db_sess: AsyncSession,
-    ) -> dict:
+    ) -> Union[SingleOrderResponse, OCOOrderResponse, OTOOrderResponse, OTOCOOrderResponse]:
         """
         Main entry point for order creation. Dispatches to specific handlers based on strategy type.
         """
@@ -71,7 +76,7 @@ class OrderService:
     @classmethod
     async def _create_single(
         cls, user_id: uuid.UUID, details: SingleOrderCreate, db_sess: AsyncSession
-    ) -> dict:
+    ) -> SingleOrderResponse:
         order_id = uuid.uuid4()
         db_order = Orders(
             order_id=order_id,
@@ -86,6 +91,7 @@ class OrderService:
             strategy_type=StrategyType.SINGLE,
         )
         db_sess.add(db_order)
+        # await db_sess.refresh(db_order)
         await db_sess.commit()
 
         meta = SingleOrderMeta(
@@ -106,19 +112,33 @@ class OrderService:
 
         await put_command(command, details.symbol)
 
-        return {"order_id": str(order_id), "status": "accepted"}
+        return SingleOrderResponse(
+            order=OrderRead(
+                order_id=db_order.order_id,
+                symbol=db_order.symbol,
+                strategy_type=db_order.strategy_type,
+                order_type=db_order.order_type,
+                side=db_order.side,
+                quantity=db_order.quantity,
+                limit_price=db_order.limit_price,
+                stop_price=db_order.stop_price,
+                status=db_order.status,
+                executed_quantity=db_order.executed_quantity,
+                avg_fill_price=db_order.avg_fill_price,
+                created_at=db_order.created_at,
+            )
+        )
 
     @classmethod
     async def _create_oco(
         cls, user_id: uuid.UUID, details: OCOOrderCreate, db_sess: AsyncSession
-    ) -> dict:
+    ) -> OCOOrderResponse:
         group_id = uuid.uuid4()
         legs_meta = []
-        leg_ids = []
+        db_legs = []
 
         for leg_details in details.legs:
             leg_id = uuid.uuid4()
-            leg_ids.append(str(leg_id))
 
             db_leg = Orders(
                 order_id=leg_id,
@@ -134,6 +154,7 @@ class OrderService:
                 strategy_type=StrategyType.OCO,
             )
             db_sess.add(db_leg)
+            db_legs.append(db_leg)
 
             legs_meta.append(
                 SingleOrderMeta(
@@ -148,6 +169,8 @@ class OrderService:
             )
 
         await db_sess.commit()
+        for db_leg in db_legs:
+            await db_sess.refresh(db_leg)
 
         command = NewOCOOrderCommand(
             symbol=details.symbol,
@@ -157,12 +180,31 @@ class OrderService:
 
         await put_command(command, details.symbol)
 
-        return {"group_id": str(group_id), "legs": leg_ids}
+        return OCOOrderResponse(
+            group_id=group_id,
+            legs=[
+                OrderRead(
+                    order_id=leg.order_id,
+                    symbol=leg.symbol,
+                    strategy_type=leg.strategy_type,
+                    order_type=leg.order_type,
+                    side=leg.side,
+                    quantity=leg.quantity,
+                    limit_price=leg.limit_price,
+                    stop_price=leg.stop_price,
+                    status=leg.status,
+                    executed_quantity=leg.executed_quantity,
+                    avg_fill_price=leg.avg_fill_price,
+                    created_at=leg.created_at,
+                )
+                for leg in db_legs
+            ],
+        )
 
     @classmethod
     async def _create_oto(
         cls, user_id: uuid.UUID, details: OTOOrderCreate, db_sess: AsyncSession
-    ) -> dict:
+    ) -> OTOOrderResponse:
         group_id = uuid.uuid4()
 
         parent_id = uuid.uuid4()
@@ -179,6 +221,8 @@ class OrderService:
         db_sess.add(db_child)
 
         await db_sess.commit()
+        await db_sess.refresh(db_parent)
+        await db_sess.refresh(db_child)
 
         command = NewOTOOrderCommand(
             symbol=details.symbol,
@@ -189,16 +233,41 @@ class OrderService:
 
         await put_command(command, details.symbol)
 
-        return {
-            "group_id": str(group_id),
-            "parent_id": str(parent_id),
-            "child_id": str(child_id),
-        }
+        return OTOOrderResponse(
+            parent=OrderRead(
+                order_id=db_parent.order_id,
+                symbol=db_parent.symbol,
+                strategy_type=db_parent.strategy_type,
+                order_type=db_parent.order_type,
+                side=db_parent.side,
+                quantity=db_parent.quantity,
+                limit_price=db_parent.limit_price,
+                stop_price=db_parent.stop_price,
+                status=db_parent.status,
+                executed_quantity=db_parent.executed_quantity,
+                avg_fill_price=db_parent.avg_fill_price,
+                created_at=db_parent.created_at,
+            ),
+            child=OrderRead(
+                order_id=db_child.order_id,
+                symbol=db_child.symbol,
+                strategy_type=db_child.strategy_type,
+                order_type=db_child.order_type,
+                side=db_child.side,
+                quantity=db_child.quantity,
+                limit_price=db_child.limit_price,
+                stop_price=db_child.stop_price,
+                status=db_child.status,
+                executed_quantity=db_child.executed_quantity,
+                avg_fill_price=db_child.avg_fill_price,
+                created_at=db_child.created_at,
+            ),
+        )
 
     @classmethod
     async def _create_otoco(
         cls, user_id: uuid.UUID, details: OTOCOOrderCreate, db_sess: AsyncSession
-    ) -> dict:
+    ) -> OTOCOOrderResponse:
         group_id = uuid.uuid4()
         symbol = details.symbol
 
@@ -207,21 +276,24 @@ class OrderService:
         db_parent.order_group_id = group_id
         db_sess.add(db_parent)
 
-        child_ids = []
+        db_legs = []
         legs_meta = []
 
         for leg_spec in details.oco_legs:
             leg_id = uuid.uuid4()
-            child_ids.append(str(leg_id))
 
             db_leg = cls._build_db_order(symbol, user_id, leg_spec, leg_id, StrategyType.OTOCO)
             db_leg.order_group_id = group_id
             db_leg.parent_order_id = parent_id
             db_sess.add(db_leg)
+            db_legs.append(db_leg)
 
             legs_meta.append(OrderService._to_meta(leg_id, user_id, leg_spec))
 
         await db_sess.commit()
+        await db_sess.refresh(db_parent)
+        for db_leg in db_legs:
+            await db_sess.refresh(db_leg)
 
         command = NewOTOCOOrderCommand(
             symbol=symbol,
@@ -231,11 +303,40 @@ class OrderService:
         )
         await put_command(command, symbol)
 
-        return {
-            "group_id": str(group_id),
-            "parent_id": str(parent_id),
-            "legs": child_ids,
-        }
+        return OTOCOOrderResponse(
+            group_id=group_id,
+            parent=OrderRead(
+                order_id=db_parent.order_id,
+                symbol=db_parent.symbol,
+                strategy_type=db_parent.strategy_type,
+                order_type=db_parent.order_type,
+                side=db_parent.side,
+                quantity=db_parent.quantity,
+                limit_price=db_parent.limit_price,
+                stop_price=db_parent.stop_price,
+                status=db_parent.status,
+                executed_quantity=db_parent.executed_quantity,
+                avg_fill_price=db_parent.avg_fill_price,
+                created_at=db_parent.created_at,
+            ),
+            legs=[
+                OrderRead(
+                    order_id=leg.order_id,
+                    symbol=leg.symbol,
+                    strategy_type=leg.strategy_type,
+                    order_type=leg.order_type,
+                    side=leg.side,
+                    quantity=leg.quantity,
+                    limit_price=leg.limit_price,
+                    stop_price=leg.stop_price,
+                    status=leg.status,
+                    executed_quantity=leg.executed_quantity,
+                    avg_fill_price=leg.avg_fill_price,
+                    created_at=leg.created_at,
+                )
+                for leg in db_legs
+            ],
+        )
 
     @classmethod
     def _build_db_order(

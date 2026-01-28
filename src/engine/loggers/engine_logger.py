@@ -50,11 +50,19 @@ BalanceEventUnion = Union[
 
 
 Hook = Callable[[bytes], Any]
+_KAKFA_PRODUCER = None  # Lazy-initialized to avoid pickling issues
+
+
+def _get_kafka_producer():
+    """Lazy initialization of Kafka producer to avoid pickling issues."""
+    global _KAKFA_PRODUCER
+    if _KAKFA_PRODUCER is None:
+        _KAKFA_PRODUCER = KafkaProducer()
+    return _KAKFA_PRODUCER
 
 
 class EngineLogger:
     _instances = {}
-    _producer = KafkaProducer()
 
     _order_event_map = {
         OrderEventType.ORDER_PLACED: OrderPlacedEvent,
@@ -114,7 +122,7 @@ class EngineLogger:
             if "headers" in kafka_kwargs:
                 kafka_kwargs["headers"] = self._build_headers(kafka_kwargs["headers"])
 
-            self.__class__._producer.send(
+            _get_kafka_producer().send(
                 KAFKA_ENGINE_EVENTS_TOPIC, serialised_event, **kafka_kwargs
             )
 
@@ -130,11 +138,9 @@ class EngineLogger:
             return json.dumps(event).encode()
         return event.model_dump_json().encode()
 
-
-
     def log_command_event(self, **kwargs) -> None:
         if self.on_log_command_event is not None:
-            self.on_log_command_event(kwargs)
+            self.on_log_command_event(json.dumps(kwargs).encode())
 
     @ignore_system_user
     def log_order_event(
@@ -193,9 +199,6 @@ class EngineLogger:
         headers["event_category"] = EngineEventCategory.BALANCE
 
         self.log_event(event_kwargs, kafka_kwargs)
-
-
-
 
     def log_instrument_event(self, kafka_kwargs: dict | None = None, **kwargs) -> None:
         return

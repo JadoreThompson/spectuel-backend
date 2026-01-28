@@ -159,7 +159,7 @@ class BalanceManager:
         )
 
     def _wal(self, user_id: str, event: BalanceEventBase) -> None:
-        self.engine_logger.log_balance_event(user_id, event, {"key": self._symbol})
+        self.engine_logger.log_balance_event(user_id, event, {"key": self._symbol.encode()})
 
     def get_asset_balance_hkey(self, user_id: str) -> str:
         return f"{self._symbol}:{user_id}:balance:log"
@@ -516,6 +516,7 @@ class BalanceManager:
         event = CashBalanceIncreasedEvent(
             user_id=user_id, amount=amount, command_id=command_id
         )
+        print("CashBalanceIncreasedEvent", event)
         self._wal(user_id, event)
 
         val_key = self.get_cash_balance_key(user_id)

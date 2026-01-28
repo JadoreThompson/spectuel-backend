@@ -10,7 +10,7 @@ from db_models import Instruments
 from engine.engine_orchestrator import EngineOrchestrator
 from engine.enums import InstrumentStatus
 from infra.db import get_db_sess_sync
-from runners import run_runner, RunnerConfig
+from runners import run_runner, RunnerConfig, run_runner_v2
 
 
 @click.group()
@@ -46,7 +46,6 @@ def engine_run():
     configs = tuple(
         RunnerConfig(
             cls=EngineOrchestrator,
-            args=(),
             kwargs={
                 "symbol": symbol,
                 "shadow_kwargs": {
@@ -60,10 +59,8 @@ def engine_run():
         for symbol in symbols
     )
 
-    configs = tuple(configs)
-
     ps = [
-        Process(target=run_runner, args=conf.args, kwargs=conf.kwargs, name=conf.name)
+        Process(target=run_runner_v2, args=(conf,), name=conf.name)
         for conf in configs
     ]
 

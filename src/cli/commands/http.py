@@ -4,7 +4,13 @@ import time
 
 import click
 
-from runners import run_runner, ServerRunner, ServicesRunner, RunnerConfig
+from runners import (
+    run_runner,
+    ServerRunner,
+    ServicesRunner,
+    RunnerConfig,
+    run_runner_v2,
+)
 
 
 @click.group()
@@ -18,19 +24,12 @@ def http_run():
     logger = logging.getLogger("main")
 
     configs = (
-        RunnerConfig(cls=ServicesRunner, args=(), kwargs={}, name="ServicesRunner"),
-        RunnerConfig(
-            cls=ServerRunner,
-            args=(),
-            kwargs={"host": "0.0.0.0", "port": 8000},
-            name="ServerRunner",
-        ),
+        RunnerConfig(cls=ServicesRunner),
+        RunnerConfig(cls=ServerRunner, kwargs={"host": "0.0.0.0", "port": 8000}),
     )
 
     ps = [
-        multiprocessing.Process(
-            target=run_runner, args=conf.args, kwargs=conf.kwargs, name=conf.name
-        )
+        multiprocessing.Process(target=run_runner_v2, args=(conf,), name=conf.name)
         for conf in configs
     ]
 

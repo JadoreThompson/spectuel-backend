@@ -22,6 +22,7 @@ from config import (
     REDIS_EMAIL_VERIFICATION_EXPIRY_SECS,
 )
 from db_models import Users
+from engine.loggers import EngineLogger
 from engine.services.balance_manager import BalanceManager
 from infra.redis import REDIS_CLIENT
 from services import JWTService, EmailService
@@ -41,9 +42,9 @@ from .models import (
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-em_service = EmailService("No-Reply", "no-reply@domain.com")
+em_service = EmailService("No-Reply", "no-reply@jadore.dev")
 pw_hasher = PasswordHasher()
-balance_manager = BalanceManager("")
+balance_manager = BalanceManager("<auth-router>", EngineLogger("<auth-router>"))
 
 
 
@@ -71,7 +72,7 @@ async def login(body: UserLogin, db_sess: AsyncSession = Depends(depends_db_sess
 
 
 
-@router.post("/register", status_code=202)
+@router.post("/register")
 async def register(
     body: UserCreate,
     bg_tasks: BackgroundTasks,
@@ -111,6 +112,7 @@ async def register(
 
     rsp = await JWTService.set_persistant_jwt_cookie(user, db_sess)
     await db_sess.commit()
+    rsp.status_code = 202
 
     return rsp
 
@@ -159,20 +161,21 @@ async def verify_email(
     payload = await REDIS_CLIENT.get(key)
     if not payload:
         raise HTTPException(status_code=400, detail="No code found")
-
-    code = payload["code"]
-    await REDIS_CLIENT.delete(key)
+    
+    decoded_payload = json.loads(payload)
+    code = decoded_payload["code"]
 
     if code is None or code != body.code:
         raise HTTPException(
             status_code=400, detail="Invalid or expired verification code."
         )
 
+    await REDIS_CLIENT.delete(key)
     user = await db_sess.scalar(select(Users).where(Users.user_id == jwt.sub))
     user.authenticated_at = get_datetime()
     rsp = await JWTService.set_persistant_jwt_cookie(user, db_sess)
     await balance_manager.increase_cash_balance_async(
-        user.user_id, get_default_cash_balance(), NEW_USER_COMMAND_ID
+        str(user.user_id), get_default_cash_balance(), NEW_USER_COMMAND_ID
     )
     await db_sess.commit()
     return rsp

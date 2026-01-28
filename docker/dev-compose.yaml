@@ -44,21 +44,9 @@ services:
     volumes:
       - redis:/data
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
-  
-  redis_backup:
-    image: redis:7
-    container_name: spectuel_redis_backup
-    restart: unless-stopped
-    ports:
-      - ${BACKUP_REDIS_PORT}:6379
-    volumes:
-      - redis_backup:/data
-    command: ["redis-server", "--requirepass", "${BACKUP_REDIS_PASSWORD}"]
 
 volumes:
   postgres:
     name: spectuel_postgres
   redis:
     name: spectuel_redis
-  redis_backup:
-    name: spectuel_redis_backup

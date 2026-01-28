@@ -1,5 +1,5 @@
 import click
-from cli.commands import db, engine, http
+from cli.commands import db, engine, heartbeat, http
 
 
 @click.group()
@@ -9,4 +9,5 @@ def cli():
 
 cli.add_command(db)
 cli.add_command(engine)
+cli.add_command(heartbeat)
 cli.add_command(http)

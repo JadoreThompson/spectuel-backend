@@ -98,3 +98,28 @@ class OrderRead(OrderBase):
     executed_quantity: float
     avg_fill_price: float | None = None
     created_at: datetime
+
+
+class SingleOrderResponse(BaseModel):
+    order: OrderRead
+
+
+class OCOOrderResponse(CustomBaseModel):
+    group_id: UUID
+    legs: list[OrderRead]
+
+
+class OTOOrderResponse(BaseModel):
+    parent: OrderRead
+    child: OrderRead
+
+
+class OTOCOOrderResponse(CustomBaseModel):
+    group_id: UUID
+    parent: OrderRead
+    legs: list[OrderRead]
+
+
+# class OrderCancelResponse(CustomBaseModel):
+#     order_id: UUID
+#     status: OrderStatus

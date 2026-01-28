@@ -36,7 +36,7 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
 
         ctx.engine_logger.log_order_event(
             order_a.user_id,
-            {"key": ctx.symbol},
+            {"key": ctx.symbol.encode()},
             type=OrderEventType.ORDER_PLACED,
             order_id=order_a.id,
             symbol=ctx.symbol,
@@ -48,7 +48,7 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
         )
         ctx.engine_logger.log_order_event(
             order_b.user_id,
-            {"key": ctx.symbol},
+            {"key": ctx.symbol.encode()},
             type=OrderEventType.ORDER_PLACED,
             order_id=order_b.id,
             symbol=ctx.symbol,
@@ -71,7 +71,7 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
         counterparty = order.counterparty
         ctx.engine_logger.log_order_event(
             order.user_id,
-            {"key": ctx.symbol},
+            {"key": ctx.symbol.encode()},
             type=OrderEventType.ORDER_CANCELLED,
             order_id=order.counterparty.id,
             symbol=ctx.symbol,
@@ -87,7 +87,7 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
         counterparty = order.counterparty
         ctx.engine_logger.log_order_event(
             order.user_id,
-            {"key": ctx.symbol},
+            {"key": ctx.symbol.encode()},
             type=OrderEventType.ORDER_CANCELLED,
             order_id=order.id,
             symbol=ctx.symbol,
@@ -96,7 +96,7 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
         )
         ctx.engine_logger.log_order_event(
             order.user_id,
-            {"key": ctx.symbol},
+            {"key": ctx.symbol.encode()},
             type=OrderEventType.ORDER_CANCELLED,
             order_id=counterparty.id,
             symbol=ctx.symbol,
