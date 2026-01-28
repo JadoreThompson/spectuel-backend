@@ -44,6 +44,7 @@ class InstrumentStatus(str, Enum):
 
 
 class TimeFrame(str, Enum):
+    M1 = "1m"
     M5 = "5m"
     M15 = "15m"
     H1 = "1h"
@@ -61,6 +62,20 @@ class TimeFrame(str, Enum):
             return f"{amount} hour"
         elif unit == "d":
             return f"{amount} day"
+        else:
+            raise ValueError(f"Unsupported timeframe unit: {unit}")
+
+    def get_seconds(self) -> int:
+        """Convert timeframe to seconds."""
+        unit = self.value[-1]
+        amount = int(self.value[:-1])
+
+        if unit == "m":
+            return amount * 60
+        elif unit == "h":
+            return amount * 3600
+        elif unit == "d":
+            return amount * 86400
         else:
             raise ValueError(f"Unsupported timeframe unit: {unit}")
 
