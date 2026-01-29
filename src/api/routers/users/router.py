@@ -1,15 +1,18 @@
 import asyncio
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import distinct, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import depends_jwt, depends_db_sess
+from api.shared.models import PaginatedResponse
 from api.types import JWTPayload
 from engine.services.balance_manager import BalanceManager
-from db_models import Orders
+from db_models import Orders, OrderEvents, BalanceEvents
 from engine.utils import get_asset_balance_key
 from infra.redis.client import REDIS_CLIENT
-from .models import UserOverviewResponse
+from .models import UserOverviewResponse, OrderEventRead, BalanceEventRead
 
 
 route = APIRouter(prefix="/user", tags=["user"])
@@ -55,3 +58,91 @@ async def get_user_overview(
         portfolio_balance=portfolio_balance,
         balances=balances,
     )
+
+
+@route.get("/events")
+async def get_user_events(
+    type: Literal["balance", "order"] = Query(...),
+    symbol: str | None = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    jwt: JWTPayload = Depends(depends_jwt(is_authenticated=True)),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    """
+    Retrieves user events (order or balance) with optional symbol filtering.
+    Returns events in descending order of timestamp.
+    """
+    user_id = jwt.sub
+
+    if type == "order":
+        query = select(OrderEvents).where(OrderEvents.user_id == user_id)
+
+        if symbol:
+            subquery = select(Orders.order_id).where(Orders.symbol == symbol)
+            query = query.where(OrderEvents.order_id.in_(subquery))
+
+        query = query.order_by(OrderEvents.timestamp.desc()).offset(skip).limit(limit + 1)
+
+        result = await db_sess.execute(query)
+        events = result.scalars().all()
+
+        has_next = len(events) > limit
+        events_to_return = events[:limit]
+
+        event_data = [
+            OrderEventRead(
+                event_id=event.event_id,
+                order_id=event.order_id,
+                user_id=event.user_id,
+                command_id=event.command_id,
+                type=event.type.value,
+                version=event.version,
+                payload=event.payload,
+                timestamp=float(event.timestamp),
+            )
+            for event in events_to_return
+        ]
+
+        return PaginatedResponse(
+            page=(skip // limit) + 1,
+            size=len(event_data),
+            has_next=has_next,
+            data=event_data,
+        )
+
+    elif type == "balance":
+        query = select(BalanceEvents).where(BalanceEvents.user_id == user_id)
+
+        if symbol:
+            query = query.where(BalanceEvents.symbol == symbol)
+
+        query = query.order_by(BalanceEvents.timestamp.desc()).offset(skip).limit(limit + 1)
+
+        result = await db_sess.execute(query)
+        events = result.scalars().all()
+
+        has_next = len(events) > limit
+        events_to_return = events[:limit]
+
+        event_data = [
+            BalanceEventRead(
+                event_id=event.event_id,
+                user_id=event.user_id,
+                command_id=event.command_id,
+                type=event.type.value,
+                version=event.version,
+                symbol=event.symbol,
+                payload=event.payload,
+                timestamp=float(event.timestamp),
+            )
+            for event in events_to_return
+        ]
+
+        return PaginatedResponse(
+            page=(skip // limit) + 1,
+            size=len(event_data),
+            has_next=has_next,
+            data=event_data,
+        )
+

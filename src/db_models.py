@@ -23,7 +23,7 @@ from engine.enums import (
     Side,
     StrategyType,
 )
-from engine.events.enums import OrderEventType
+from engine.events.enums import OrderEventType, BalanceEventType
 from utils import gen_api_key
 
 
@@ -67,6 +67,8 @@ class Users(Base):
     )
 
     orders = relationship("Orders", back_populates="user")
+    order_events = relationship("OrderEvents", back_populates="user")
+    balance_events = relationship("BalanceEvents", back_populates="user")
 
 
 class Instruments(Base):
@@ -137,6 +139,12 @@ class OrderEvents(Base):
         nullable=False,
         index=True,
     )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id"),
+        nullable=False,
+        index=True,
+    )
     command_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         nullable=False,
@@ -145,9 +153,34 @@ class OrderEvents(Base):
     type: Mapped[OrderEventType] = mapped_column(String, nullable=False, index=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    timestamp: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    timestamp: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, index=True)
 
     order = relationship("Orders", back_populates="events")
+    user = relationship("Users", back_populates="order_events")
+
+
+class BalanceEvents(Base):
+    __tablename__ = "balance_events"
+
+    event_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id"),
+        nullable=False,
+        index=True,
+    )
+    command_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
+    )
+    type: Mapped[BalanceEventType] = mapped_column(String, nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    symbol: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    timestamp: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, index=True)
+
+    user = relationship("Users", back_populates="balance_events")
 
 
 class EventLogs(Base):
