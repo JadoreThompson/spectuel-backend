@@ -2,7 +2,14 @@ import base64
 import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,7 +23,8 @@ from .connection_manager import connection_manager
 from .models import BarsResponse, BarData, SubscribeRequest, SubscribeResponse
 
 
-route = APIRouter(prefix="/markets", tags=["markets"])
+PREFIX = "/markets"
+route = APIRouter(tags=["markets"])
 
 TIMEFRAME_LOOKBACK = {
     TimeFrame.M1: 7 * 24 * 60 * 60,
@@ -28,7 +36,7 @@ TIMEFRAME_LOOKBACK = {
 }
 
 
-@route.get("/{symbol}/bars", response_model=BarsResponse)
+@route.get(PREFIX + "/{symbol}/bars", response_model=BarsResponse)
 async def get_market_bars(
     symbol: str,
     timeframe: TimeFrame = Query(...),
@@ -48,8 +56,7 @@ async def get_market_bars(
         end_date = now
     elif end_date > now:
         raise HTTPException(
-            status_code=400,
-            detail="end_date cannot be later than the current time"
+            status_code=400, detail="end_date cannot be later than the current time"
         )
 
     max_lookback = TIMEFRAME_LOOKBACK.get(timeframe)
@@ -63,7 +70,7 @@ async def get_market_bars(
     elif start_date < earliest_allowed:
         raise HTTPException(
             status_code=400,
-            detail=f"start_date exceeds maximum lookback window for {timeframe.value}"
+            detail=f"start_date exceeds maximum lookback window for {timeframe.value}",
         )
 
     if next_page_token:
@@ -116,47 +123,45 @@ async def get_market_bars(
     return BarsResponse(bars=bar_data_list, next_page_token=next_token)
 
 
-@route.websocket("/{symbol}")
+@route.websocket("/ws" + PREFIX)
 async def market_websocket(
-    websocket: WebSocket,
-    symbol: str,
-    jwt: JWTPayload = Depends(depends_jwt_ws(is_authenticated=False)),
+    ws: WebSocket,
+    # symbol: str,
+    # jwt: JWTPayload = Depends(depends_jwt_ws(is_authenticated=False)),
 ):
     """
     WebSocket endpoint for real-time market data.
     Accepts subscription requests for trades, bars, and orderbook snapshots.
     """
-    await connection_manager.connect(websocket)
+    await connection_manager.connect(ws)
 
     try:
         while True:
-            data = await websocket.receive_text()
+            data = await ws.receive_text()
             try:
                 request = json.loads(data)
                 request_type = request.get("type")
 
                 if request_type == "subscribe":
-                    connection_manager.subscribe(websocket, request)
+                    connection_manager.subscribe(ws, request)
 
                     response = SubscribeResponse(
-                        subscriptions=connection_manager._conn_subscriptions.get(
-                            websocket, {}
-                        )
+                        subscriptions=connection_manager._conn_subscriptions.get(ws, {})
                     )
-                    await websocket.send_text(response.model_dump_json())
+                    await ws.send_text(response.model_dump_json())
                 else:
-                    await websocket.send_text(
+                    await ws.send_text(
                         json.dumps({"type": "error", "message": "Unknown request type"})
                     )
             except json.JSONDecodeError:
-                await websocket.send_text(
+                await ws.send_text(
                     json.dumps({"type": "error", "message": "Invalid JSON"})
                 )
             except Exception as e:
-                await websocket.send_text(
-                    json.dumps({"type": "error", "message": str(e)})
-                )
+                await ws.send_text(json.dumps({"type": "error", "message": str(e)}))
     except WebSocketDisconnect:
-        connection_manager.disconnect(websocket)
+        pass
     except Exception as e:
-        connection_manager.disconnect(websocket)
+        print(f"WebSocket error: {e}")
+    finally:
+        connection_manager.disconnect(ws)

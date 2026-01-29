@@ -1,7 +1,7 @@
 from typing import Literal
 from uuid import UUID
 
-from engine.enums import LiquidityRole
+from engine.enums import LiquidityRole, TimeFrame
 from engine.events import EngineEventBase
 from .enums import InstrumentEventType
 
@@ -35,3 +35,13 @@ class NewTradeEvent(InstrumentEventBase):
     role: LiquidityRole
     quantity: float
     price: float
+
+
+class BarUpdateEvent(InstrumentEventBase):
+    type: Literal[InstrumentEventType.BAR_UPDATE] = InstrumentEventType.BAR_UPDATE
+    timeframe: TimeFrame
+    open: float
+    high: float
+    low: float
+    close: float
+    timestamp: int

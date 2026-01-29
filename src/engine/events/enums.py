@@ -5,6 +5,7 @@ class InstrumentEventType(str, Enum):
     ENGINE_CREATED = "engine_created"
     ORDERBOOK_SNAPSHOT = "orderbook_snapshot"
     NEW_TRADE = "new_trade"
+    BAR_UPDATE = "bar_update"
 
 
 class OrderbookEventType(str, Enum):
