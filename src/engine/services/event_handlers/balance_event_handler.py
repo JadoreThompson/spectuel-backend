@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import KAFKA_BALANCE_EVENTS_TOPIC
-from db_models import BalanceEvents, EventLogs
+from db_models import AssetBalances, BalanceEvents, EventLogs, Instruments
 from engine.enums import EngineEventCategory
 from engine.events import (
     AssetBalanceDecreasedEvent,
@@ -105,6 +105,8 @@ class BalanceEventHandler(BaseEventHandler):
                 )
                 db_sess.add(db_event_log)
 
+                await self._adjust_asset_balance(event, db_sess)
+
                 await db_sess.commit()
 
         except ValidationError:
@@ -113,3 +115,75 @@ class BalanceEventHandler(BaseEventHandler):
             )
         except Exception:
             self._logger.error("Error processing balance event", exc_info=True)
+
+    async def _adjust_asset_balance(self, event, db_sess: AsyncSession):
+        """Adjust asset balance based on event type."""
+        if event.type == BalanceEventType.ASSET_BALANCE_INCREASED:
+            await self._increase_asset_balance(
+                db_sess, event.user_id, event.symbol, event.amount
+            )
+        elif event.type == BalanceEventType.ASSET_BALANCE_DECREASED:
+            await self._decrease_asset_balance(
+                db_sess, event.user_id, event.symbol, event.amount
+            )
+        elif event.type == BalanceEventType.ASK_SETTLED:
+            await self._increase_asset_balance(
+                db_sess,
+                event.user_id,
+                event.symbol,
+                event.asset_balance_increased.amount,
+            )
+        elif event.type == BalanceEventType.BID_SETTLED:
+            await self._increase_asset_balance(
+                db_sess,
+                event.user_id,
+                event.symbol,
+                event.asset_balance_increased.amount,
+            )
+
+    async def _get_instrument_id(self, db_sess: AsyncSession, symbol: str):
+        """Get instrument_id for a given symbol."""
+        instrument = await db_sess.scalar(
+            select(Instruments).where(Instruments.symbol == symbol)
+        )
+        if not instrument:
+            self._logger.error(f"Instrument not found for symbol: {symbol}")
+            return None
+        return instrument.instrument_id
+
+    async def _increase_asset_balance(
+        self, db_sess: AsyncSession, user_id: str, symbol: str, amount: float
+    ):
+        """Increase asset balance for a user."""
+        instrument_id = await self._get_instrument_id(db_sess, symbol)
+        if not instrument_id:
+            return
+
+        asset_balance = await db_sess.get(AssetBalances, (instrument_id, user_id))
+
+        if asset_balance:
+            asset_balance.balance += amount
+        else:
+            asset_balance = AssetBalances(
+                instrument_id=instrument_id,
+                user_id=user_id,
+                balance=amount,
+            )
+            db_sess.add(asset_balance)
+
+    async def _decrease_asset_balance(
+        self, db_sess: AsyncSession, user_id: str, symbol: str, amount: float
+    ):
+        """Decrease asset balance for a user."""
+        instrument_id = await self._get_instrument_id(db_sess, symbol)
+        if not instrument_id:
+            return
+
+        asset_balance = await db_sess.get(AssetBalances, (instrument_id, user_id))
+
+        if asset_balance:
+            asset_balance.balance -= amount
+        else:
+            self._logger.warning(
+                f"Asset balance not found for user {user_id}, symbol {symbol}"
+            )

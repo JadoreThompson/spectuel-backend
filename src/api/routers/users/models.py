@@ -36,3 +36,8 @@ class BalanceEventRead(CustomBaseModel):
     symbol: str | None
     payload: dict
     timestamp: float
+
+
+class AssetBalanceItem(BaseModel):
+    symbol: str
+    quantity: float

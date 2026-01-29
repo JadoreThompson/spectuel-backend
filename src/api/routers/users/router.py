@@ -9,10 +9,10 @@ from api.dependencies import depends_jwt, depends_db_sess
 from api.shared.models import PaginatedResponse
 from api.types import JWTPayload
 from engine.services.balance_manager import BalanceManager
-from db_models import Orders, OrderEvents, BalanceEvents
+from db_models import AssetBalances, Instruments, Orders, OrderEvents, BalanceEvents
 from engine.utils import get_asset_balance_key
 from infra.redis.client import REDIS_CLIENT
-from .models import UserOverviewResponse, OrderEventRead, BalanceEventRead
+from .models import AssetBalanceItem, UserOverviewResponse, OrderEventRead, BalanceEventRead
 
 
 route = APIRouter(prefix="/user", tags=["user"])
@@ -139,4 +139,30 @@ async def get_user_events(
         has_next=has_next,
         data=event_data,
     )
+
+
+@route.get("/asset-balances", response_model=list[AssetBalanceItem])
+async def get_asset_balances(
+    jwt: JWTPayload = Depends(depends_jwt(is_authenticated=True)),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    """
+    Retrieves all asset balances for the authenticated user.
+    Returns a list of symbol and quantity pairs.
+    """
+    user_id = jwt.sub
+
+    query = (
+        select(AssetBalances, Instruments.symbol)
+        .join(Instruments, AssetBalances.instrument_id == Instruments.instrument_id)
+        .where(AssetBalances.user_id == user_id)
+    )
+
+    result = await db_sess.execute(query)
+    balances = result.all()
+
+    return [
+        AssetBalanceItem(symbol=symbol, quantity=asset_balance.balance)
+        for asset_balance, symbol in balances
+    ]
 

@@ -219,3 +219,22 @@ class OHLC(Base):
     low: Mapped[float] = mapped_column(Float, nullable=False)
     close: Mapped[float] = mapped_column(Float, nullable=False)
 
+
+class AssetBalances(Base):
+    __tablename__ = "asset_balances"
+
+    instrument_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("instruments.instrument_id"),
+        primary_key=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+
+    instrument = relationship("Instruments")
+    user = relationship("Users")
+
