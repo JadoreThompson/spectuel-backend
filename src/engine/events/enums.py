@@ -48,3 +48,7 @@ class CommandEventType(str, Enum):
     COMMAND_PROCESSED = "command_processed"
     COMMAND_RECEIVED = "command_received"
 
+
+class BarEventType(str, Enum):
+    BAR_UPDATE = "bar_update"
+
