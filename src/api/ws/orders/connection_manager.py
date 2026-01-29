@@ -16,11 +16,14 @@ from config import (
     KAFKA_BOOTSTRAP_SERVERS,
     KAFKA_INSTRUMENT_EVENTS_TOPIC,
     KAFKA_ORDER_EVENTS_TOPIC,
+    REDIS_WS_TOKEN_PREFIX,
 )
 from db_models import Users
 from engine.events.enums import OrderEventType, BalanceEventType
 from infra.db.utils import get_db_sess
 from infra.kafka import AsyncKafkaConsumer
+from infra.redis import REDIS_CLIENT
+from services import JWTService
 from .models import AuthenticateRequest, ResponseType
 
 logger = logging.getLogger(__name__)
@@ -65,18 +68,23 @@ class ConnectionManager:
         await ws.accept()
 
         try:
-            msg = await asyncio.wait_for(ws.receive_text(), timeout=5.0)
+            msg = await asyncio.wait_for(ws.receive_text(), timeout=10.0)
             data = json.loads(msg)
-            req = AuthenticateRequest(**data)
+            token = data.get("token")
 
-            async with get_db_sess() as db_sess:
-                user = await db_sess.scalar(
-                    select(Users).where(Users.api_key == req.token)
-                )
-                if not user:
-                    raise AuthenticationError("Invalid token")
+            if not token:
+                raise AuthenticationError("Token is required")
 
-                user_id = str(user.user_id)
+            redis_key = f"{REDIS_WS_TOKEN_PREFIX}{token}"
+            jwt_string = await REDIS_CLIENT.get(redis_key)
+
+            if not jwt_string:
+                raise AuthenticationError("Invalid or expired token")
+
+            await REDIS_CLIENT.delete(redis_key)
+
+            jwt_payload = await JWTService.validate_jwt(jwt_string, is_authenticated=True)
+            user_id = str(jwt_payload.sub)
 
             if user_id in self._conns:
                 old_conn = self._conns[user_id]
@@ -162,10 +170,10 @@ class ConnectionManager:
 
                     # Extract user_id and event type from event
                     event_type = event.get("type")
-                    user_id = None
+                    user_id: str  | None  = None
                     for k, v in msg.headers:
                         if k == "user_id":
-                            user_id = v
+                            user_id = v.decode()
                             break
 
                     if not user_id or not event_type:

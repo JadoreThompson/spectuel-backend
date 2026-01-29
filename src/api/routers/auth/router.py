@@ -20,14 +20,15 @@ from config import (
     REDIS_CHANGE_USERNAME_KEY_PREFIX,
     REDIS_EMAIL_VERIFICATION_KEY_PREFIX,
     REDIS_EMAIL_VERIFICATION_EXPIRY_SECS,
+    REDIS_WS_TOKEN_PREFIX,
+    REDIS_WS_TOKEN_TTL_SECS,
 )
 from db_models import Users
 from engine.loggers import EngineLogger
 from engine.services.balance_manager import BalanceManager
 from infra.redis import REDIS_CLIENT
 from services import JWTService, EmailService
-from utils import get_datetime, get_default_cash_balance
-from .controller import gen_verification_code
+from utils import get_datetime, get_default_cash_balance, gen_random_string
 from .models import (
     UpdateEmail,
     UpdatePassword,
@@ -95,7 +96,7 @@ async def register(
         insert(Users).values(**body.model_dump()).returning(Users)
     )
 
-    code = gen_verification_code()
+    code = gen_random_string()
     key = f"{REDIS_EMAIL_VERIFICATION_KEY_PREFIX}{str(user.user_id)}"
     await REDIS_CLIENT.delete(key)
     payload = {"code": code, "attempts": 0}
@@ -123,7 +124,7 @@ async def request_email_verification(
 ):
     global em_service
 
-    new_code = gen_verification_code()
+    new_code = gen_random_string()
     key = f"{REDIS_EMAIL_VERIFICATION_KEY_PREFIX}{str(jwt.sub)}"
     payload = await REDIS_CLIENT.get(key)
 
@@ -206,6 +207,23 @@ async def get_me(
     return UserMe(username=user.username)
 
 
+@router.get("/ws-token", response_model=WsTokenResponse)
+async def get_ws_token(
+    jwt: JWTPayload = Depends(depends_jwt()),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    """Generate a WebSocket authentication token."""
+    user = await db_sess.scalar(select(Users).where(Users.user_id == jwt.sub))
+    if not user or not user.jwt:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    token = gen_random_string(32)
+    redis_key = f"{REDIS_WS_TOKEN_PREFIX}{token}"
+    await REDIS_CLIENT.set(redis_key, user.jwt, ex=REDIS_WS_TOKEN_TTL_SECS)
+
+    return WsTokenResponse(token=token)
+
+
 @router.post("/change-username", status_code=202)
 async def change_username(
     body: UpdateUsername,
@@ -229,7 +247,7 @@ async def change_username(
     async for key in REDIS_CLIENT.scan_iter(f"{prefix}*"):
         await REDIS_CLIENT.delete(key)
 
-    verification_code = gen_verification_code()
+    verification_code = gen_random_string()
     payload = json.dumps(
         {
             "user_id": str(user.user_id),
@@ -273,7 +291,7 @@ async def change_email(
     async for key in REDIS_CLIENT.scan_iter(f"{prefix}*"):
         await REDIS_CLIENT.delete(key)
 
-    verification_code = gen_verification_code()
+    verification_code = gen_random_string()
     payload = json.dumps(
         {
             "user_id": str(user.user_id),
@@ -313,7 +331,7 @@ async def change_password(
     async for key in REDIS_CLIENT.scan_iter(f"{prefix}*"):
         await REDIS_CLIENT.delete(key)
 
-    verification_code = gen_verification_code()
+    verification_code = gen_random_string()
 
     payload = json.dumps(
         {

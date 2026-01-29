@@ -1,5 +1,7 @@
-from datetime import UTC, datetime
+import random
+import string
 import uuid
+from datetime import UTC, datetime
 
 
 def get_datetime():
@@ -11,3 +13,7 @@ def get_default_cash_balance():
 
 def gen_api_key():
     return str(uuid.uuid4())
+
+def gen_random_string(k: int = 6):
+    """Generates a random string."""
+    return "".join(random.choices(string.ascii_uppercase + string.digits, k=k))
