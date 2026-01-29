@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import depends_jwt, depends_db_sess
+from api.dependencies import depends_jwt, depends_db_sess, depends_convert_csv
 from api.shared.models import PaginatedResponse
 from api.types import JWTPayload
 from engine.services.balance_manager import BalanceManager
@@ -144,12 +144,16 @@ async def get_user_events(
 
 @route.get("/asset-balances", response_model=list[AssetBalanceItem])
 async def get_asset_balances(
+    symbols: str | None = Query(None, description="Comma-separated list of symbols (e.g., BTCUSD,ETHUSD)"),
     jwt: JWTPayload = Depends(depends_jwt(is_authenticated=True)),
     db_sess: AsyncSession = Depends(depends_db_sess),
+    symbols_list: list[str] = Depends(depends_convert_csv("symbols", str, default=[])),
 ):
     """
-    Retrieves all asset balances for the authenticated user.
-    Returns a list of symbol and quantity pairs.
+    Retrieves asset balances for the authenticated user.
+    Optionally filter by comma-separated list of symbols.
+
+    Example: /user/asset-balances?symbols=BTCUSD,ETHUSD
     """
     user_id = jwt.sub
 
@@ -158,6 +162,9 @@ async def get_asset_balances(
         .join(Instruments, AssetBalances.instrument_id == Instruments.instrument_id)
         .where(AssetBalances.user_id == user_id)
     )
+
+    if symbols_list:
+        query = query.where(Instruments.symbol.in_(symbols_list))
 
     result = await db_sess.execute(query)
     balances = result.all()
