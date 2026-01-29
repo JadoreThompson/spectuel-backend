@@ -1,17 +1,14 @@
-import asyncio
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import distinct, select
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import depends_jwt, depends_db_sess
 from api.shared.models import PaginatedResponse
 from api.types import JWTPayload
 from engine.services.balance_manager import BalanceManager
-from db_models import AssetBalances, Instruments, Orders, OrderEvents, BalanceEvents
-from engine.utils import get_asset_balance_key
-from infra.redis.client import REDIS_CLIENT
+from db_models import AssetBalances, Instruments, OrderEvents, BalanceEvents
 from .models import AssetBalanceItem, UserOverviewResponse, OrderEventRead, BalanceEventRead
 
 
@@ -24,39 +21,43 @@ async def get_user_overview(
     jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
-    user_id = str(jwt.sub)
-    cash_balance = balance_manager.get_cash_balance(user_id)
+    user_id = jwt.sub
+    cash_balance = balance_manager.get_cash_balance(str(user_id))
 
-    symbols = (await db_sess.scalars(select(distinct(Orders.symbol)))).all()
+    query = (
+        select(AssetBalances, Instruments.symbol)
+        .join(Instruments, AssetBalances.instrument_id == Instruments.instrument_id)
+        .where(AssetBalances.user_id == user_id)
+    )
+
+    result = await db_sess.execute(query)
+    asset_balances = result.all()
 
     portfolio_balance = 0.0
-    balances = {}
 
-    try:
-        balances = await asyncio.gather(
-            *[
-                REDIS_CLIENT.get(get_asset_balance_key(symbol, user_id))
-                for symbol in symbols
-            ],
-        )
-        prices = await asyncio.gather(
-            *[REDIS_CLIENT.get(symbol) for symbol in symbols],
-        )
-        for i in range(len(balances)):
-            symbol, price, balance = symbols[i], prices[i], balances[i]
-            total_value = price * balance
-            portfolio_balance += total_value
-            balances[symbol] = [balance, total_value]
+    for asset_balance, symbol in asset_balances:
+        if asset_balance.balance <= 0:
+            continue
 
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error occured fetching asset balances - {str(e)}"
+        price_query = (
+            select(OrderEvents.payload)
+            .where(
+                OrderEvents.symbol == symbol,
+                OrderEvents.type.in_(["partially_filled", "filled"]),
+            )
+            .order_by(OrderEvents.timestamp.desc())
+            .limit(1)
         )
+
+        price_result = await db_sess.scalar(price_query)
+
+        if price_result:
+            price = price_result.get("price", 0.0)
+            portfolio_balance += asset_balance.balance * price
 
     return UserOverviewResponse(
         cash_balance=cash_balance,
         portfolio_balance=portfolio_balance,
-        balances=balances,
     )
 
 
