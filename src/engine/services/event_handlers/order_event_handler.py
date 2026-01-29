@@ -91,12 +91,35 @@ class OrderEventHandler(BaseEventHandler):
                     self._logger.warning(f"Duplicate event detected - {event}")
                     return
 
+                symbol = getattr(event, "symbol", None)
+                if not symbol:
+                    order = await self._get_order(db_sess, event.order_id)
+                    if order:
+                        symbol = order.symbol
+                    else:
+                        self._logger.error(
+                            f"Cannot determine symbol for event {event.id}, order not found"
+                        )
+                        return
+
+                user_id = None
+                order = await self._get_order(db_sess, event.order_id)
+                if order:
+                    user_id = order.user_id
+                else:
+                    self._logger.error(
+                        f"Cannot determine user_id for event {event.id}, order not found"
+                    )
+                    return
+
                 db_event = OrderEvents(
                     event_id=event.id,
                     type=event.type,
                     order_id=event.order_id,
+                    user_id=user_id,
                     command_id=event.command_id,
                     version=event.version,
+                    symbol=symbol,
                     payload=event_data,
                     timestamp=event.timestamp,
                 )

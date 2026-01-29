@@ -79,8 +79,7 @@ async def get_user_events(
         query = select(OrderEvents).where(OrderEvents.user_id == user_id)
 
         if symbol:
-            subquery = select(Orders.order_id).where(Orders.symbol == symbol)
-            query = query.where(OrderEvents.order_id.in_(subquery))
+            query = query.where(OrderEvents.symbol == symbol)
 
         query = query.order_by(OrderEvents.timestamp.desc()).offset(skip).limit(limit + 1)
 
@@ -98,18 +97,13 @@ async def get_user_events(
                 command_id=event.command_id,
                 type=event.type.value,
                 version=event.version,
+                symbol=event.symbol,
                 payload=event.payload,
                 timestamp=float(event.timestamp),
             )
             for event in events_to_return
         ]
 
-        return PaginatedResponse(
-            page=(skip // limit) + 1,
-            size=len(event_data),
-            has_next=has_next,
-            data=event_data,
-        )
 
     elif type == "balance":
         query = select(BalanceEvents).where(BalanceEvents.user_id == user_id)
@@ -139,10 +133,10 @@ async def get_user_events(
             for event in events_to_return
         ]
 
-        return PaginatedResponse(
-            page=(skip // limit) + 1,
-            size=len(event_data),
-            has_next=has_next,
-            data=event_data,
-        )
+    return PaginatedResponse(
+        page=(skip // limit) + 1,
+        size=len(event_data),
+        has_next=has_next,
+        data=event_data,
+    )
 

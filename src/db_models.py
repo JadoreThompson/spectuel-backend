@@ -152,6 +152,7 @@ class OrderEvents(Base):
     )
     type: Mapped[OrderEventType] = mapped_column(String, nullable=False, index=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    symbol: Mapped[str] = mapped_column(String, nullable=False, index=True)
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
     timestamp: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, index=True)
 

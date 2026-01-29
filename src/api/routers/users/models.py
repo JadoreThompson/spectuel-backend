@@ -22,6 +22,7 @@ class OrderEventRead(CustomBaseModel):
     command_id: UUID
     type: str
     version: int
+    symbol: str
     payload: dict
     timestamp: float
 
