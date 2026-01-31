@@ -1,5 +1,4 @@
 import json
-from datetime import timedelta
 
 from argon2 import PasswordHasher
 from argon2.exceptions import Argon2Error
@@ -8,9 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import depends_jwt
-from api.dependencies import depends_db_sess
-from api.types import JWTPayload
+from api.dependencies import depends_jwt, depends_db_sess
 from config import (
     MAX_EMAIL_VERIFICATION_ATTEMPTS,
     NEW_USER_COMMAND_ID,
@@ -28,7 +25,7 @@ from engine.loggers import EngineLogger
 from engine.services.balance_manager import BalanceManager
 from infra.redis import REDIS_CLIENT
 from services.email import BrevoEmailService
-from services.jwt import JWTService
+from services.jwt import JWTService, JWTPayload
 from utils import get_datetime, get_default_cash_balance, gen_random_string
 from .models import (
     UpdateEmail,

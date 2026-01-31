@@ -8,11 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.dependencies import depends_jwt, depends_db_sess
 from api.utils import put_command
 from api.shared.models import PaginatedResponse
-from api.types import JWTPayload
 from config import PAGE_SIZE
 from db_models import Orders
 from engine.commands import CancelOrderCommand, ModifyOrderCommand
 from engine.enums import CommandType, OrderStatus, Side
+from services.jwt import JWTPayload
 from .service import OrderService
 from .models import (
     OCOOrderCreate,

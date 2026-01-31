@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks
 
-from services.email import BrevoEmailService
 from config import CUSTOMER_SUPPORT_EMAIL
+from services.email import BrevoEmailService
 from .models import ContactForm
 
 

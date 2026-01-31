@@ -4,7 +4,7 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.websockets import WebSocketState
 
-from api.ws.exc import AuthenticationError
+from api.ws.orders.exceptions import AuthenticationError
 from .connection_manager import ConnectionManager
 from .controller import (
     cleanup_subscriptions,

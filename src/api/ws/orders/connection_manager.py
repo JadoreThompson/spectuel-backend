@@ -1,30 +1,22 @@
 import asyncio
 import json
 import logging
-from typing import Optional
-from uuid import UUID
 
 from aiokafka import AIOKafkaConsumer
 from fastapi import WebSocket
 from fastapi.websockets import WebSocketState
 from pydantic import ValidationError
-from sqlalchemy import select
 
-from api.ws.exc import AuthenticationError
+from api.ws.orders.exceptions import AuthenticationError
 from config import (
     KAFKA_BALANCE_EVENTS_TOPIC,
     KAFKA_BOOTSTRAP_SERVERS,
-    KAFKA_INSTRUMENT_EVENTS_TOPIC,
     KAFKA_ORDER_EVENTS_TOPIC,
     REDIS_WS_TOKEN_PREFIX,
 )
-from db_models import Users
 from engine.events.enums import OrderEventType, BalanceEventType
-from infra.db.utils import get_db_sess
-from infra.kafka import AsyncKafkaConsumer
 from infra.redis import REDIS_CLIENT
 from services.jwt import JWTService
-from .models import AuthenticateRequest, ResponseType
 
 logger = logging.getLogger(__name__)
 

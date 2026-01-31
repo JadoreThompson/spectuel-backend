@@ -4,7 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
-from api.exc import JWTError
 from api.middlewares import RateLimitMiddleware
 from api.routers.auth.router import router as auth_route
 from api.routers.orders.router import route as orders_route
@@ -14,9 +13,9 @@ from api.routers.users.router import route as user_route
 from api.routers.markets.router import route as markets_route
 from api.routers.markets.connection_manager import connection_manager
 from api.ws.orders.route import router as ws_order_route
-from api.ws.instruments.route import route as ws_instruments_route
 from db_models import Instruments
 from infra.db import get_db_sess
+from services.jwt import JWTError
 from services.ohlc_builder import OHLCBuilder
 
 
@@ -55,7 +54,6 @@ app.include_router(orders_route)
 app.include_router(public_route)
 app.include_router(user_route)
 app.include_router(markets_route)
-app.include_router(ws_instruments_route)
 app.include_router(ws_order_route)
 
 

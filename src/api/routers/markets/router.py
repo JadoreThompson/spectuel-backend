@@ -1,6 +1,5 @@
 import base64
 import json
-from datetime import datetime, timezone
 
 from fastapi import (
     APIRouter,
@@ -13,18 +12,15 @@ from fastapi import (
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import depends_jwt, depends_jwt_ws, depends_db_sess
-from api.types import JWTPayload
+from api.dependencies import depends_db_sess
 from db_models import OHLC, Instruments, OrderEvents
 from engine.enums import TimeFrame
 from engine.events.enums import OrderEventType
-from services.ohlc_builder import OHLCBuilder
 from utils import get_datetime
 from .connection_manager import connection_manager
 from .models import (
     BarsResponse,
     BarData,
-    SubscribeRequest,
     SubscribeResponse,
     MarketStatsResponse,
 )
@@ -218,11 +214,7 @@ async def get_market_stats(
 
 
 @route.websocket("/ws" + PREFIX)
-async def market_websocket(
-    ws: WebSocket,
-    # symbol: str,
-    # jwt: JWTPayload = Depends(depends_jwt_ws(is_authenticated=False)),
-):
+async def market_websocket(ws: WebSocket):
     """
     WebSocket endpoint for real-time market data.
     Accepts subscription requests for trades, bars, and orderbook snapshots.
