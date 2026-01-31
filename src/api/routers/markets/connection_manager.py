@@ -7,8 +7,8 @@ from fastapi import WebSocket
 
 from config import KAFKA_INSTRUMENT_EVENTS_TOPIC
 from engine.enums import TimeFrame
+from engine.events.enums import InstrumentEventType
 from infra.kafka import AsyncKafkaConsumer
-from .models import BarSubscription
 
 
 class ConnectionManager:
@@ -101,11 +101,11 @@ class ConnectionManager:
                     event = json.loads(msg.value.decode())
                     event_type = event.get("type")
 
-                    if event_type == "bar_update":
+                    if event_type == InstrumentEventType.BAR_UPDATE:
                         await self._handle_bar_update(event)
-                    elif event_type == "new_trade":
+                    elif event_type == InstrumentEventType.NEW_TRADE:
                         await self._handle_trade(event)
-                    elif event_type == "orderbook_snapshot":
+                    elif event_type == InstrumentEventType.ORDERBOOK_SNAPSHOT:
                         await self._handle_orderbook_snapshot(event)
                 except Exception as e:
                     self._logger.error(f"Error processing event: {e}")
@@ -167,9 +167,7 @@ class ConnectionManager:
     async def _cleanup_worker(self):
         while self._is_running:
             try:
-                ws = await asyncio.wait_for(
-                    self._closed_connections.get(), timeout=1.0
-                )
+                ws = await asyncio.wait_for(self._closed_connections.get(), timeout=1.0)
                 self._unsubscribe_all(ws)
                 if ws in self._conn_subscriptions:
                     del self._conn_subscriptions[ws]

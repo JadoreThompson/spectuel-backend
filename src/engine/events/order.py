@@ -1,31 +1,26 @@
 from typing import Literal
 from uuid import UUID
 
-from engine.enums import Side
 from engine.events import EngineEventBase
 from .enums import OrderEventType
 
 
 class OrderEventBase(EngineEventBase):
     version: int = 1
+    version_id: int = 1  # Alias for version
     order_id: UUID
     command_id: UUID
+    details: dict | None = None
+    order: dict  # Full order dictionary
 
 
 class OrderPlacedEvent(OrderEventBase):
     type: Literal[OrderEventType.ORDER_PLACED] = OrderEventType.ORDER_PLACED
     symbol: str
-    executed_quantity: float
-    quantity: float
-    price: float
-    side: Side
 
 
 class OrderFilledEventBase(OrderEventBase):
     symbol: str
-    executed_quantity: float
-    quantity: float
-    price: float
 
 
 class OrderPartiallyFilledEvent(OrderFilledEventBase):

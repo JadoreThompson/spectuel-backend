@@ -234,7 +234,9 @@ class AssetBalances(Base):
         primary_key=True,
     )
     balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    escrow_balance: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.0, server_default=text("0.0")
+    )
 
     instrument = relationship("Instruments")
     user = relationship("Users")
-

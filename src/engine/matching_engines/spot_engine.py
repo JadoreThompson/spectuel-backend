@@ -69,6 +69,7 @@ class SpotEngine(EngineBase):
             CommandType.CANCEL_ORDER: self._handle_cancel_order,
             CommandType.MODIFY_ORDER: self._handle_modify_order,
         }
+        
         handler = handlers.get(cmd["type"])
         if handler is not None:
             self._ctx.cur_command_id = cmd["id"]
@@ -273,14 +274,15 @@ class SpotEngine(EngineBase):
         prev_taker_exec_quantity = taker_order.executed_quantity
         prev_maker_exec_quantity = maker_order.executed_quantity
 
-        taker_exec_quantity = prev_taker_exec_quantity + quantity
-        maker_exec_quantity = prev_maker_exec_quantity + quantity
+        # Track fills for average price calculation
+        taker_order.add_fill(quantity, price)
+        maker_order.add_fill(quantity, price)
+
+        taker_exec_quantity = taker_order.executed_quantity
+        maker_exec_quantity = maker_order.executed_quantity
 
         self._log_fill_event(taker_order, price, taker_exec_quantity, ctx.symbol)
         self._log_fill_event(maker_order, price, maker_exec_quantity, ctx.symbol)
-
-        taker_order.executed_quantity = taker_exec_quantity
-        maker_order.executed_quantity = maker_exec_quantity
 
         taker_strategy = self._strategy_handlers[taker_order.strategy_type]
         maker_strategy = self._strategy_handlers[maker_order.strategy_type]
@@ -357,14 +359,12 @@ class SpotEngine(EngineBase):
         )
         self._ctx.engine_logger.log_order_event(
             order.user_id,
-            {"key": symbol},
+            {"key": symbol.encode()},
             type=etype,
             order_id=order.id,
             symbol=symbol,
-            executed_quantity=executed_quantity,
-            quantity=order.quantity,
-            price=price,
             command_id=self._ctx.cur_command_id,
+            order=order.get_order_dict(),
         )
 
     def _release_escrow(self, order: Order) -> None:

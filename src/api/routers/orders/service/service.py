@@ -22,7 +22,6 @@ from engine.commands import (
     NewOCOOrderCommand,
     NewOTOOrderCommand,
     NewOTOCOOrderCommand,
-    SingleOrderMeta,
 )
 from engine.enums import OrderStatus, StrategyType
 from infra.kafka import AsyncKafkaProducer
@@ -94,20 +93,26 @@ class OrderService:
         # await db_sess.refresh(db_order)
         await db_sess.commit()
 
-        meta = SingleOrderMeta(
-            order_id=order_id,
-            user_id=user_id,
-            order_type=details.order_type,
-            side=details.side,
-            quantity=details.quantity,
-            limit_price=details.limit_price,
-            stop_price=details.stop_price,
-        )
+        order_dict = {
+            "order_id": str(order_id),
+            "user_id": str(user_id),
+            "symbol": details.symbol,
+            "side": details.side.value,
+            "order_type": details.order_type.value,
+            "quantity": details.quantity,
+            "limit_price": details.limit_price,
+            "stop_price": details.stop_price,
+            "status": OrderStatus.PENDING.value,
+            "strategy_type": StrategyType.SINGLE.value,
+            "executed_quantity": 0.0,
+            "avg_fill_price": None,
+            'created_at': db_order.created_at,
+        }
 
         command = NewSingleOrderCommand(
             symbol=details.symbol,
             strategy_type=StrategyType.SINGLE,
-            **meta.model_dump(),
+            order=order_dict,
         )
 
         await put_command(command, details.symbol)
@@ -134,7 +139,7 @@ class OrderService:
         cls, user_id: uuid.UUID, details: OCOOrderCreate, db_sess: AsyncSession
     ) -> OCOOrderResponse:
         group_id = uuid.uuid4()
-        legs_meta = []
+        legs_dicts = []
         db_legs = []
 
         for leg_details in details.legs:
@@ -156,16 +161,8 @@ class OrderService:
             db_sess.add(db_leg)
             db_legs.append(db_leg)
 
-            legs_meta.append(
-                SingleOrderMeta(
-                    order_id=leg_id,
-                    user_id=user_id,
-                    order_type=leg_details.order_type,
-                    side=leg_details.side,
-                    quantity=leg_details.quantity,
-                    limit_price=leg_details.limit_price,
-                    stop_price=leg_details.stop_price,
-                )
+            legs_dicts.append(
+                cls._to_order_dict(leg_id, user_id, leg_details, details.symbol, StrategyType.OCO)
             )
 
         await db_sess.commit()
@@ -175,7 +172,7 @@ class OrderService:
         command = NewOCOOrderCommand(
             symbol=details.symbol,
             strategy_type=StrategyType.OCO,
-            legs=legs_meta,
+            legs=legs_dicts,
         )
 
         await put_command(command, details.symbol)
@@ -227,8 +224,8 @@ class OrderService:
         command = NewOTOOrderCommand(
             symbol=details.symbol,
             strategy_type=StrategyType.OTO,
-            parent=cls._to_meta(parent_id, user_id, details.parent),
-            child=cls._to_meta(child_id, user_id, details.child),
+            parent=cls._to_order_dict(parent_id, user_id, details.parent, details.symbol, StrategyType.OTO),
+            child=cls._to_order_dict(child_id, user_id, details.child, details.symbol, StrategyType.OTO),
         )
 
         await put_command(command, details.symbol)
@@ -277,7 +274,7 @@ class OrderService:
         db_sess.add(db_parent)
 
         db_legs = []
-        legs_meta = []
+        legs_dicts = []
 
         for leg_spec in details.oco_legs:
             leg_id = uuid.uuid4()
@@ -288,7 +285,7 @@ class OrderService:
             db_sess.add(db_leg)
             db_legs.append(db_leg)
 
-            legs_meta.append(OrderService._to_meta(leg_id, user_id, leg_spec))
+            legs_dicts.append(cls._to_order_dict(leg_id, user_id, leg_spec, symbol, StrategyType.OTOCO))
 
         await db_sess.commit()
         await db_sess.refresh(db_parent)
@@ -298,8 +295,8 @@ class OrderService:
         command = NewOTOCOOrderCommand(
             symbol=symbol,
             strategy_type=StrategyType.OTOCO,
-            parent=cls._to_meta(parent_id, user_id, details.parent),
-            oco_legs=legs_meta,
+            parent=cls._to_order_dict(parent_id, user_id, details.parent, symbol, StrategyType.OTOCO),
+            oco_legs=legs_dicts,
         )
         await put_command(command, symbol)
 
@@ -357,16 +354,21 @@ class OrderService:
         )
 
     @classmethod
-    def _to_meta(
-        cls, order_id: uuid.UUID, user_id: uuid.UUID, details: OrderBase
-    ) -> SingleOrderMeta:
-        """Helper to map API model to Engine Command Meta."""
-        return SingleOrderMeta(
-            order_id=order_id,
-            user_id=user_id,
-            order_type=details.order_type,
-            side=details.side,
-            quantity=details.quantity,
-            limit_price=details.limit_price,
-            stop_price=details.stop_price,
-        )
+    def _to_order_dict(
+        cls, order_id: uuid.UUID, user_id: uuid.UUID, details: OrderBase, symbol: str, strategy_type: StrategyType
+    ) -> dict:
+        """Helper to map API model to order dictionary."""
+        return {
+            "order_id": str(order_id),
+            "user_id": str(user_id),
+            "symbol": symbol,
+            "side": details.side.value,
+            "order_type": details.order_type.value,
+            "quantity": details.quantity,
+            "limit_price": details.limit_price,
+            "stop_price": details.stop_price,
+            "status": OrderStatus.PENDING.value,
+            "strategy_type": strategy_type.value,
+            "executed_quantity": 0.0,
+            "avg_fill_price": None,
+        }

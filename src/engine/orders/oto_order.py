@@ -1,23 +1,15 @@
 from __future__ import annotations
-from engine.enums import OrderType, Side, StrategyType
 from .order import Order
 
 
 class OTOOrder(Order):
     def __init__(
         self,
-        id_: str,
-        user_id: str,
-        strategy_type: StrategyType,
-        order_type: OrderType,
-        side: Side,
-        quantity: int,
-        price: float,
-        *,
+        order_dict: dict,
         parent: OTOOrder | None = None,
         child: OTOOrder | None = None,
     ) -> None:
-        super().__init__(id_, user_id, strategy_type, order_type, side, quantity, price)
+        super().__init__(order_dict)
         self.parent = parent
         self.child = child
         # The parent order is triggered by default; the child is not.
@@ -63,18 +55,13 @@ class OTOOrder(Order):
         else:
             child_order = OTOOrder.from_dict(child, is_child=True)
 
+        order_dict = data.get("order_dict", data)
         order = cls(
-            id_=data["id"],
-            user_id=data["user_id"],
-            strategy_type=StrategyType(data["strategy_type"]),
-            order_type=OrderType(data["order_type"]),
-            side=Side(data["side"]),
-            quantity=data["quantity"],
-            price=data["price"],
+            order_dict=order_dict,
             parent=parent_order,
             child=child_order,
         )
 
-        order.active = data["triggered"]
+        order.active = data.get("triggered", parent is None)
 
         return order

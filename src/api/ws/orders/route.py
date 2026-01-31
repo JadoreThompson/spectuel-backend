@@ -12,7 +12,8 @@ from .controller import (
     handle_unsubscribe,
     send_error,
 )
-from .models import RequestType
+from .models import RequestType, ResponseType, AckMessage
+
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +36,20 @@ async def orders_websocket(ws: WebSocket):
         user_id = await conn_manager.connect(ws)
         logger.info(f"User {user_id} connected")
 
+        await ws.send_text(
+            AckMessage(
+                type=ResponseType.ACK,
+                request_type=RequestType.AUTHENTICATE,
+                message="Successfully authenticated",
+            ).model_dump_json()
+        )
+
         while True:
             # Receive message from client
             data = await ws.receive_text()
+            if data == "ping":
+                await ws.send_text("pong")
+                continue
 
             try:
                 msg: dict = json.loads(data)

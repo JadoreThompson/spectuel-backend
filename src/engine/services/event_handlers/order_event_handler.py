@@ -125,7 +125,8 @@ class OrderEventHandler(BaseEventHandler):
                 )
 
                 db_sess.add(db_event)
-                await db_sess.refresh(db_event)
+                # await db_sess.refresh(db_event)
+                # db_sess.flush
 
                 db_event_log = EventLogs(
                     type=EngineEventCategory.ORDER,
@@ -135,6 +136,7 @@ class OrderEventHandler(BaseEventHandler):
                 db_sess.add(db_event_log)
 
                 await handler(event, db_sess)
+                print('done')
 
                 await db_sess.commit()
 
@@ -185,7 +187,7 @@ class OrderEventHandler(BaseEventHandler):
             self._logger.error(f"Order '{event.order_id}' not found for FILLED event")
             return
 
-        order.executed_quantity = event.executed_quantity
+        order.executed_quantity = event.order['executed_quantity']
         order.status = OrderStatus.FILLED
         db_sess.add(order)
 

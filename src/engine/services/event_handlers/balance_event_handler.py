@@ -96,7 +96,6 @@ class BalanceEventHandler(BaseEventHandler):
                 )
 
                 db_sess.add(db_event)
-                await db_sess.refresh(db_event)
 
                 db_event_log = EventLogs(
                     type=EngineEventCategory.BALANCE,
@@ -124,6 +123,14 @@ class BalanceEventHandler(BaseEventHandler):
             )
         elif event.type == BalanceEventType.ASSET_BALANCE_DECREASED:
             await self._decrease_asset_balance(
+                db_sess, event.user_id, event.symbol, event.amount
+            )
+        elif event.type == BalanceEventType.ASSET_ESCROW_INCREASED:
+            await self._increase_asset_escrow(
+                db_sess, event.user_id, event.symbol, event.amount
+            )
+        elif event.type == BalanceEventType.ASSET_ESCROW_DECREASED:
+            await self._decrease_asset_escrow(
                 db_sess, event.user_id, event.symbol, event.amount
             )
         elif event.type == BalanceEventType.ASK_SETTLED:
@@ -187,3 +194,42 @@ class BalanceEventHandler(BaseEventHandler):
             self._logger.warning(
                 f"Asset balance not found for user {user_id}, symbol {symbol}"
             )
+
+    async def _increase_asset_escrow(
+        self, db_sess: AsyncSession, user_id: str, symbol: str, amount: float
+    ):
+        """Increase asset escrow balance for a user."""
+        instrument_id = await self._get_instrument_id(db_sess, symbol)
+        if not instrument_id:
+            return
+
+        asset_balance = await db_sess.get(AssetBalances, (instrument_id, user_id))
+
+        if asset_balance:
+            asset_balance.escrow_balance += amount
+        else:
+            asset_balance = AssetBalances(
+                instrument_id=instrument_id,
+                user_id=user_id,
+                balance=0.0,
+                escrow_balance=amount,
+            )
+            db_sess.add(asset_balance)
+
+    async def _decrease_asset_escrow(
+        self, db_sess: AsyncSession, user_id: str, symbol: str, amount: float
+    ):
+        """Decrease asset escrow balance for a user."""
+        instrument_id = await self._get_instrument_id(db_sess, symbol)
+        if not instrument_id:
+            return
+
+        asset_balance = await db_sess.get(AssetBalances, (instrument_id, user_id))
+
+        if asset_balance:
+            asset_balance.escrow_balance -= amount
+        else:
+            self._logger.warning(
+                f"Asset balance not found for user {user_id}, symbol {symbol}"
+            )
+

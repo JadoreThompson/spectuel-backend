@@ -11,6 +11,7 @@ HistoryInterval: TypeAlias = Literal["1d", "1w", "1m", "3m", "6m", "1y"]
 
 class UserOverviewResponse(BaseModel):
     cash_balance: float
+    cash_escrow_balance: float
     portfolio_balance: float
 
 
@@ -39,4 +40,5 @@ class BalanceEventRead(CustomBaseModel):
 
 class AssetBalanceItem(BaseModel):
     symbol: str
-    quantity: float
+    balance: float
+    escrow_balance: float

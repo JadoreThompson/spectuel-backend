@@ -191,20 +191,26 @@ class OrderBookPublisher:
         symbol = event.symbol
         order_id = str(event.order_id)
 
-        resting_qty = event.quantity - event.executed_quantity
+        order_data = event.order
+        executed_quantity = order_data.get("executed_quantity", 0.0)
+        quantity = order_data.get("quantity", 0.0)
+        price = order_data.get("limit_price") or order_data.get("stop_price")
+        side = order_data.get("side")
+
+        resting_qty = quantity - executed_quantity
         if resting_qty <= 0:
             return
 
         book = self._books[symbol]
 
         async with book.lock:
-            if event.side == Side.BID:
-                book.bids[event.price] += resting_qty
+            if side == Side.BID.value or side == Side.BID:
+                book.bids[price] += resting_qty
             else:
-                book.asks[event.price] += resting_qty
+                book.asks[price] += resting_qty
 
             self._active_orders[order_id] = OrderInfo(
-                price=event.price, side=event.side, remaining_qty=resting_qty
+                price=price, side=side, remaining_qty=resting_qty
             )
 
     async def _handle_order_cancelled(self, data: dict) -> None:

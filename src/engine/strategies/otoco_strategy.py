@@ -10,43 +10,24 @@ from .oco_strategy import OCOStrategy
 
 class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
     def handle_new(self, cmd: dict, ctx: ExecutionContext):
-        parent_data = cmd["parent"]
-        child_leg_a_data, child_leg_b_data = cmd["oco_legs"]
+        parent_dict = cmd["parent"].copy()
+        child_leg_a_dict, child_leg_b_dict = cmd["oco_legs"]
+        child_leg_a_dict = child_leg_a_dict.copy()
+        child_leg_b_dict = child_leg_b_dict.copy()
 
-        if parent_data["order_type"] == OrderType.MARKET:
-            parent_price = ctx.orderbook.price
-        else:
-            parent_price = parent_data[get_price_key(parent_data["order_type"])]
+        # Set the effective price for market orders
+        if parent_dict["order_type"] == OrderType.MARKET.value:
+            parent_dict["limit_price"] = ctx.orderbook.price
 
-        parent_order = OTOCOOrder(
-            id_=parent_data["order_id"],
-            user_id=parent_data["user_id"],
-            strategy_type=StrategyType.OTOCO,
-            order_type=parent_data["order_type"],
-            side=parent_data["side"],
-            quantity=parent_data["quantity"],
-            price=parent_price,
-        )
+        parent_order = OTOCOOrder(order_dict=parent_dict)
 
         child_a = OTOCOOrder(
-            id_=child_leg_a_data["order_id"],
-            user_id=child_leg_a_data["user_id"],
-            strategy_type=StrategyType.OTOCO,
-            order_type=child_leg_a_data["order_type"],
-            side=child_leg_a_data["side"],
-            quantity=child_leg_a_data["quantity"],
-            price=child_leg_a_data[get_price_key(child_leg_a_data["order_type"])],
+            order_dict=child_leg_a_dict,
             parent=parent_order,
         )
 
         child_b = OTOCOOrder(
-            id_=child_leg_b_data["order_id"],
-            user_id=child_leg_b_data["user_id"],
-            strategy_type=StrategyType.OTOCO,
-            order_type=child_leg_b_data["order_type"],
-            side=child_leg_b_data["side"],
-            quantity=child_leg_b_data["quantity"],
-            price=child_leg_b_data[get_price_key(child_leg_b_data["order_type"])],
+            order_dict=child_leg_b_dict,
             parent=parent_order,
         )
 
@@ -57,13 +38,13 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
 
         # Check if parent is matchable
         matchable = True
-        if parent_data["order_type"] == OrderType.LIMIT:
+        if parent_dict["order_type"] == OrderType.LIMIT.value:
             matchable = limit_crossable(
-                parent_data["limit_price"], parent_order.side, ctx.orderbook
+                parent_dict["limit_price"], parent_order.side, ctx.orderbook
             )
-        if parent_data["order_type"] == OrderType.STOP:
+        if parent_dict["order_type"] == OrderType.STOP.value:
             matchable = stop_crossable(
-                parent_data["stop_price"], parent_order.side, ctx.orderbook
+                parent_dict["stop_price"], parent_order.side, ctx.orderbook
             )
 
         command_id = ctx.cur_command_id
@@ -93,11 +74,8 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
                     type=OrderEventType.ORDER_PLACED,
                     order_id=child_a.id,
                     symbol=ctx.symbol,
-                    executed_quantity=child_a.executed_quantity,
-                    quantity=child_a.quantity,
-                    price=child_a.price,
-                    side=child_a.side,
                     command_id=command_id,
+                    order=child_a.get_order_dict(),
                 )
                 ctx.engine_logger.log_order_event(
                     child_b.user_id,
@@ -105,11 +83,8 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
                     type=OrderEventType.ORDER_PLACED,
                     order_id=child_b.id,
                     symbol=ctx.symbol,
-                    executed_quantity=child_b.executed_quantity,
-                    quantity=child_b.quantity,
-                    price=child_b.price,
-                    side=child_b.side,
                     command_id=command_id,
+                    order=child_b.get_order_dict(),
                 )
 
                 # ctx.order_store.remove(parent_order)
@@ -126,11 +101,8 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
             type=OrderEventType.ORDER_PLACED,
             order_id=parent_order.id,
             symbol=ctx.symbol,
-            executed_quantity=parent_order.executed_quantity,
-            quantity=parent_order.quantity,
-            price=parent_order.price,
-            side=parent_order.side,
             command_id=command_id,
+            order=parent_order.get_order_dict(),
         )
         ctx.orderbook.append(parent_order, parent_order.price)
         ctx.order_store.add(parent_order)
@@ -176,6 +148,7 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
                     "reason": "Parent order cancelled.",
                 },
                 command_id=ctx.cur_command_id,
+                order=order.get_order_dict(),
             )
 
             ctx.orderbook.remove(order, order.price)
@@ -200,6 +173,7 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
                     "reason": "User cancelled active OCO leg.",
                 },
                 command_id=ctx.cur_command_id,
+                order=order.get_order_dict(),
             )
             ctx.engine_logger.log_order_event(
                 counterparty.user_id,
@@ -211,6 +185,7 @@ class OTOCOStrategy(ModifyOrderMixin, StrategyBase):
                     "reason": "User cancelled active OCO leg order.",
                 },
                 command_id=ctx.cur_command_id,
+                order=counterparty.get_order_dict(),
             )
             ctx.orderbook.remove(order, order.price)
             ctx.orderbook.remove(counterparty, counterparty.price)

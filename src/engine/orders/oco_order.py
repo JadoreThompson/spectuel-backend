@@ -1,22 +1,10 @@
 from __future__ import annotations
-from engine.enums import OrderType, Side, StrategyType
 from .order import Order
 
 
 class OCOOrder(Order):
-    def __init__(
-        self,
-        id_,
-        user_id,
-        strategy_type,
-        order_type,
-        side,
-        quantity,
-        price,
-        *,
-        counterparty: OCOOrder | None = None,
-    ):
-        super().__init__(id_, user_id, strategy_type, order_type, side, quantity, price)
+    def __init__(self, order_dict: dict, counterparty: OCOOrder | None = None):
+        super().__init__(order_dict)
         self.counterparty = counterparty
 
     def to_dict(self, counterparty: dict | None = None) -> dict:
@@ -42,16 +30,8 @@ class OCOOrder(Order):
         else:
             counterparty_order = OCOOrder.from_dict(counterparty, is_counterparty=True)
 
-        order = cls(
-            id_=data["id"],
-            user_id=data["user_id"],
-            strategy_type=StrategyType(data["strategy_type"]),
-            order_type=OrderType(data["order_type"]),
-            side=Side(data["side"]),
-            quantity=data["quantity"],
-            price=data["price"],
-            counterparty=counterparty_order,
-        )
+        order_dict = data.get("order_dict", data)
+        order = cls(order_dict=order_dict, counterparty=counterparty_order)
 
         if not is_counterparty and counterparty_order:
             counterparty_order.counterparty = order

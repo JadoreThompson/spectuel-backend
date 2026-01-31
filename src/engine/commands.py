@@ -47,22 +47,22 @@ class SingleOrderMeta(CustomBaseModel):
         return self
 
 
-class NewSingleOrderCommand(NewOrderCommandBase, SingleOrderMeta):
-    pass
+class NewSingleOrderCommand(NewOrderCommandBase):
+    order: dict
 
 
 class NewOCOOrderCommand(NewOrderCommandBase):
-    legs: list[SingleOrderMeta] = Field(max_length=2)
+    legs: list[dict] = Field(max_length=2)
 
 
 class NewOTOOrderCommand(NewOrderCommandBase):
-    parent: SingleOrderMeta
-    child: SingleOrderMeta
+    parent: dict
+    child: dict
 
 
 class NewOTOCOOrderCommand(NewOrderCommandBase):
-    parent: SingleOrderMeta
-    oco_legs: list[SingleOrderMeta] = Field(min_length=2, max_length=2)
+    parent: dict
+    oco_legs: list[dict] = Field(min_length=2, max_length=2)
 
 
 class CancelOrderCommand(CommandBase):

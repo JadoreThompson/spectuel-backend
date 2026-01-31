@@ -83,7 +83,9 @@ class ConnectionManager:
 
             await REDIS_CLIENT.delete(redis_key)
 
-            jwt_payload = await JWTService.validate_jwt(jwt_string, is_authenticated=True)
+            jwt_payload = await JWTService.validate_jwt(
+                jwt_string.decode(), is_authenticated=True
+            )
             user_id = str(jwt_payload.sub)
 
             if user_id in self._conns:
@@ -152,7 +154,6 @@ class ConnectionManager:
         consumer = AIOKafkaConsumer(
             KAFKA_ORDER_EVENTS_TOPIC,
             KAFKA_BALANCE_EVENTS_TOPIC,
-            KAFKA_INSTRUMENT_EVENTS_TOPIC,
             bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
             enable_auto_commit=True,
             group_id="ws_orders_consumer",
@@ -170,7 +171,7 @@ class ConnectionManager:
 
                     # Extract user_id and event type from event
                     event_type = event.get("type")
-                    user_id: str  | None  = None
+                    user_id: str | None = None
                     for k, v in msg.headers:
                         if k == "user_id":
                             user_id = v.decode()

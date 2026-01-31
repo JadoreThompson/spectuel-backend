@@ -159,7 +159,11 @@ class BalanceManager:
         )
 
     def _wal(self, user_id: str, event: BalanceEventBase) -> None:
-        self.engine_logger.log_balance_event(user_id, event, {"key": self._symbol.encode()})
+        self.engine_logger.log_balance_event(
+            user_id,
+            kafka_kwargs={"key": self._symbol.encode()},
+            event_kwargs=event.model_dump(mode="json"),
+        )
 
     def get_asset_balance_hkey(self, user_id: str) -> str:
         return f"{self._symbol}:{user_id}:balance:log"
@@ -278,6 +282,7 @@ class BalanceManager:
         event = CashEscrowIncreasedEvent(
             user_id=user_id, amount=amount, command_id=command_id
         )
+
         self._wal(user_id, event)
 
         val_key = self.get_cash_escrow_key(user_id)
@@ -288,8 +293,6 @@ class BalanceManager:
                 keys=[val_key, log_key], args=[str(event.id), amount]
             )
         )
-    
-
 
     @ignore_system_user
     def decrease_cash_escrow(
@@ -298,7 +301,7 @@ class BalanceManager:
         amount: float,
         command_id: str,
     ) -> float:
-        event =  CashEscrowDecreasedEvent(
+        event = CashEscrowDecreasedEvent(
             user_id=user_id, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)
@@ -340,7 +343,7 @@ class BalanceManager:
         amount: float,
         command_id: str,
     ) -> float:
-        event =  AssetBalanceDecreasedEvent(
+        event = AssetBalanceDecreasedEvent(
             user_id=user_id, symbol=self._symbol, amount=amount, command_id=command_id
         )
         self._wal(user_id, event)
@@ -516,7 +519,6 @@ class BalanceManager:
         event = CashBalanceIncreasedEvent(
             user_id=user_id, amount=amount, command_id=command_id
         )
-        print("CashBalanceIncreasedEvent", event)
         self._wal(user_id, event)
 
         val_key = self.get_cash_balance_key(user_id)

@@ -109,7 +109,7 @@ class EngineShadow:
                 if event_bytes == self._sentinel:
                     self._logger.info("Received sentinel, exiting loop")
                     break
-
+                
                 event = json.loads(event_bytes)
                 event_type = event["type"]
 

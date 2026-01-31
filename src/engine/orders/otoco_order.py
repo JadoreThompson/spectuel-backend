@@ -1,25 +1,17 @@
 from __future__ import annotations
-from engine.enums import OrderType, Side, StrategyType
 from .order import Order
 
 
 class OTOCOOrder(Order):
     def __init__(
         self,
-        id_: str,
-        user_id: str,
-        strategy_type: StrategyType,
-        order_type: OrderType,
-        side: Side,
-        quantity: int,
-        price: float,
-        *,
+        order_dict: dict,
         parent: OTOCOOrder | None = None,
         child_a: OTOCOOrder | None = None,
         child_b: OTOCOOrder | None = None,
         counterparty: OTOCOOrder | None = None,  # For OCO
     ) -> None:
-        super().__init__(id_, user_id, strategy_type, order_type, side, quantity, price)
+        super().__init__(order_dict)
         self.parent = parent
         self.child_a = child_a
         self.child_b = child_b
@@ -107,14 +99,9 @@ class OTOCOOrder(Order):
                 counterparty, is_counterparty=True
             )
 
+        order_dict = data.get("order_dict", data)
         order = cls(
-            id_=data["id"],
-            user_id=data["user_id"],
-            strategy_type=StrategyType(data["strategy_type"]),
-            order_type=OrderType(data["order_type"]),
-            side=Side(data["side"]),
-            quantity=data["quantity"],
-            price=data["price"],
+            order_dict=order_dict,
             parent=parent_order,
             child_a=child_a_order,
             child_b=child_b_order,

@@ -9,27 +9,10 @@ from .mixins import ModifyOrderMixin
 
 class OCOStrategy(ModifyOrderMixin, StrategyBase):
     def handle_new(self, cmd: dict, ctx: ExecutionContext) -> None:
-        leg_a, leg_b = cmd["legs"]
+        leg_a_dict, leg_b_dict = cmd["legs"]
 
-        order_a = OCOOrder(
-            id_=leg_a["order_id"],
-            user_id=leg_a["user_id"],
-            strategy_type=StrategyType.OCO,
-            side=leg_a["side"],
-            order_type=leg_a["order_type"],
-            quantity=leg_a["quantity"],
-            price=leg_a[get_price_key(leg_a["order_type"])],
-        )
-
-        order_b = OCOOrder(
-            id_=leg_b["order_id"],
-            user_id=leg_b["user_id"],
-            strategy_type=StrategyType.OCO,
-            side=leg_b["side"],
-            order_type=leg_b["order_type"],
-            quantity=leg_b["quantity"],
-            price=leg_b[get_price_key(leg_b["order_type"])],
-        )
+        order_a = OCOOrder(order_dict=leg_a_dict.copy())
+        order_b = OCOOrder(order_dict=leg_b_dict.copy())
 
         order_a.counterparty = order_b
         order_b.counterparty = order_a
@@ -40,11 +23,8 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
             type=OrderEventType.ORDER_PLACED,
             order_id=order_a.id,
             symbol=ctx.symbol,
-            executed_quantity=order_a.executed_quantity,
-            quantity=order_a.quantity,
-            price=order_a.price,
-            side=order_a.side,
             command_id=ctx.cur_command_id,
+            order=order_a.get_order_dict(),
         )
         ctx.engine_logger.log_order_event(
             order_b.user_id,
@@ -52,11 +32,8 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
             type=OrderEventType.ORDER_PLACED,
             order_id=order_b.id,
             symbol=ctx.symbol,
-            executed_quantity=order_b.executed_quantity,
-            quantity=order_b.quantity,
-            price=order_b.price,
-            side=order_b.side,
             command_id=ctx.cur_command_id,
+            order=order_b.get_order_dict(),
         )
 
         # Add to orderbook/store
@@ -77,6 +54,7 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
             symbol=ctx.symbol,
             command_id=ctx.cur_command_id,
             details={"reason": f"OCO peer {order.id} was filled."},
+            order=counterparty.get_order_dict(),
         )
         ctx.orderbook.remove(counterparty, counterparty.price)
         ctx.order_store.remove(counterparty)
@@ -93,6 +71,7 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
             symbol=ctx.symbol,
             command_id=ctx.cur_command_id,
             details={"reason": "Client requested cancel."},
+            order=order.get_order_dict(),
         )
         ctx.engine_logger.log_order_event(
             order.user_id,
@@ -102,6 +81,7 @@ class OCOStrategy(ModifyOrderMixin, StrategyBase):
             symbol=ctx.symbol,
             command_id=ctx.cur_command_id,
             details={"reason": "Client requested cancel."},
+            order=counterparty.get_order_dict(),
         )
 
         ctx.orderbook.remove(order, order.price)

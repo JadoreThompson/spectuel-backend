@@ -47,8 +47,8 @@ class UnsubscribeRequest(CustomBaseModel):
     """Unsubscribe from order/balance events"""
 
     type: RequestType
-    order_events: list[str] | None = None
-    balance_events: list[str] | None = None
+    order_events: list[OrderEventType] | None = None
+    balance_events: list[BalanceEventType] | None = None
 
 
 class AckMessage(CustomBaseModel):
@@ -56,7 +56,8 @@ class AckMessage(CustomBaseModel):
 
     type: ResponseType
     request_type: RequestType
-    subscriptions: dict
+    subscriptions: dict | None = None
+    message: str | None = None 
 
 
 class ErrorMessage(CustomBaseModel):

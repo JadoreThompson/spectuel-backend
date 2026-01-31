@@ -11,7 +11,7 @@ from config import KAFKA_ENGINE_EVENTS_TOPIC, KAFKA_INSTRUMENT_EVENTS_TOPIC
 from db_models import OHLC
 from engine.enums import EngineEventCategory, TimeFrame
 from engine.events import BarUpdateEvent
-from infra.db import smaker
+from infra.db import get_db_sess
 from infra.kafka import AsyncKafkaConsumer, AsyncKafkaProducer
 from .models import Bar
 
@@ -61,10 +61,15 @@ class OHLCBuilder:
             async for msg in self._consumer:
                 try:
                     event = json.loads(msg.value.decode())
-                    category = event.get("category")
+                    is_trade_event = False
+                    for k, v in msg.headers:
+                        if k == "event_category":
+                            is_trade_event = v.decode() == EngineEventCategory.TRADE
+                            break
 
-                    if category == EngineEventCategory.TRADE:
-                        await self._handle_trade_event(event)
+                    if not is_trade_event:
+                        continue
+                    await self._handle_trade_event(event)
                 except Exception as e:
                     self._logger.error(f"Error processing trade event: {e}")
         except Exception as e:
@@ -125,6 +130,7 @@ class OHLCBuilder:
             except asyncio.CancelledError:
                 break
             except Exception as e:
+                import traceback; traceback.print_exc()
                 self._logger.error(f"Error in sleeper task for {timeframe}: {e}")
 
     async def _sleep_until_next_boundary(self, timeframe: TimeFrame):
@@ -141,12 +147,19 @@ class OHLCBuilder:
             lock = self._locks[symbol]
             async with lock:
                 if timeframe in self._bars[symbol]:
-                    snapshots[symbol] = self._bars[symbol][timeframe].snapshot()
+                    bar = self._bars[symbol][timeframe]
+                    snapshots[symbol] = bar.snapshot()
+                    # Update timestamp to the next candle period after snapshotting
+                    bar.timestamp += timeframe.get_seconds()
+                    bar.open = bar.close
+                    bar.close = bar.open
+                    bar.high = bar.open
+                    bar.low = bar.open
 
         if not snapshots:
             return
 
-        async with smaker.begin() as db_sess:
+        async with get_db_sess() as db_sess:
             await self._batch_insert_bars(db_sess, timeframe, snapshots)
 
         for symbol, snapshot in snapshots.items():
@@ -186,5 +199,5 @@ class OHLCBuilder:
 
         await self._producer.send(
             KAFKA_INSTRUMENT_EVENTS_TOPIC,
-            json.dumps(event.model_dump()).encode("utf-8"),
+            event.model_dump_json().encode()
         )

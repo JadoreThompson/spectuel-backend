@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from engine.services.event_handlers import KafkaFanout, OrderEventHandler
+from engine.services.event_handlers import KafkaFanout, OrderEventHandler, BalanceEventHandler
 from engine.services.order_book_publisher import OrderBookPublisher
 from infra.redis import REDIS_CLIENT
 from runners import BaseRunner
@@ -21,13 +21,17 @@ class ServicesRunner(BaseRunner):
             KafkaFanout(redis_client=REDIS_CLIENT),
             OrderBookPublisher(snapshot_interval=0.5),
             OrderEventHandler(),
+            BalanceEventHandler()
         )
+
+        self._logger.info("Starting services...")
 
         for service in services:
             task = asyncio.create_task(service.run(), name=type(service).__name__)
             task.add_done_callback(self._task_done_cb)
             self._tasks.add(task)
-
+            
+        self._logger.info("All services started.")
         fut = asyncio.get_running_loop().create_future()
         await fut
 

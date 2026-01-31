@@ -36,14 +36,14 @@ def get_symbols(limit: int = 1):
 def engine_run():
     logger = logging.getLogger("main")
 
-    symbols = get_symbols(limit=1)
-    if not symbols:
+    symbol = "EURUSD"
+    if not symbol:
         logger.info("No symbols to launch engines for")
         return
 
-    logger.info(f"Launching engines for symbols: {", ".join(symbols)}")
+    logger.info(f"Launching engines for {symbol}")
 
-    configs = tuple(
+    configs = (
         RunnerConfig(
             cls=EngineOrchestrator,
             kwargs={
@@ -55,8 +55,7 @@ def engine_run():
                 },
             },
             name=f"EngineOrchestrator-{symbol}",
-        )
-        for symbol in symbols
+        ),
     )
 
     ps = [

@@ -2,10 +2,10 @@ from enum import Enum
 
 
 class InstrumentEventType(str, Enum):
-    ENGINE_CREATED = "engine_created"
-    ORDERBOOK_SNAPSHOT = "orderbook_snapshot"
-    NEW_TRADE = "new_trade"
-    BAR_UPDATE = "bar_update"
+    ENGINE_CREATED = "instrument_engine_created"
+    ORDERBOOK_SNAPSHOT = "instrument_orderbook_snapshot"
+    NEW_TRADE = "instrument_new_trade"
+    BAR_UPDATE = "instrument_bar_update"
 
 
 class OrderbookEventType(str, Enum):
@@ -13,11 +13,11 @@ class OrderbookEventType(str, Enum):
 
 
 class OrderEventType(str, Enum):
-    ORDER_PLACED = "placed"
-    ORDER_PARTIALLY_FILLED = "partially_filled"
-    ORDER_FILLED = "filled"
-    ORDER_MODIFIED = "modified"
-    ORDER_MODIFY_REJECTED = "modify_rejected"
+    ORDER_PLACED = "order_placed"
+    ORDER_PARTIALLY_FILLED = "order_partially_filled"
+    ORDER_FILLED = "order_filled"
+    ORDER_MODIFIED = "order_modified"
+    ORDER_MODIFY_REJECTED = "order_modify_rejected"
     ORDER_CANCELLED = "order_cancelled"
 
 

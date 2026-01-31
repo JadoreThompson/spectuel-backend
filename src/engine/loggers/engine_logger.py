@@ -122,6 +122,7 @@ class EngineLogger:
             if "headers" in kafka_kwargs:
                 kafka_kwargs["headers"] = self._build_headers(kafka_kwargs["headers"])
 
+
             _get_kafka_producer().send(
                 KAFKA_ENGINE_EVENTS_TOPIC, serialised_event, **kafka_kwargs
             )
@@ -164,7 +165,7 @@ class EngineLogger:
     def log_trade_event(
         self, user_id: str, /, kafka_kwargs: dict | None = None, **event_kwargs
     ) -> None:
-        NewTradeEvent(**event_kwargs)  # Validate
+        event_kwargs = NewTradeEvent(**event_kwargs).model_dump(mode='json')  # Validate
 
         if kafka_kwargs is None:
             kafka_kwargs = {}
@@ -182,10 +183,11 @@ class EngineLogger:
         event: BalanceEventUnion | None = None,
         /,
         kafka_kwargs: dict | None = None,
-        **event_kwargs,
+        event_kwargs: dict | None = None,
     ) -> None:
         if event is None:
             event_cls = self._balance_event_map[event_kwargs["type"]]
+            
             if "user_id" not in event_kwargs:
                 event_kwargs["user_id"] = user_id
             event_cls(**event_kwargs)  # Validate

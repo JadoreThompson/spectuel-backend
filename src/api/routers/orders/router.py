@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -94,10 +94,10 @@ async def create_otoco_order(
 @route.get("/", response_model=PaginatedResponse[OrderRead])
 async def get_orders(
     page: int = Query(1, ge=1),
-    symbols: list[str] = Query(default_factory=list),
-    status: list[OrderStatus] = Query(default_factory=list),
-    side: list[Side] = Query(default_factory=list),
-    order_by: Literal['asc', 'desc'] = 'desc',
+    symbols: list[str] = Query(None),
+    status: list[OrderStatus] = Query(None),
+    side: list[Side] = Query(None),
+    order: Literal['asc', 'desc'] = Query('desc'),
     jwt: JWTPayload = Depends(depends_jwt()),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
@@ -115,7 +115,12 @@ async def get_orders(
         query = query.where(Orders.side.in_([s.value for s in side]))
 
     offset = (page - 1) * PAGE_SIZE
-    query = query.order_by(Orders.created_at.desc()).offset(offset).limit(PAGE_SIZE + 1)
+    if order == 'asc':
+        query = query.order_by(Orders.created_at.asc())
+    elif order == 'desc':        
+        query = query.order_by(Orders.created_at.desc())
+
+    query = query.offset(offset).limit(PAGE_SIZE + 1)
 
     result = await db_sess.execute(query)
     orders = result.scalars().all()

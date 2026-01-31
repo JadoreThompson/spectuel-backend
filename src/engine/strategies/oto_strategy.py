@@ -9,46 +9,27 @@ from .mixins import ModifyOrderMixin
 
 class OTOStrategy(ModifyOrderMixin, StrategyBase):
     def handle_new(self, cmd: dict, ctx: ExecutionContext) -> None:
-        parent_data = cmd["parent"]
-        child_data = cmd["child"]
+        parent_dict = cmd["parent"].copy()
+        child_dict = cmd["child"].copy()
 
-        if parent_data["order_type"] == OrderType.MARKET:
-            parent_price = ctx.orderbook.price
-        else:
-            parent_price = parent_data[get_price_key(parent_data["order_type"])]
+        # Set the effective price for market orders
+        if parent_dict["order_type"] == OrderType.MARKET.value:
+            parent_dict["limit_price"] = ctx.orderbook.price
 
-        parent = OTOOrder(
-            id_=parent_data["order_id"],
-            user_id=parent_data["user_id"],
-            strategy_type=StrategyType.OTO,
-            order_type=parent_data["order_type"],
-            side=parent_data["side"],
-            quantity=parent_data["quantity"],
-            price=parent_price,
-        )
-
-        child = OTOOrder(
-            id_=child_data["order_id"],
-            user_id=child_data["user_id"],
-            strategy_type=StrategyType.OTO,
-            order_type=child_data["order_type"],
-            side=child_data["side"],
-            quantity=child_data["quantity"],
-            price=child_data[get_price_key(child_data["order_type"])],
-            parent=parent,
-        )
+        parent = OTOOrder(order_dict=parent_dict)
+        child = OTOOrder(order_dict=child_dict, parent=parent)
 
         parent.child = child
         child.parent = parent
 
         # Check if parent is immediately matchable
-        if parent_data["order_type"] == OrderType.LIMIT:
+        if parent_dict["order_type"] == OrderType.LIMIT.value:
             matchable = limit_crossable(
-                parent_data["limit_price"], parent.side, ctx.orderbook
+                parent_dict["limit_price"], parent.side, ctx.orderbook
             )
-        elif parent_data["order_type"] == OrderType.STOP:
+        elif parent_dict["order_type"] == OrderType.STOP.value:
             matchable = stop_crossable(
-                parent_data["stop_price"], parent.side, ctx.orderbook
+                parent_dict["stop_price"], parent.side, ctx.orderbook
             )
         else:
             matchable = True
@@ -68,6 +49,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
                         "reason": f"Insufficient balance to place OTO parent order {parent.id}."
                     },
                     command_id=ctx.cur_command_id,
+                    order=parent.get_order_dict(),
                 )
                 ctx.engine._release_escrow(parent)
                 return
@@ -84,11 +66,8 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
             type=OrderEventType.ORDER_PLACED,
             order_id=parent.id,
             symbol=ctx.symbol,
-            executed_quantity=parent.executed_quantity,
-            quantity=parent.quantity,
-            price=parent.price,
-            side=parent.side,
             command_id=ctx.cur_command_id,
+            order=parent.get_order_dict(),
         )
 
         ctx.orderbook.append(parent, parent.price)
@@ -111,11 +90,8 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
                 type=OrderEventType.ORDER_PLACED,
                 order_id=child.id,
                 symbol=ctx.symbol,
-                executed_quantity=child.executed_quantity,
-                quantity=child.quantity,
-                price=child.price,
-                side=child.side,
                 command_id=ctx.cur_command_id,
+                order=child.get_order_dict(),
             )
 
             ctx.orderbook.append(child, child.price)
@@ -131,6 +107,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
                 symbol=ctx.symbol,
                 details={"reason": "Parent order cancelled."},
                 command_id=ctx.cur_command_id,
+                order=order.get_order_dict(),
             )
             ctx.orderbook.remove(order, order.price)
             ctx.order_store.remove(order)
@@ -146,6 +123,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
                     symbol=ctx.symbol,
                     details={"reason": "User cancelled active child order."},
                     command_id=ctx.cur_command_id,
+                    order=order.get_order_dict(),
                 )
                 ctx.orderbook.remove(order, order.price)
                 ctx.order_store.remove(order)
@@ -160,6 +138,7 @@ class OTOStrategy(ModifyOrderMixin, StrategyBase):
                     symbol=ctx.symbol,
                     details={"reason": "User cancelled inactive child order."},
                     command_id=ctx.cur_command_id,
+                    order=parent.get_order_dict(),
                 )
                 ctx.orderbook.remove(parent, parent.price)
                 ctx.order_store.remove(parent)

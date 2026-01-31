@@ -1,4 +1,4 @@
-from engine.enums import MatchOutcome, OrderType, StrategyType
+from engine.enums import MatchOutcome, OrderStatus, OrderType, StrategyType
 from engine.events.enums import OrderEventType
 from engine.execution_context import ExecutionContext
 from engine.types import MatchResult
@@ -10,25 +10,18 @@ from .mixins import ModifyOrderMixin
 
 class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
     def handle_new(self, cmd: dict, ctx: ExecutionContext) -> None:
-        if cmd["order_type"] == OrderType.MARKET:
-            price = ctx.orderbook.price
-        else:
-            price = cmd[get_price_key(cmd["order_type"])]
+        order_dict = cmd["order"].copy()
 
-        order = Order(
-            id_=cmd["order_id"],
-            user_id=cmd["user_id"],
-            strategy_type=StrategyType.SINGLE,
-            order_type=cmd["order_type"],
-            side=cmd["side"],
-            quantity=cmd["quantity"],
-            price=price,
-        )
+        # Set the effective price for market orders
+        if order_dict["order_type"] == OrderType.MARKET.value:
+            order_dict["limit_price"] = ctx.orderbook.price
+
+        order = Order(order_dict=order_dict)
 
         # Determine if the order is immediately matchable
-        if cmd["order_type"] == OrderType.LIMIT:
+        if order_dict["order_type"] == OrderType.LIMIT:
             matchable = limit_crossable(order.price, order.side, ctx.orderbook)
-        elif cmd["order_type"] == OrderType.STOP:
+        elif order_dict["order_type"] == OrderType.STOP:
             matchable = stop_crossable(order.price, order.side, ctx.orderbook)
         else:
             matchable = True
@@ -47,6 +40,7 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
                     symbol=ctx.symbol,
                     details={"reason": "Insufficient funds"},
                     command_id=ctx.cur_command_id,
+                    order=order.get_order_dict(),
                 )
                 ctx.engine._release_escrow(order)
                 return
@@ -55,17 +49,15 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
                 return
 
         # Add to orderbook/store if not fully matched
+        order.status = OrderStatus.PLACED
         ctx.engine_logger.log_order_event(
             order.user_id,
             {"key": ctx.symbol.encode()},
             type=OrderEventType.ORDER_PLACED,
             order_id=order.id,
             symbol=ctx.symbol,
-            executed_quantity=order.executed_quantity,
-            quantity=order.quantity,
-            price=order.price,
-            side=order.side,
             command_id=ctx.cur_command_id,
+            order=order.get_order_dict(),
         )
 
         ctx.order_store.add(order)
@@ -88,6 +80,7 @@ class SingleOrderStrategy(ModifyOrderMixin, StrategyBase):
             symbol=ctx.symbol,
             details={"reason": "User cancelled order."},
             command_id=ctx.cur_command_id,
+            order=order.get_order_dict(),
         )
         ctx.orderbook.remove(order, order.price)
         ctx.order_store.remove(order)

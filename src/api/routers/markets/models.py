@@ -59,3 +59,12 @@ class OrderbookSnapshotEvent(CustomBaseModel):
     symbol: str
     bids: list[list[float]]
     asks: list[list[float]]
+
+
+class MarketStatsResponse(CustomBaseModel):
+    symbol: str
+    change_24h: float
+    high_24h: float
+    low_24h: float
+    volume_24h: float
+    last_price: float | None = None

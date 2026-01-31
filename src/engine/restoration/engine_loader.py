@@ -86,6 +86,22 @@ class EngineLoader:
 
         for i in range(10):
             price = round(starting_price * (1 + (i * 0.005)), 2)
+
+            order_dict = {
+                "order_id": str(uuid4()),
+                "user_id": SYSTEM_USER_ID,
+                "symbol": symbol,
+                "side": Side.ASK.value,
+                "order_type": OrderType.LIMIT.value,
+                "quantity": base_qty,
+                "limit_price": price,
+                "stop_price": None,
+                "status": "PENDING",
+                "strategy_type": StrategyType.SINGLE.value,
+                "executed_quantity": 0.0,
+                "avg_fill_price": None,
+            }
+
             cmd = NewSingleOrderCommand(
                 id=str(uuid4()),
                 version=1,
@@ -93,12 +109,7 @@ class EngineLoader:
                 type=CommandType.NEW_ORDER,
                 strategy_type=StrategyType.SINGLE,
                 symbol=symbol,
-                order_id=str(uuid4()),
-                user_id=SYSTEM_USER_ID,
-                order_type=OrderType.LIMIT,
-                side=Side.ASK,
-                quantity=base_qty,
-                limit_price=price,
+                order=order_dict,
                 details={"note": "liquidity_seed"},
             )
             # Direct handle to avoid WAL logging/orchestrator overhead during seed
