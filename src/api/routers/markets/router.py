@@ -17,7 +17,7 @@ from db_models import OHLC, Instruments, OrderEvents
 from engine.enums import TimeFrame
 from engine.events.enums import OrderEventType
 from utils import get_datetime
-from .connection_manager import connection_manager
+from .connection_manager import ConnectionManager
 from .models import (
     BarsResponse,
     BarData,
@@ -28,6 +28,7 @@ from .models import (
 
 PREFIX = "/markets"
 route = APIRouter(tags=["markets"])
+connection_manager = ConnectionManager()
 
 TIMEFRAME_LOOKBACK = {
     TimeFrame.M1: 7 * 24 * 60 * 60,

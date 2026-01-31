@@ -5,11 +5,10 @@ import time
 import click
 
 from runners import (
-    run_runner,
     ServerRunner,
     ServicesRunner,
     RunnerConfig,
-    run_runner_v2,
+    run_runner,
 )
 
 
@@ -29,7 +28,7 @@ def http_run():
     )
 
     ps = [
-        multiprocessing.Process(target=run_runner_v2, args=(conf,), name=conf.name)
+        multiprocessing.Process(target=run_runner, args=(conf,), name=conf.name)
         for conf in configs
     ]
 

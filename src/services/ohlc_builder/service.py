@@ -56,6 +56,13 @@ class OHLCBuilder:
             task.cancel()
         self._logger.info("OHLCBuilder stopped")
 
+    async def run(self):
+        try:
+            await self.start()
+            await asyncio.get_running_loop().create_future()
+        finally:
+            await self.stop()
+
     async def _consume_trades(self):
         try:
             async for msg in self._consumer:
@@ -130,7 +137,9 @@ class OHLCBuilder:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                import traceback; traceback.print_exc()
+                import traceback
+
+                traceback.print_exc()
                 self._logger.error(f"Error in sleeper task for {timeframe}: {e}")
 
     async def _sleep_until_next_boundary(self, timeframe: TimeFrame):
@@ -198,6 +207,5 @@ class OHLCBuilder:
         )
 
         await self._producer.send(
-            KAFKA_INSTRUMENT_EVENTS_TOPIC,
-            event.model_dump_json().encode()
+            KAFKA_INSTRUMENT_EVENTS_TOPIC, event.model_dump_json().encode()
         )

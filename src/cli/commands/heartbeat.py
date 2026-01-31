@@ -4,7 +4,7 @@ import time
 
 import click
 
-from runners import HeartbeatServerRunner, RunnerConfig, run_runner_v2
+from runners import HeartbeatServerRunner, RunnerConfig, run_runner
 
 
 @click.group()
@@ -19,9 +19,7 @@ def heartbeat_run():
 
     config = RunnerConfig(cls=HeartbeatServerRunner)
 
-    p = multiprocessing.Process(
-        target=run_runner_v2, args=(config,), name=config.name
-    )
+    p = multiprocessing.Process(target=run_runner, args=(config,), name=config.name)
 
     logger.info(f"Process '{p.name}' has started")
     p.start()

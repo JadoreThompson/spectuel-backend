@@ -4,6 +4,7 @@ import logging
 from infra.redis import REDIS_CLIENT
 from runners import BaseRunner
 from services.event_handlers import KafkaFanout, OrderEventHandler, BalanceEventHandler
+from services.ohlc_builder.service import OHLCBuilder
 from services.orderbook_publisher import OrderBookPublisher
 
 
@@ -17,23 +18,37 @@ class ServicesRunner(BaseRunner):
         asyncio.run(self._run())
 
     async def _run(self) -> None:
-        services = (
+        # services = (
+        #     KafkaFanout(redis_client=REDIS_CLIENT),
+        #     OrderBookPublisher(snapshot_interval=0.5),
+        #     OrderEventHandler(),
+        #     BalanceEventHandler(),
+        # )
+
+        # self._logger.info("Starting services...")
+        # for service in services:
+        #     task = asyncio.create_task(service.run(), name=type(service).__name__)
+        #     task.add_done_callback(self._task_done_cb)
+        #     self._tasks.add(task)
+
+        self._logger.info("Starting services...")
+        for service in (
             KafkaFanout(redis_client=REDIS_CLIENT),
             OrderBookPublisher(snapshot_interval=0.5),
             OrderEventHandler(),
             BalanceEventHandler(),
-        )
-
-        self._logger.info("Starting services...")
-
-        for service in services:
-            task = asyncio.create_task(service.run(), name=type(service).__name__)
-            task.add_done_callback(self._task_done_cb)
-            self._tasks.add(task)
+            OHLCBuilder(),
+        ):
+            self._add_task(service, service.run())
 
         self._logger.info("All services started.")
         fut = asyncio.get_running_loop().create_future()
         await fut
+
+    def _add_task(self, service: object, coro):
+        task = asyncio.create_task(coro, name=type(service).__name__)
+        task.add_done_callback(self._task_done_cb)
+        self._tasks.add(task)
 
     def _task_done_cb(self, task: asyncio.Task) -> None:
         """Relaunches the task on failure"""

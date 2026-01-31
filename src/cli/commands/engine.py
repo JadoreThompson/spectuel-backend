@@ -10,7 +10,7 @@ from db_models import Instruments
 from engine.engine_orchestrator import EngineOrchestrator
 from engine.enums import InstrumentStatus
 from infra.db import get_db_sess_sync
-from runners import run_runner, RunnerConfig, run_runner_v2
+from runners import RunnerConfig, run_runner
 
 
 @click.group()
@@ -58,10 +58,7 @@ def engine_run():
         ),
     )
 
-    ps = [
-        Process(target=run_runner_v2, args=(conf,), name=conf.name)
-        for conf in configs
-    ]
+    ps = [Process(target=run_runner, args=(conf,), name=conf.name) for conf in configs]
 
     for p in ps:
         p.start()
