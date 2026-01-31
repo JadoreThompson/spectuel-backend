@@ -175,6 +175,3 @@ class ConnectionManager:
                 continue
             except Exception as e:
                 self._logger.error(f"Cleanup worker error: {e}")
-
-
-connection_manager = ConnectionManager()

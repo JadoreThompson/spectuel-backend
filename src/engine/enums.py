@@ -12,12 +12,6 @@ class OrderType(str, Enum):
     STOP = "stop"
 
 
-class TimeInForce(str, Enum):
-    GTC = "gtc"
-    IOC = "ioc"
-    FOK = "fok"
-
-
 class StrategyType(str, Enum):
     SINGLE = "single"
     OCO = "oco"
@@ -78,13 +72,6 @@ class TimeFrame(str, Enum):
             return amount * 86400
         else:
             raise ValueError(f"Unsupported timeframe unit: {unit}")
-
-
-class TransactionType(str, Enum):
-    DEPOSIT = "deposit"
-    WITHDRAWAL = "withdrawal"
-    TRADE = "trade"
-    ESCROW = "escrow"
 
 
 class CommandType(str, Enum):

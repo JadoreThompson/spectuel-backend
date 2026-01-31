@@ -125,8 +125,6 @@ class OrderEventHandler(BaseEventHandler):
                 )
 
                 db_sess.add(db_event)
-                # await db_sess.refresh(db_event)
-                # db_sess.flush
 
                 db_event_log = EventLogs(
                     type=EngineEventCategory.ORDER,
@@ -136,8 +134,7 @@ class OrderEventHandler(BaseEventHandler):
                 db_sess.add(db_event_log)
 
                 await handler(event, db_sess)
-                print('done')
-
+                
                 await db_sess.commit()
 
         except ValidationError:

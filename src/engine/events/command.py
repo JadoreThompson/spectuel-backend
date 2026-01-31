@@ -2,9 +2,7 @@ import uuid
 from typing import Literal
 from dataclasses import field, dataclass
 
-from engine.commands import CommandBase
 from engine.events.enums import CommandEventType
-from .base import EngineEventBase
 
 
 @dataclass

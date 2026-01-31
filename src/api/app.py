@@ -11,7 +11,7 @@ from api.routers.orders.service import OrderService, OrderServiceException
 from api.routers.public.router import router as public_route
 from api.routers.users.router import route as user_route
 from api.routers.markets.router import route as markets_route
-from api.routers.markets.connection_manager import connection_manager
+from api.routers.markets.connection_manager import ConnectionManager
 from api.ws.orders.route import router as ws_order_route
 from db_models import Instruments
 from infra.db import get_db_sess
@@ -21,7 +21,6 @@ from services.ohlc_builder import OHLCBuilder
 
 symbols = ("BTCUSD", "EURUSD", "GBPUSD", "FAKEUSD")
 
-ohlc_builder = OHLCBuilder()
 
 
 async def create_instruments():
@@ -36,11 +35,16 @@ async def create_instruments():
 
 
 async def lifespan(app: FastAPI):
+    ohlc_builder = OHLCBuilder()
+    connection_manager = ConnectionManager()
+
     await create_instruments()
     await OrderService.start()
     await connection_manager.start()
     await ohlc_builder.start()
+    
     yield
+    
     await OrderService.stop()
     await connection_manager.stop()
     await ohlc_builder.stop()

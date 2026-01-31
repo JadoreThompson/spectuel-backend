@@ -10,8 +10,6 @@ from config import (
     KAFKA_ORDER_EVENTS_TOPIC,
 )
 from engine.enums import EngineEventCategory
-from engine.events import BalanceEventType, OrderEventType
-from engine.events.enums import InstrumentEventType
 from infra.kafka import AsyncKafkaProducer, AsyncKafkaConsumer
 
 
