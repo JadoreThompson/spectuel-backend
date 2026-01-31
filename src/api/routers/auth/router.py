@@ -27,7 +27,8 @@ from db_models import Users
 from engine.loggers import EngineLogger
 from engine.services.balance_manager import BalanceManager
 from infra.redis import REDIS_CLIENT
-from services import JWTService, EmailService
+from services.email import BrevoEmailService
+from services.jwt import JWTService
 from utils import get_datetime, get_default_cash_balance, gen_random_string
 from .models import (
     UpdateEmail,
@@ -43,7 +44,7 @@ from .models import (
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-em_service = EmailService("No-Reply", "no-reply@jadore.dev")
+em_service = BrevoEmailService("No-Reply", "no-reply@jadore.dev")
 pw_hasher = PasswordHasher()
 balance_manager = BalanceManager("<auth-router>", EngineLogger("<auth-router>"))
 

@@ -1,12 +1,12 @@
 from fastapi import APIRouter, BackgroundTasks
 
-from services import EmailService
+from services.email import BrevoEmailService
 from config import CUSTOMER_SUPPORT_EMAIL
 from .models import ContactForm
 
 
 router = APIRouter(prefix="/public", tags=["Public"])
-email_service = EmailService(sender_name="Support", sender_email="support@domain.com")
+email_service = BrevoEmailService(sender_name="Support", sender_email="support@domain.com")
 
 
 @router.get("/healthcheck")

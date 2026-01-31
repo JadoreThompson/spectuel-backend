@@ -23,7 +23,8 @@ from config import (
     MAX_EMAIL_VERIFICATION_ATTEMPTS,
     NEW_USER_COMMAND_ID
 )
-from services import JWTService, EmailService
+from services.jwt import JWTService
+from services.email import BrevoEmailService
 from utils import get_datetime, get_default_cash_balance
 
 # Mock data

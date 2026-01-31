@@ -6,8 +6,8 @@ from aiohttp import ClientSession
 from config import BREVO_API_KEY
 
 
-class EmailService:
-    _instances: dict[tuple[str, str], "EmailService"] = {}
+class BrevoEmailService:
+    _instances: dict[tuple[str, str], "BrevoEmailService"] = {}
 
     def __new__(cls, sender_name: str, sender_email: str):
         key = (sender_name, sender_email)

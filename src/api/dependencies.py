@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 from config import COOKIE_ALIAS
 from infra.db import smaker
-from services import JWTService
+from services.jwt import JWTService
 from .exc import JWTError
 from .types import JWTPayload
 

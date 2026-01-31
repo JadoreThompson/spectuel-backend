@@ -23,7 +23,7 @@ from engine.events.enums import OrderEventType, BalanceEventType
 from infra.db.utils import get_db_sess
 from infra.kafka import AsyncKafkaConsumer
 from infra.redis import REDIS_CLIENT
-from services import JWTService
+from services.jwt import JWTService
 from .models import AuthenticateRequest, ResponseType
 
 logger = logging.getLogger(__name__)
