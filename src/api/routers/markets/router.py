@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import depends_db_sess
-from db_models import OHLC, Instruments, OrderEvents
+from infra.db.models import OHLC, Instruments, OrderEvents
 from engine.enums import TimeFrame
 from engine.events.enums import OrderEventType
 from utils import get_datetime

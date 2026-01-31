@@ -8,7 +8,7 @@ from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import KAFKA_ENGINE_EVENTS_TOPIC, KAFKA_INSTRUMENT_EVENTS_TOPIC
-from db_models import OHLC
+from infra.db.models import OHLC
 from engine.enums import EngineEventCategory, TimeFrame
 from engine.events import BarUpdateEvent
 from infra.db import get_db_sess

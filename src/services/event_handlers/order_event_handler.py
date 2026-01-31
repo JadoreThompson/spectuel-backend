@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import KAFKA_ORDER_EVENTS_TOPIC
-from db_models import EventLogs, OrderEvents, Orders
+from infra.db.models import EventLogs, OrderEvents, Orders
 from engine.enums import EngineEventCategory, OrderStatus
 from engine.events import (
     OrderCancelledEvent,

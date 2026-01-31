@@ -13,7 +13,7 @@ from api.routers.users.router import route as user_route
 from api.routers.markets.router import route as markets_route
 from api.routers.markets.connection_manager import ConnectionManager
 from api.ws.orders.route import router as ws_order_route
-from db_models import Instruments
+from infra.db.models import Instruments
 from infra.db import get_db_sess
 from services.jwt import JWTError
 from services.ohlc_builder import OHLCBuilder

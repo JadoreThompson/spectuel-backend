@@ -6,7 +6,7 @@ from multiprocessing import Process
 from sqlalchemy import select
 
 from config import HEARTBEAT_ITMEOUT, HEARTBEAT_SERVER_HOST, HEARTBEAT_SERVER_PORT
-from db_models import Instruments
+from infra.db.models import Instruments
 from engine.engine_orchestrator import EngineOrchestrator
 from engine.enums import InstrumentStatus
 from infra.db import get_db_sess_sync

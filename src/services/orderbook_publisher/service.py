@@ -9,7 +9,7 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from sqlalchemy import select
 
 from config import KAFKA_ORDER_EVENTS_TOPIC, KAFKA_INSTRUMENT_EVENTS_TOPIC
-from db_models import Orders
+from infra.db.models import Orders
 from engine.enums import Side, LiquidityRole, OrderStatus
 from engine.events import (
     NewTradeEvent,

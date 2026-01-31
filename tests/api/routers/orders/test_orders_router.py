@@ -8,7 +8,7 @@ from api.app import app
 from api.dependencies import depends_db_sess
 from api.types import JWTPayload
 from engine.enums import OrderStatus, Side, OrderType, StrategyType
-from db_models import Orders
+from infra.db.models import Orders
 from config import COOKIE_ALIAS
 from utils import get_datetime
 

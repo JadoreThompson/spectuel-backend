@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import depends_jwt, depends_db_sess, depends_convert_csv
 from api.shared.models import PaginatedResponse
-from db_models import AssetBalances, Instruments, OrderEvents, BalanceEvents
+from infra.db.models import AssetBalances, Instruments, OrderEvents, BalanceEvents
 from engine.services.balance_manager import BalanceManager
 from services.jwt import JWTPayload
 from .models import (

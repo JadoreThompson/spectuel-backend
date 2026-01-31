@@ -6,7 +6,7 @@ import time
 
 from sqlalchemy import update
 
-from db_models import Instruments
+from infra.db.models import Instruments
 from engine.enums import InstrumentStatus
 from infra.db import get_db_sess
 from .conn import HeartbeatConnection

@@ -6,7 +6,7 @@ from typing import Hashable
 
 from sqlalchemy import insert, update
 
-from db_models import EngineContextSnapshots, Instruments
+from infra.db.models import EngineContextSnapshots, Instruments
 from engine.enums import InstrumentStatus
 from engine.events.enums import CommandEventType, OrderEventType
 from engine.execution_context import ExecutionContext

@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from sqlalchemy import select
 
-from db_models import EngineContextSnapshots, Instruments
+from infra.db.models import EngineContextSnapshots, Instruments
 from engine.commands import NewSingleOrderCommand
 from engine.config import SYSTEM_USER_ID
 from engine.enums import StrategyType, OrderType, Side, CommandType

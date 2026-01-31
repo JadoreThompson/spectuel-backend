@@ -16,7 +16,7 @@ from api.routers.orders.models import (
     OrderRead,
 )
 from api.utils import put_command
-from db_models import Orders
+from infra.db.models import Orders
 from engine.commands import (
     NewSingleOrderCommand,
     NewOCOOrderCommand,

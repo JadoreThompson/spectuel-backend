@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import KAFKA_BALANCE_EVENTS_TOPIC
-from db_models import AssetBalances, BalanceEvents, EventLogs, Instruments
+from infra.db.models import AssetBalances, BalanceEvents, EventLogs, Instruments
 from engine.enums import EngineEventCategory
 from engine.events import (
     AssetBalanceDecreasedEvent,

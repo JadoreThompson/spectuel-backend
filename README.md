@@ -639,17 +639,6 @@ spectuel-backend/
 └── README.md                  # This file
 ```
 
-## Contributing
-
-Contributions are welcome! Please follow these guidelines:
-
-1. Fork the repository
-2. Create a feature branch
-3. Write tests for new features
-4. Ensure all tests pass
-5. Submit a pull request
-
-
 ## Support
 
 For questions or issues, please open an issue on GitHub or contact jadorethomspon6@gmail.com.

@@ -11,7 +11,7 @@ import pytest_asyncio
 from api.app import app
 from api.dependencies import depends_db_sess
 from api.types import JWTPayload
-from db_models import Users
+from infra.db.models import Users
 from config import (
     COOKIE_ALIAS,
     PW_HASH_SALT,

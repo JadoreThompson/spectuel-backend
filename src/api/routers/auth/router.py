@@ -20,7 +20,7 @@ from config import (
     REDIS_WS_TOKEN_PREFIX,
     REDIS_WS_TOKEN_TTL_SECS,
 )
-from db_models import Users
+from infra.db.models import Users
 from engine.loggers import EngineLogger
 from engine.services.balance_manager import BalanceManager
 from infra.redis import REDIS_CLIENT
