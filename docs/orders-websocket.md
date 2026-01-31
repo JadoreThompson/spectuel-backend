@@ -16,13 +16,13 @@ Before connecting to the WebSocket, you must obtain a temporary authentication t
 
 **Headers:**
 
-- `Cookie: jwt=<your-jwt-token>` (or Authorization header with JWT)
+- `Cookie: spectuel-cookie=<your-jwt-token>` (or Authorization header with JWT)
 
 **Example:**
 
 ```bash
 curl -X GET "http://localhost:8000/auth/ws-token" \
-  -H "Cookie: jwt=your-jwt-token"
+  -H "Cookie: spectuel-cookie=your-jwt-token"
 ```
 
 **Response:**
@@ -41,13 +41,24 @@ curl -X GET "http://localhost:8000/auth/ws-token" \
 
 ### Step 2: Connect and Authenticate
 
-Connect to the WebSocket and send the authentication token within 10 seconds.
+Connect to the WebSocket and send the authentication message within 10 seconds.
 
 **Authentication Message:**
 
 ```json
 {
+  "type": "auth",
   "token": "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6"
+}
+```
+
+**Success Response:**
+
+```json
+{
+  "type": "ack",
+  "request_type": "auth",
+  "message": "Successfully authenticated"
 }
 ```
 
@@ -65,7 +76,7 @@ const ws = new WebSocket("ws://localhost:8000/ws/orders/");
 
 ws.onopen = () => {
   // Send authentication token immediately
-  ws.send(JSON.stringify({ token }));
+  ws.send(JSON.stringify({ type: "auth", token }));
 };
 ```
 
@@ -100,7 +111,7 @@ Add event types to your subscription list. Subscriptions are **additive** - new 
 ```json
 {
   "type": "subscribe",
-  "order_events": ["placed", "filled", "partially_filled"],
+  "order_events": ["order_placed", "order_filled", "order_partially_filled"],
   "balance_events": ["cash_balance_increased", "asset_balance_increased"]
 }
 ```
@@ -113,11 +124,11 @@ Add event types to your subscription list. Subscriptions are **additive** - new 
 
 **Available Order Event Types:**
 
-- `"placed"` - Order successfully placed
-- `"partially_filled"` - Order partially executed
-- `"filled"` - Order fully executed
-- `"modified"` - Order price/quantity modified
-- `"modify_rejected"` - Order modification rejected
+- `"order_placed"` - Order successfully placed
+- `"order_partially_filled"` - Order partially executed
+- `"order_filled"` - Order fully executed
+- `"order_modified"` - Order price/quantity modified
+- `"order_modify_rejected"` - Order modification rejected
 - `"order_cancelled"` - Order cancelled
 
 **Available Balance Event Types:**
@@ -141,7 +152,7 @@ Add event types to your subscription list. Subscriptions are **additive** - new 
   "type": "ack",
   "request_type": "subscribe",
   "subscriptions": {
-    "order_events": ["placed", "filled", "partially_filled"],
+    "order_events": ["order_placed", "order_filled", "order_partially_filled"],
     "balance_events": ["cash_balance_increased", "asset_balance_increased"]
   }
 }
@@ -156,7 +167,7 @@ Remove specific event types from your subscription list.
 ```json
 {
   "type": "unsubscribe",
-  "order_events": ["placed"],
+  "order_events": ["order_placed"],
   "balance_events": ["cash_balance_increased"]
 }
 ```
@@ -168,7 +179,7 @@ Remove specific event types from your subscription list.
   "type": "ack",
   "request_type": "unsubscribe",
   "subscriptions": {
-    "order_events": ["filled", "partially_filled"],
+    "order_events": ["order_filled", "order_partially_filled"],
     "balance_events": ["asset_balance_increased"]
   }
 }
@@ -184,17 +195,24 @@ Order events are sent when your orders change state.
 
 ```json
 {
-  "type": "placed",
+  "type": "order_placed",
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "version": 1,
   "order_id": "123e4567-e89b-12d3-a456-426614174000",
   "command_id": "789e0123-e45b-67c8-d901-234567890abc",
   "symbol": "BTCUSD",
-  "executed_quantity": 0.0,
-  "quantity": 1.5,
-  "price": 43250.5,
-  "side": "buy",
-  "timestamp": 1706745612
+  "order": {
+    "order_id": "123e4567-e89b-12d3-a456-426614174000",
+    "symbol": "BTCUSD",
+    "side": "bid",
+    "order_type": "limit",
+    "quantity": 1.5,
+    "executed_quantity": 0.0,
+    "limit_price": 43250.5,
+    "stop_price": null,
+    "status": "placed"
+  },
+  "timestamp": 1706745612.0
 }
 ```
 
@@ -202,16 +220,24 @@ Order events are sent when your orders change state.
 
 ```json
 {
-  "type": "filled",
+  "type": "order_filled",
   "id": "550e8400-e29b-41d4-a716-446655440001",
   "version": 1,
   "order_id": "123e4567-e89b-12d3-a456-426614174000",
   "command_id": "789e0123-e45b-67c8-d901-234567890abc",
   "symbol": "BTCUSD",
-  "executed_quantity": 1.5,
-  "quantity": 1.5,
-  "price": 43250.5,
-  "timestamp": 1706745620
+  "order": {
+    "order_id": "123e4567-e89b-12d3-a456-426614174000",
+    "symbol": "BTCUSD",
+    "side": "bid",
+    "order_type": "limit",
+    "quantity": 1.5,
+    "executed_quantity": 1.5,
+    "limit_price": 43250.5,
+    "avg_fill_price": 43250.5,
+    "status": "filled"
+  },
+  "timestamp": 1706745620.0
 }
 ```
 
@@ -219,16 +245,15 @@ Order events are sent when your orders change state.
 
 ```json
 {
-  "type": "partially_filled",
+  "type": "order_partially_filled",
   "id": "550e8400-e29b-41d4-a716-446655440002",
   "version": 1,
   "order_id": "123e4567-e89b-12d3-a456-426614174000",
   "command_id": "789e0123-e45b-67c8-d901-234567890abc",
   "symbol": "BTCUSD",
   "executed_quantity": 0.8,
-  "quantity": 1.5,
   "price": 43250.5,
-  "timestamp": 1706745618
+  "timestamp": 1706745618.0
 }
 ```
 
@@ -236,14 +261,14 @@ Order events are sent when your orders change state.
 
 ```json
 {
-  "type": "modified",
+  "type": "order_modified",
   "id": "550e8400-e29b-41d4-a716-446655440003",
   "version": 1,
   "order_id": "123e4567-e89b-12d3-a456-426614174000",
   "command_id": "789e0123-e45b-67c8-d901-234567890abc",
   "limit_price": 43300.0,
   "stop_price": null,
-  "timestamp": 1706745625
+  "timestamp": 1706745625.0
 }
 ```
 
@@ -257,7 +282,7 @@ Order events are sent when your orders change state.
   "order_id": "123e4567-e89b-12d3-a456-426614174000",
   "command_id": "789e0123-e45b-67c8-d901-234567890abc",
   "symbol": "BTCUSD",
-  "timestamp": 1706745630
+  "timestamp": 1706745630.0
 }
 ```
 
@@ -275,8 +300,7 @@ Balance events are sent when your account balances change.
   "user_id": "user-uuid-here",
   "command_id": "890e1234-f56c-78d9-e012-345678901def",
   "amount": 10000.0,
-  "symbol": null,
-  "timestamp": 1706745600
+  "timestamp": 1706745600.0
 }
 ```
 
@@ -291,7 +315,7 @@ Balance events are sent when your account balances change.
   "command_id": "901e2345-g67d-89ea-f123-456789012ghi",
   "symbol": "BTCUSD",
   "amount": 1.5,
-  "timestamp": 1706745620
+  "timestamp": 1706745620.0
 }
 ```
 
@@ -311,7 +335,7 @@ Balance events are sent when your account balances change.
   "asset_balance_increased": {
     "amount": 1.5
   },
-  "timestamp": 1706745625
+  "timestamp": 1706745625.0
 }
 ```
 
@@ -333,7 +357,6 @@ Balance events are sent when your account balances change.
 - `"Invalid or expired token"` - Token validation failed
 - `"Authentication timeout"` - Token not sent within 10 seconds
 - `"Already authenticated"` - Attempting to re-authenticate
-- `"Connection for user 'xxx' not found"` - User not connected (internal error)
 
 ### Connection Management
 
@@ -387,7 +410,7 @@ class OrdersWebSocket {
       console.log("WebSocket connected");
 
       // Step 3: Authenticate
-      this.ws.send(JSON.stringify({ token }));
+      this.ws.send(JSON.stringify({ type: "auth", token }));
     };
 
     this.ws.onmessage = (event) => {
@@ -408,8 +431,10 @@ class OrdersWebSocket {
   handleMessage(data) {
     switch (data.type) {
       case "ack":
-        console.log("Subscription acknowledged:", data.subscriptions);
-        this.subscriptions = data.subscriptions;
+        console.log("Acknowledged:", data.request_type);
+        if (data.subscriptions) {
+          this.subscriptions = data.subscriptions;
+        }
         break;
 
       case "error":
@@ -417,15 +442,15 @@ class OrdersWebSocket {
         break;
 
       // Order events
-      case "placed":
+      case "order_placed":
         console.log("Order placed:", data);
         break;
 
-      case "filled":
+      case "order_filled":
         console.log("Order filled:", data);
         break;
 
-      case "partially_filled":
+      case "order_partially_filled":
         console.log("Order partially filled:", data);
         break;
 
@@ -484,7 +509,7 @@ await ordersWs.connect();
 
 // Subscribe to order events
 ordersWs.subscribe(
-  ["placed", "filled", "partially_filled", "order_cancelled"],
+  ["order_placed", "order_filled", "order_partially_filled", "order_cancelled"],
   [
     "cash_balance_increased",
     "asset_balance_increased",
@@ -494,7 +519,7 @@ ordersWs.subscribe(
 );
 
 // Later, unsubscribe from some events
-ordersWs.unsubscribe(["placed"], []);
+ordersWs.unsubscribe(["order_placed"], []);
 ```
 
 ## Best Practices
@@ -557,22 +582,39 @@ Retrieve historical order and balance events.
 
 ```bash
 curl "http://localhost:8000/user/events?type=order&symbol=BTCUSD&limit=50" \
-  -H "Cookie: jwt=your-jwt-token"
+  -H "Cookie: spectuel-cookie=your-jwt-token"
 ```
 
 ### REST API - Get Asset Balances
 
 **Endpoint:** `GET /user/asset-balances`
 
-Retrieve current asset balances.
+Retrieve current asset balances with escrow information.
 
 **Query Parameters:**
 
 - `symbols` (optional): Comma-separated list of symbols to filter
 
+**Response:**
+
+```json
+[
+  {
+    "symbol": "BTCUSD",
+    "balance": 1.5,
+    "escrow_balance": 0.5
+  },
+  {
+    "symbol": "ETHUSD",
+    "balance": 10.0,
+    "escrow_balance": 2.0
+  }
+]
+```
+
 **Example:**
 
 ```bash
 curl "http://localhost:8000/user/asset-balances?symbols=BTCUSD,ETHUSD" \
-  -H "Cookie: jwt=your-jwt-token"
+  -H "Cookie: spectuel-cookie=your-jwt-token"
 ```
